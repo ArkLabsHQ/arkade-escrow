@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+	ApiProperty,
+	ApiPropertyOptional,
+	getSchemaPath,
+} from "@nestjs/swagger";
+import { EscrowRequestGetDto } from "../../escrows/requests/dto/create-escrow-request.dto";
 
 export type ApiPaginatedMeta = {
 	nextCursor?: string;
@@ -14,8 +19,8 @@ export type ApiEnvelope<T> = {
 	data: T;
 };
 
-export const envelope = <T>(data: T): ApiEnvelope<T> => ({
-	data,
+export const envelope = <T>(data?: T): ApiEnvelope<T> => ({
+	data: data ?? ({} as T),
 });
 
 export const paginatedEnvelope = <T>(
@@ -51,6 +56,39 @@ export class ApiPaginatedEnvelopeShellDto<T> {
 		description: "Payload for this endpoint (shape varies by route)",
 	})
 	data!: T;
+
+	@ApiProperty({ type: () => ApiPaginatedMetaDto })
+	meta!: ApiPaginatedMetaDto;
+}
+
+export function getSchemaPathForDto(dto: Parameters<typeof getSchemaPath>[0]) {
+	return {
+		allOf: [
+			{ $ref: getSchemaPath(ApiEnvelopeShellDto) },
+			{
+				type: "object",
+				properties: {
+					data: { $ref: getSchemaPath(dto) },
+				},
+				required: ["data"],
+			},
+		],
+	};
+}
+
+export function getSchemaPathForEmptyResponse() {
+	return {
+		allOf: [
+			{ $ref: getSchemaPath(ApiEnvelopeShellDto) },
+			{
+				type: "object",
+				properties: {
+					data: {},
+				},
+				required: ["data"],
+			},
+		],
+	};
 }
 
 /** Placeholder “envelope” shell; `data` is overridden per-endpoint in controller schemas. */
@@ -59,7 +97,25 @@ export class ApiEnvelopeShellDto<T> {
 		description: "Payload for this endpoint (shape varies by route)",
 	})
 	data!: T;
+}
 
-	@ApiProperty({ type: () => ApiPaginatedMetaDto })
-	meta!: ApiPaginatedMetaDto;
+export function getSchemaPathForPaginatedDto(
+	dto: Parameters<typeof getSchemaPath>[0],
+) {
+	return {
+		allOf: [
+			{ $ref: getSchemaPath(ApiEnvelopeShellDto) },
+			{
+				type: "object",
+				properties: {
+					data: {
+						type: "array",
+						items: { $ref: getSchemaPath(dto) },
+					},
+					meta: { $ref: getSchemaPath(ApiPaginatedMetaDto) },
+				},
+				required: ["data", "meta"],
+			},
+		],
+	};
 }

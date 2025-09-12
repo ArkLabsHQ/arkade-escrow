@@ -73,4 +73,26 @@ export class EscrowsService {
 			},
 		);
 	}
+
+	async cancelRequest(requestExternalId: string, pubkey: string) {
+		const request =
+			await this.requestsService.findOneByExternalId(requestExternalId);
+		if (!request) throw new NotFoundException("Escrow request not found");
+		if (request.status !== "open")
+			throw new ConflictException(`Request is ${request.status}`);
+		if (request.creatorPubkey !== pubkey)
+			throw new ForbiddenException("Only the request creator can cancel");
+		if (request.acceptedByPubkey !== undefined) {
+			const contract =
+				await this.contractsService.findByRequestId(requestExternalId);
+			if (contract) {
+				throw new ConflictException("Cannot cancel a request with a contract");
+			} else {
+				this.logger.warn(
+					`Cancelling request ${requestExternalId} already accepted, but not found in contracts.`,
+				);
+			}
+		}
+		return await this.requestsService.cancel(requestExternalId);
+	}
 }

@@ -4,11 +4,13 @@ import {
 	Headers,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
 	Post,
 	UseGuards,
 } from "@nestjs/common";
 import {
 	ApiBadRequestResponse,
+	ApiBearerAuth,
 	ApiBody,
 	ApiExtraModels,
 	ApiOkResponse,
@@ -92,10 +94,12 @@ export class AuthController {
 
 	@Post("/signout")
 	@UseGuards(AuthGuard)
-	@ApiSecurity("Authentication")
+	@ApiBearerAuth()
 	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ summary: "WIP - Sign out of the application" })
 	async signout() {
 		// TODO: void JWT
-		return { data: {} };
+		// return { data: {} };
+		throw new InternalServerErrorException("Not implemented");
 	}
 }

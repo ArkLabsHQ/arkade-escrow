@@ -17,7 +17,7 @@ export class CreateEscrowRequestDto {
 	@IsEnum(["receiver", "sender"])
 	side!: "receiver" | "sender";
 
-	@ApiPropertyOptional({
+	@ApiProperty({
 		minimum: 0,
 		description: "Amount in satoshis or your smallest unit",
 	})
@@ -78,7 +78,12 @@ export class OrderbookItemDto {
 	@ApiProperty({ description: "Owner public key" })
 	creatorPublicKey!: string;
 
-	@ApiPropertyOptional()
+	@ApiProperty({
+		minimum: 0,
+		description: "Amount in satoshis or your smallest unit",
+	})
+	@IsNumber()
+	@Min(0)
 	amount?: number;
 
 	@ApiProperty()

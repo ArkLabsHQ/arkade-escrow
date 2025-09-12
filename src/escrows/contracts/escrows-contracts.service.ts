@@ -55,4 +55,12 @@ export class EscrowsContractsService {
 		});
 		return await repo.save(entity);
 	}
+
+	async findByRequestId(requestExternalId: string) {
+		return await this.repo.findOne({
+			where: {
+				request: { externalId: requestExternalId },
+			},
+		});
+	}
 }

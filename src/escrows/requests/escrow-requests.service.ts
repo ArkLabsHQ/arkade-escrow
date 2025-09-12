@@ -269,6 +269,10 @@ export class EscrowRequestsService {
 		});
 	}
 
+	async cancel(externalId: string) {
+		this.repo.update({ externalId }, { status: "cancelled" });
+	}
+
 	static makeCursor(createdAt: Date, id: number): string {
 		return Buffer.from(`${createdAt.getTime()}:${id}`, "utf8").toString(
 			"base64",

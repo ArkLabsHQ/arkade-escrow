@@ -1,20 +1,19 @@
 import {
-	BadRequestException,
 	Body,
-	ConflictException,
 	Controller,
-	ForbiddenException,
+	Delete,
 	Get,
-	NotFoundException,
 	Param,
 	Post,
 	Query,
-	Req,
 	UseGuards,
 } from "@nestjs/common";
 import {
+	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiBody,
+	ApiConflictResponse,
+	ApiCreatedResponse,
 	ApiExtraModels,
 	ApiForbiddenResponse,
 	ApiNotFoundResponse,
@@ -35,6 +34,9 @@ import {
 	ApiPaginatedEnvelopeShellDto,
 	envelope,
 	paginatedEnvelope,
+	getSchemaPathForDto,
+	getSchemaPathForPaginatedDto,
+	getSchemaPathForEmptyResponse,
 } from "../../common/dto/envelopes";
 import {
 	CreateEscrowRequestDto,
@@ -44,8 +46,7 @@ import {
 } from "./dto/create-escrow-request.dto";
 import { EscrowRequestsService } from "./escrow-requests.service";
 import { User } from "../../users/user.entity";
-import { EscrowContractDto } from "../contracts/dto/escrow-contract.dto";
-import { EscrowsContractsService } from "../contracts/escrows-contracts.service";
+import { EscrowContractCreatedDto } from "../contracts/dto/escrow-contract.dto";
 import { EscrowsService } from "../escrows.service";
 
 @ApiTags("Escrow Requests")
@@ -66,20 +67,9 @@ export class EscrowRequestsController {
 	@Post("")
 	@ApiBearerAuth()
 	@ApiBody({ type: CreateEscrowRequestDto })
-	@ApiOkResponse({
+	@ApiCreatedResponse({
 		description: "Created successfully",
-		schema: {
-			allOf: [
-				{ $ref: getSchemaPath(ApiEnvelopeShellDto) },
-				{
-					type: "object",
-					properties: {
-						data: { $ref: getSchemaPath(EscrowRequestCreatedDto) },
-					},
-					required: ["data"],
-				},
-			],
-		},
+		schema: getSchemaPathForDto(EscrowRequestCreatedDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@UseGuards(AuthGuard)
@@ -108,22 +98,7 @@ export class EscrowRequestsController {
 	})
 	@ApiOkResponse({
 		description: "A page of user's requests",
-		schema: {
-			allOf: [
-				{ $ref: getSchemaPath(ApiPaginatedEnvelopeShellDto) },
-				{
-					type: "object",
-					properties: {
-						data: {
-							type: "array",
-							items: { $ref: getSchemaPath(EscrowRequestGetDto) },
-						},
-						meta: { $ref: getSchemaPath(ApiPaginatedMetaDto) },
-					},
-					required: ["data", "meta"],
-				},
-			],
-		},
+		schema: getSchemaPathForPaginatedDto(EscrowRequestGetDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@UseGuards(AuthGuard)
@@ -145,19 +120,8 @@ export class EscrowRequestsController {
 	@Get(":externalId")
 	@ApiBearerAuth()
 	@ApiOkResponse({
-		description: "Escrow request",
-		schema: {
-			allOf: [
-				{ $ref: getSchemaPath(ApiEnvelopeShellDto) },
-				{
-					type: "object",
-					properties: {
-						data: { $ref: getSchemaPath(EscrowRequestGetDto) },
-					},
-					required: ["data"],
-				},
-			],
-		},
+		description: "One Escrow request by ID",
+		schema: getSchemaPathForDto(EscrowRequestGetDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to view this request" })
@@ -185,28 +149,60 @@ export class EscrowRequestsController {
 		summary: "Accept a public escrow request and create a contract",
 	})
 	@ApiParam({ name: "externalId", description: "Public request external id" })
-	@ApiOkResponse({ description: "Contract created", type: EscrowContractDto })
+	@ApiCreatedResponse({
+		description: "Contract created",
+		schema: getSchemaPathForDto(EscrowContractCreatedDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to accept this request" })
+	@ApiNotFoundResponse({ description: "Escrow request not found" })
+	@ApiConflictResponse({ description: "Request already accepted or canceled" })
+	@ApiBadRequestResponse({ description: "Cannot accept private requests" })
 	async accept(
 		@Param("externalId") externalId: string,
-		@Req() req: any,
-	): Promise<ApiEnvelope<EscrowContractDto>> {
-		const acceptorPubkey: string = req.user.pubkey;
+		@UserFromJwt() user: User,
+	): Promise<ApiEnvelope<EscrowContractCreatedDto>> {
+		const acceptorPubkey: string = user.publicKey;
 		const { escrowContract: c } =
 			await this.orchestrator.createContractFromPublicRequest(
 				externalId,
 				acceptorPubkey,
 			);
-		const dto: EscrowContractDto = {
-			id: c.id,
+		const dto: EscrowContractCreatedDto = {
 			externalId: c.externalId,
+			requestId: c.request.externalId,
 			sender: c.senderPubkey,
 			receiver: c.receiverPubkey,
 			amount: c.amount,
 			arkAddress: c.arkAddress,
-			createdAt: c.createdAt.toISOString(),
-			updatedAt: c.updatedAt.toISOString(),
+			createdAt: c.createdAt.getTime(),
+			updatedAt: c.updatedAt.getTime(),
 		};
-		return { data: dto };
+		return envelope(dto);
+	}
+
+	@Delete(":externalId")
+	@ApiBearerAuth()
+	@UseGuards(AuthGuard)
+	@ApiOperation({
+		summary:
+			"Cancel an escrow request, only owner can do this and the request must be open",
+	})
+	@ApiParam({ name: "externalId", description: "Public request external id" })
+	@ApiOkResponse({
+		description: "Request cancelled",
+		schema: getSchemaPathForEmptyResponse(),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiNotFoundResponse({ description: "Escrow request not found" })
+	@ApiForbiddenResponse({ description: "Not allowed to cancel this request" })
+	@ApiConflictResponse({ description: "Request already accepted or canceled" })
+	async cancel(
+		@Param("externalId") externalId: string,
+		@UserFromJwt() user: User,
+	): Promise<ApiEnvelope<void>> {
+		await this.orchestrator.cancelRequest(externalId, user.publicKey);
+		return envelope();
 	}
 
 	@Get("orderbook")
@@ -224,22 +220,7 @@ export class EscrowRequestsController {
 	})
 	@ApiOkResponse({
 		description: "A page of public requests",
-		schema: {
-			allOf: [
-				{ $ref: getSchemaPath(ApiPaginatedEnvelopeShellDto) },
-				{
-					type: "object",
-					properties: {
-						data: {
-							type: "array",
-							items: { $ref: getSchemaPath(OrderbookItemDto) },
-						},
-						meta: { $ref: getSchemaPath(ApiPaginatedMetaDto) },
-					},
-					required: ["data", "meta"],
-				},
-			],
-		},
+		schema: getSchemaPathForPaginatedDto(OrderbookItemDto),
 	})
 	@ApiOperation({
 		summary: "Public orderbook of escrow requests (only public=true)",
