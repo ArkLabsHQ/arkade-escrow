@@ -168,6 +168,10 @@ export class EscrowRequestsService {
 		return { items, nextCursor, total };
 	}
 
+	// TODO:
+	//      - POST /escrows/requests/:id/accept → { pubkey }
+	//      - POST /escrows/requests/:id/cancel → signed by creator
+
 	async orderbook(
 		limit = 20,
 		cursor?: string,
