@@ -39,7 +39,7 @@
 		"typeorm": "^0.3.26"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.2.2",
+		"@biomejs/biome": "2.2.4",
 		"@nestjs/cli": "^11.0.10",
 		"@nestjs/schematics": "^11.0.0",
 		"@nestjs/testing": "^11.1.6",
@@ -47,7 +47,7 @@
 		"@types/bcrypt": "^6.0.0",
 		"@types/express": "^5.0.3",
 		"@types/jest": "^30.0.0",
-		"@types/node": "^22.18.0",
+		"@types/node": "^24.3.1",
 		"@types/supertest": "^6.0.3",
 		"jest": "^30.0.5",
 		"supertest": "^7.1.4",
