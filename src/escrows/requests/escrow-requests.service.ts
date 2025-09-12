@@ -18,6 +18,7 @@ import type {
 import { ConfigService } from "@nestjs/config";
 import { User } from "../../users/user.entity";
 
+// TODO: from configuration?
 const generateNanoid = customAlphabet(
 	"0123456789abcdefghijklmnopqrstuvwxyz",
 	16,
@@ -81,7 +82,7 @@ export class EscrowRequestsService {
 		}
 
 		return {
-			side: found.side as "sell" | "buy",
+			side: found.side as "receiver" | "sender",
 			amount: found.amount ?? undefined,
 			description: found.description,
 			public: found.public,
@@ -158,7 +159,7 @@ export class EscrowRequestsService {
 		}
 
 		const items: EscrowRequestGetDto[] = rows.map((r) => ({
-			side: r.side as "sell" | "buy",
+			side: r.side as "receiver" | "sender",
 			amount: r.amount ?? undefined,
 			description: r.description,
 			public: r.public,
@@ -237,7 +238,7 @@ export class EscrowRequestsService {
 
 		const items: OrderbookItemDto[] = rows.map((r) => ({
 			externalId: r.externalId,
-			side: r.side as "sell" | "buy",
+			side: r.side as "receiver" | "sender",
 			pubkey: r.pubkey,
 			amount: r.amount ?? undefined,
 			description: r.description,

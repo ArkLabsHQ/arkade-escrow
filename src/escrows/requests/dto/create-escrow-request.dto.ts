@@ -10,9 +10,12 @@ import {
 } from "class-validator";
 
 export class CreateEscrowRequestDto {
-	@ApiProperty({ enum: ["sell", "buy"] })
-	@IsEnum(["sell", "buy"])
-	side!: "sell" | "buy";
+	@ApiProperty({
+		enum: ["receiver", "sender"],
+		description: "The receiver or sender of the funds",
+	})
+	@IsEnum(["receiver", "sender"])
+	side!: "receiver" | "sender";
 
 	@ApiPropertyOptional({
 		minimum: 0,
@@ -47,8 +50,8 @@ export class EscrowRequestCreatedDto {
 }
 
 export class EscrowRequestGetDto {
-	@ApiProperty({ enum: ["sell", "buy"] })
-	side!: "sell" | "buy";
+	@ApiProperty({ enum: ["receiver", "sender"] })
+	side!: "receiver" | "sender";
 
 	@ApiPropertyOptional()
 	amount?: number;
@@ -70,8 +73,8 @@ export class OrderbookItemDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
 	externalId!: string;
 
-	@ApiProperty({ enum: ["sell", "buy"] })
-	side!: "sell" | "buy";
+	@ApiProperty({ enum: ["receiver", "sender"] })
+	side!: "receiver" | "sender";
 
 	@ApiProperty({ description: "Owner public key" })
 	pubkey!: string;

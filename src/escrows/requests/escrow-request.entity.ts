@@ -7,7 +7,7 @@ import {
 	Unique,
 } from "typeorm";
 
-export type EscrowSide = "sell" | "buy";
+export type EscrowSide = "receiver" | "sender";
 
 @Entity("escrow_requests")
 @Unique("uq_escrow_requests_external_id", ["externalId"])
