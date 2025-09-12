@@ -61,3 +61,10 @@ There is a `.tool-versions` file in the root of the project.
 
 I use WebStorm for development, but you can use whatever you want.
 Please don't check in your local editor's files.
+
+# TODOs
+
+## Auth
+- logout with JWT invalidation
+
+

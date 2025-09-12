@@ -6,10 +6,11 @@ import { AuthModule } from "../../auth/auth.module";
 import { EscrowRequest } from "./escrow-request.entity";
 import { EscrowRequestsService } from "./escrow-requests.service";
 import { EscrowRequestsController } from "./escrow-requests.controller";
+import { EscrowsService } from "../common/escrows.service";
 
 @Module({
 	imports: [TypeOrmModule.forFeature([EscrowRequest, User]), AuthModule],
-	providers: [EscrowRequestsService],
+	providers: [EscrowRequestsService, EscrowsService],
 	controllers: [EscrowRequestsController],
 	exports: [EscrowRequestsService],
 })

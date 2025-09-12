@@ -5,11 +5,10 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { EscrowContract } from "./escrows/contracts/escrow-contract.entity";
 import { EscrowRequest } from "./escrows/requests/escrow-request.entity";
-import { EscrowRequestsModule } from "./escrows/requests/escrow-requests.module";
-import { EscrowsContractModule } from "./escrows/contracts/escrows-contract.module";
 import { HealthModule } from "./health.module";
 import { User } from "./users/user.entity";
 import { UsersModule } from "./users/users.module";
+import { EscrowsModule } from "./escrows/escrows.module";
 
 const isTest = process.env.NODE_ENV === "test";
 
@@ -27,8 +26,7 @@ const isTest = process.env.NODE_ENV === "test";
 			}),
 		}),
 		AuthModule,
-		EscrowRequestsModule,
-		EscrowsContractModule,
+		EscrowsModule,
 		UsersModule,
 		HealthModule,
 	],

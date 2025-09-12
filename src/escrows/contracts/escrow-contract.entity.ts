@@ -20,7 +20,8 @@ export class EscrowContract {
 	externalId!: string;
 
 	@OneToOne(() => EscrowRequest, { eager: true })
-	@JoinColumn()
+	// Link this contract to EscrowRequest by its externalId (not numeric id)
+	@JoinColumn({ name: "requestExternalId", referencedColumnName: "externalId" })
 	request!: EscrowRequest;
 
 	@Index()

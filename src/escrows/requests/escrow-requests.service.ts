@@ -1,4 +1,5 @@
 import {
+	ConflictException,
 	ForbiddenException,
 	Injectable,
 	InternalServerErrorException,
@@ -6,7 +7,7 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { type Repository, Brackets } from "typeorm";
+import { type Repository, Brackets, EntityManager } from "typeorm";
 import { customAlphabet } from "nanoid";
 import { EscrowRequest } from "./escrow-request.entity";
 import type {
@@ -31,9 +32,7 @@ export class EscrowRequestsService {
 
 	constructor(
 		@InjectRepository(EscrowRequest)
-		private readonly escrowRequestRepository: Repository<EscrowRequest>,
-		@InjectRepository(User)
-		private readonly userRepository: Repository<User>,
+		private readonly repo: Repository<EscrowRequest>,
 		private readonly config: ConfigService,
 	) {
 		// SHARE_BASE_URL like: https://app.example/escrows/requests
@@ -42,13 +41,17 @@ export class EscrowRequestsService {
 			"http://localhost:3000/escrows/requests";
 	}
 
+	private repoFor(manager?: EntityManager) {
+		return manager ? manager.getRepository(EscrowRequest) : this.repo;
+	}
+
 	async create(
 		dto: CreateEscrowRequestDto,
 		pubKey: string,
 	): Promise<EscrowRequestCreatedDto> {
 		const externalId = generateNanoid();
 		try {
-			const entity = this.escrowRequestRepository.create({
+			const entity = this.repo.create({
 				externalId,
 				side: dto.side,
 				creatorPubkey: pubKey,
@@ -56,7 +59,7 @@ export class EscrowRequestsService {
 				description: dto.description,
 				public: dto.public ?? false,
 			});
-			await this.escrowRequestRepository.save(entity);
+			await this.repo.save(entity);
 			return {
 				externalId,
 				shareUrl: `${this.shareBase}/${externalId}`,
@@ -71,9 +74,7 @@ export class EscrowRequestsService {
 		externalId: string,
 		pubKey: string,
 	): Promise<EscrowRequestGetDto> {
-		const found = await this.escrowRequestRepository.findOne({
-			where: { externalId },
-		});
+		const found = await this.findOneByExternalId(externalId);
 		if (!found) throw new NotFoundException("Escrow request not found");
 
 		const isOwner = found.creatorPubkey === pubKey;
@@ -122,7 +123,7 @@ export class EscrowRequestsService {
 
 		const take = Math.min(Math.max(limit ?? 1, 1), 100);
 
-		const qb = this.escrowRequestRepository
+		const qb = this.repo
 			.createQueryBuilder("r")
 			.where("r.pubkey = :pubKey", { pubKey });
 
@@ -148,7 +149,7 @@ export class EscrowRequestsService {
 			.take(take)
 			.getMany();
 
-		const total = await this.escrowRequestRepository.count({
+		const total = await this.repo.count({
 			where: { creatorPubkey: pubKey },
 		});
 
@@ -169,8 +170,22 @@ export class EscrowRequestsService {
 		return { items, nextCursor, total };
 	}
 
-	// TODO:
-	//      - POST /escrows/requests/:id/accept → { pubkey }
+	async writeAccepted(
+		request: EscrowRequest,
+		manager?: EntityManager,
+	): Promise<EscrowRequest> {
+		if (!request.acceptedByPubkey) {
+			throw new ConflictException(
+				"Cannot accept a request without an acceptor",
+			);
+		}
+		const repo = this.repoFor(manager);
+		return await repo.save({
+			...request,
+			status: "accepted",
+		});
+	}
+
 	//      - POST /escrows/requests/:id/cancel → signed by creator
 
 	async orderbook(
@@ -200,7 +215,7 @@ export class EscrowRequestsService {
 
 		const take = Math.min(Math.max(limit ?? 1, 1), 100);
 
-		const qb = this.escrowRequestRepository
+		const qb = this.repo
 			.createQueryBuilder("r")
 			.where("r.public = :pub", { pub: true });
 
@@ -226,7 +241,7 @@ export class EscrowRequestsService {
 			.take(take)
 			.getMany();
 
-		const total = await this.escrowRequestRepository.count({
+		const total = await this.repo.count({
 			where: { public: true },
 		});
 
@@ -246,6 +261,12 @@ export class EscrowRequestsService {
 		}));
 
 		return { items, nextCursor, total };
+	}
+
+	async findOneByExternalId(externalId: string): Promise<EscrowRequest | null> {
+		return this.repo.findOne({
+			where: { externalId },
+		});
 	}
 
 	static makeCursor(createdAt: Date, id: number): string {
