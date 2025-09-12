@@ -21,10 +21,9 @@ export class CreateEscrowRequestDto {
 		minimum: 0,
 		description: "Amount in satoshis or your smallest unit",
 	})
-	@IsOptional()
 	@IsNumber()
 	@Min(0)
-	amount?: number;
+	amount!: number;
 
 	@ApiProperty({ maxLength: 1000 })
 	@IsString()
@@ -77,7 +76,7 @@ export class OrderbookItemDto {
 	side!: "receiver" | "sender";
 
 	@ApiProperty({ description: "Owner public key" })
-	pubkey!: string;
+	creatorPublicKey!: string;
 
 	@ApiPropertyOptional()
 	amount?: number;

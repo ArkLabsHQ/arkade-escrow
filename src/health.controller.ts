@@ -1,9 +1,12 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
 
 @ApiTags("Health")
 @Controller("api/v1/health")
 export class HealthController {
+	constructor(private readonly configService: ConfigService) {}
+
 	@Get()
 	@ApiOperation({ summary: "Health check endpoint" })
 	@ApiResponse({
@@ -24,7 +27,7 @@ export class HealthController {
 			status: "ok",
 			timestamp: new Date().toISOString(),
 			uptime: process.uptime(),
-			environment: process.env.NODE_ENV || "development",
+			environment: this.configService.get("NODE_ENV", "development"),
 		};
 	}
 }

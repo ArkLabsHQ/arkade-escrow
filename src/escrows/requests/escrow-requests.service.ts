@@ -51,7 +51,7 @@ export class EscrowRequestsService {
 			const entity = this.escrowRequestRepository.create({
 				externalId,
 				side: dto.side,
-				pubkey: pubKey,
+				creatorPubkey: pubKey,
 				amount: dto.amount ?? null,
 				description: dto.description,
 				public: dto.public ?? false,
@@ -76,7 +76,7 @@ export class EscrowRequestsService {
 		});
 		if (!found) throw new NotFoundException("Escrow request not found");
 
-		const isOwner = found.pubkey === pubKey;
+		const isOwner = found.creatorPubkey === pubKey;
 		if (!found.public && !isOwner) {
 			throw new ForbiddenException("Not allowed to view this request");
 		}
@@ -149,7 +149,7 @@ export class EscrowRequestsService {
 			.getMany();
 
 		const total = await this.escrowRequestRepository.count({
-			where: { pubkey: pubKey },
+			where: { creatorPubkey: pubKey },
 		});
 
 		let nextCursor: string | undefined;
@@ -238,8 +238,8 @@ export class EscrowRequestsService {
 
 		const items: OrderbookItemDto[] = rows.map((r) => ({
 			externalId: r.externalId,
-			side: r.side as "receiver" | "sender",
-			pubkey: r.pubkey,
+			side: r.side,
+			creatorPublicKey: r.creatorPubkey,
 			amount: r.amount ?? undefined,
 			description: r.description,
 			createdAt: r.createdAt.getTime(),

@@ -21,12 +21,16 @@ import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { RequestChallengeDto } from "./dto/request-challenge.dto";
 import { VerifySignupDto } from "./dto/verify-signup.dto";
+import { ConfigService } from "@nestjs/config";
 
 @ApiTags("Authentication")
 @ApiExtraModels(RequestChallengeDto, VerifySignupDto)
 @Controller("api/v1/auth")
 export class AuthController {
-	constructor(private readonly auth: AuthService) {}
+	constructor(
+		private readonly configService: ConfigService,
+		private readonly auth: AuthService,
+	) {}
 
 	@Post("signup/challenge")
 	@ApiBody({ type: RequestChallengeDto })
@@ -49,7 +53,9 @@ export class AuthController {
 		@Headers("origin") origin?: string,
 	) {
 		const effectiveOrigin =
-			origin ?? process.env.AUTH_CHALLENGE_ORIGIN ?? "https://api.local";
+			origin ??
+			// biome-ignore lint/style/noNonNullAssertion: has default value
+			this.configService.get("AUTH_CHALLENGE_ORIGIN", "https://api.local")!;
 		return this.auth.createSignupChallenge(dto.publicKey, effectiveOrigin);
 	}
 
@@ -73,7 +79,9 @@ export class AuthController {
 		@Headers("origin") origin?: string,
 	) {
 		const effectiveOrigin =
-			origin ?? process.env.AUTH_CHALLENGE_ORIGIN ?? "https://api.local";
+			origin ??
+			// biome-ignore lint/style/noNonNullAssertion: has default value
+			this.configService.get("AUTH_CHALLENGE_ORIGIN", "https://api.local")!;
 		return this.auth.verifySignup(
 			dto.publicKey,
 			dto.signature,
