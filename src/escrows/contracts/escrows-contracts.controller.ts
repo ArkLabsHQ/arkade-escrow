@@ -5,5 +5,6 @@ import { EscrowsContractsService } from "./escrows-contracts.service";
 @ApiTags("Escrow Contracts")
 @Controller()
 export class EscrowsContractsController {
+	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: WIP
 	constructor(private readonly _service: EscrowsContractsService) {}
 }

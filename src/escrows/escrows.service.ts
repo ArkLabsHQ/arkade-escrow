@@ -9,8 +9,6 @@ import {
 
 import { EscrowsContractsService } from "./contracts/escrows-contracts.service";
 import { EscrowRequestsService } from "./requests/escrow-requests.service";
-import { ConfigService } from "@nestjs/config";
-import { ArkService } from "../ark/ark.service";
 import { DataSource, EntityManager } from "typeorm";
 
 /**
@@ -22,8 +20,6 @@ export class EscrowsService {
 
 	constructor(
 		private readonly dataSource: DataSource,
-		private readonly configService: ConfigService,
-		private readonly arkService: ArkService,
 		private readonly requestsService: EscrowRequestsService,
 		private readonly contractsService: EscrowsContractsService,
 	) {}

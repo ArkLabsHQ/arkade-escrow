@@ -17,7 +17,6 @@ import type {
 	OrderbookItemDto,
 } from "./dto/create-escrow-request.dto";
 import { ConfigService } from "@nestjs/config";
-import { User } from "../../users/user.entity";
 
 // TODO: from configuration?
 const generateNanoid = customAlphabet(

@@ -3,7 +3,6 @@ import {
 	ApiPropertyOptional,
 	getSchemaPath,
 } from "@nestjs/swagger";
-import { EscrowRequestGetDto } from "../../escrows/requests/dto/create-escrow-request.dto";
 
 export type ApiPaginatedMeta = {
 	nextCursor?: string;

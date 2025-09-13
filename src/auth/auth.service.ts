@@ -79,9 +79,8 @@ export class AuthService {
 		let payload: ChallengePayload | undefined;
 		try {
 			payload = JSON.parse(user.pendingChallenge);
-		} catch (e) {
-			this.logger.error("Corrupt challenge", e);
-			throw new InternalServerErrorException("Corrupt challenge");
+		} catch (cause) {
+			throw new InternalServerErrorException("Corrupted challenge", { cause });
 		}
 		if (payload?.origin !== origin || payload?.type !== "signup") {
 			throw new UnauthorizedException("Invalid challenge domain");
@@ -95,8 +94,8 @@ export class AuthService {
 				hexToBytes(hashHex),
 				hexToBytes(publicKey),
 			);
-		} catch (e: unknown) {
-			throw new BadRequestException("Invalid signature input");
+		} catch (cause) {
+			throw new BadRequestException("Invalid signature input", { cause });
 		}
 		if (!ok) {
 			throw new UnauthorizedException("Invalid signature");

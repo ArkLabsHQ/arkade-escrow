@@ -15,7 +15,6 @@ import {
 	ApiExtraModels,
 	ApiOkResponse,
 	ApiOperation,
-	ApiSecurity,
 	ApiTags,
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";

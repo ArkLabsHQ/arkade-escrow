@@ -5,6 +5,7 @@ import { Repository } from "typeorm";
 import { AuthGuard } from "./auth.guard";
 import { User } from "../users/user.entity";
 import { HttpArgumentsHost } from "@nestjs/common/interfaces";
+import Mocked = jest.Mocked;
 
 describe("AuthGuard", () => {
 	let authGuard: AuthGuard;
@@ -15,7 +16,7 @@ describe("AuthGuard", () => {
 		userRepository = {
 			findOne: jest.fn(),
 			// Mock other methods if needed
-		} as any;
+		} as unknown as Mocked<Repository<User>>;
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [

@@ -3,7 +3,6 @@ import {
 	Controller,
 	Delete,
 	Get,
-	Logger,
 	Param,
 	Post,
 	Query,
@@ -24,7 +23,6 @@ import {
 	ApiQuery,
 	ApiTags,
 	ApiUnauthorizedResponse,
-	getSchemaPath,
 } from "@nestjs/swagger";
 import { AuthGuard } from "../../auth/auth.guard";
 import { UserFromJwt } from "../../auth/user.decorator";
@@ -32,7 +30,6 @@ import {
 	type ApiEnvelope,
 	ApiEnvelopeShellDto,
 	ApiPaginatedMetaDto,
-	ApiPaginatedEnvelopeShellDto,
 	envelope,
 	paginatedEnvelope,
 	getSchemaPathForDto,
@@ -60,8 +57,6 @@ import { EscrowsService } from "../escrows.service";
 )
 @Controller("api/v1/escrows/requests")
 export class EscrowRequestsController {
-	private readonly logger = new Logger(EscrowRequestsController.name);
-
 	constructor(
 		private readonly requestsService: EscrowRequestsService,
 		private readonly orchestrator: EscrowsService,
