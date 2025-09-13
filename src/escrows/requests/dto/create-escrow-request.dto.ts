@@ -8,6 +8,7 @@ import {
 	MaxLength,
 	Min,
 } from "class-validator";
+import { RequestStatus } from "../escrow-request.entity";
 
 export class CreateEscrowRequestDto {
 	@ApiProperty({
@@ -49,6 +50,9 @@ export class EscrowRequestCreatedDto {
 }
 
 export class EscrowRequestGetDto {
+	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
+	externalId!: string;
+
 	@ApiProperty({ enum: ["receiver", "sender"] })
 	side!: "receiver" | "sender";
 
@@ -57,6 +61,12 @@ export class EscrowRequestGetDto {
 
 	@ApiProperty()
 	description!: string;
+
+	@ApiProperty({
+		enum: ["open", "cancelled", "accepted"],
+		description: "Request status",
+	})
+	status!: RequestStatus;
 
 	@ApiProperty()
 	public!: boolean;
@@ -88,6 +98,12 @@ export class OrderbookItemDto {
 
 	@ApiProperty()
 	description!: string;
+
+	@ApiProperty({
+		enum: ["open", "cancelled", "accepted"],
+		description: "Request status",
+	})
+	status!: RequestStatus;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",

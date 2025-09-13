@@ -38,11 +38,9 @@ export class EscrowRequest {
 	@Column({ type: "boolean", default: true })
 	public!: boolean;
 
-	@Index()
 	@Column({ type: "text", default: "open" })
 	status!: RequestStatus;
 
-	@Index()
 	@Column({ type: "text", nullable: true })
 	acceptedByPubkey?: string;
 

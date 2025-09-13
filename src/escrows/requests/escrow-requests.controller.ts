@@ -3,6 +3,7 @@ import {
 	Controller,
 	Delete,
 	Get,
+	Logger,
 	Param,
 	Post,
 	Query,
@@ -59,10 +60,44 @@ import { EscrowsService } from "../escrows.service";
 )
 @Controller("api/v1/escrows/requests")
 export class EscrowRequestsController {
+	private readonly logger = new Logger(EscrowRequestsController.name);
+
 	constructor(
 		private readonly requestsService: EscrowRequestsService,
 		private readonly orchestrator: EscrowsService,
 	) {}
+
+	@Get("orderbook")
+	@ApiQuery({
+		name: "limit",
+		required: false,
+		description: "Max items to return (1–100)",
+		schema: { type: "integer", minimum: 1, maximum: 100, example: 20 },
+	})
+	@ApiQuery({
+		name: "cursor",
+		required: false,
+		description: "Opaque cursor from previous page",
+		schema: { type: "string", example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==" },
+	})
+	@ApiOkResponse({
+		description: "A page of public requests",
+		schema: getSchemaPathForPaginatedDto(OrderbookItemDto),
+	})
+	@ApiOperation({
+		summary: "Public orderbook of escrow requests (only public=true)",
+	})
+	async orderbook(
+		@Query("limit") limit?: string,
+		@Query("cursor") cursor?: string,
+	): Promise<ApiEnvelope<OrderbookItemDto[]>> {
+		const n = limit ? parseInt(limit, 10) : undefined;
+		const { items, nextCursor, total } = await this.requestsService.orderbook(
+			n,
+			cursor,
+		);
+		return paginatedEnvelope(items, { total, nextCursor });
+	}
 
 	@Post("")
 	@ApiBearerAuth()
@@ -117,34 +152,9 @@ export class EscrowRequestsController {
 		return paginatedEnvelope(items, { total, nextCursor });
 	}
 
-	@Get(":externalId")
-	@ApiBearerAuth()
-	@ApiOkResponse({
-		description: "One Escrow request by ID",
-		schema: getSchemaPathForDto(EscrowRequestGetDto),
-	})
-	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
-	@ApiForbiddenResponse({ description: "Not allowed to view this request" })
-	@ApiNotFoundResponse({ description: "Escrow request not found" })
-	@UseGuards(AuthGuard)
-	@ApiOperation({
-		summary:
-			"Get a single escrow request by externalId (requires auth unless public and owned by caller)",
-	})
-	async getOne(
-		@Param("externalId") externalId: string,
-		@UserFromJwt() user: User,
-	): Promise<ApiEnvelope<EscrowRequestGetDto>> {
-		const data = await this.requestsService.getByExternalId(
-			externalId,
-			user.publicKey,
-		);
-		return envelope(data);
-	}
-
 	@Post(":externalId/accept")
 	@UseGuards(AuthGuard)
-	@ApiBearerAuth("access-jwt")
+	@ApiBearerAuth()
 	@ApiOperation({
 		summary: "Accept a public escrow request and create a contract",
 	})
@@ -181,6 +191,31 @@ export class EscrowRequestsController {
 		return envelope(dto);
 	}
 
+	@Get(":externalId")
+	@ApiBearerAuth()
+	@ApiOkResponse({
+		description: "One Escrow request by ID",
+		schema: getSchemaPathForDto(EscrowRequestGetDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to view this request" })
+	@ApiNotFoundResponse({ description: "Escrow request not found" })
+	@UseGuards(AuthGuard)
+	@ApiOperation({
+		summary:
+			"Get a single escrow request by externalId (requires auth unless public and owned by caller)",
+	})
+	async getOne(
+		@Param("externalId") externalId: string,
+		@UserFromJwt() user: User,
+	): Promise<ApiEnvelope<EscrowRequestGetDto>> {
+		const data = await this.requestsService.getByExternalId(
+			externalId,
+			user.publicKey,
+		);
+		return envelope(data);
+	}
+
 	@Delete(":externalId")
 	@ApiBearerAuth()
 	@UseGuards(AuthGuard)
@@ -203,37 +238,5 @@ export class EscrowRequestsController {
 	): Promise<ApiEnvelope<void>> {
 		await this.orchestrator.cancelRequest(externalId, user.publicKey);
 		return envelope();
-	}
-
-	@Get("orderbook")
-	@ApiQuery({
-		name: "limit",
-		required: false,
-		description: "Max items to return (1–100)",
-		schema: { type: "integer", minimum: 1, maximum: 100, example: 20 },
-	})
-	@ApiQuery({
-		name: "cursor",
-		required: false,
-		description: "Opaque cursor from previous page",
-		schema: { type: "string", example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==" },
-	})
-	@ApiOkResponse({
-		description: "A page of public requests",
-		schema: getSchemaPathForPaginatedDto(OrderbookItemDto),
-	})
-	@ApiOperation({
-		summary: "Public orderbook of escrow requests (only public=true)",
-	})
-	async orderbook(
-		@Query("limit") limit?: string,
-		@Query("cursor") cursor?: string,
-	): Promise<ApiEnvelope<OrderbookItemDto[]>> {
-		const n = limit ? parseInt(limit, 10) : undefined;
-		const { items, nextCursor, total } = await this.requestsService.orderbook(
-			n,
-			cursor,
-		);
-		return paginatedEnvelope(items, { total, nextCursor });
 	}
 }

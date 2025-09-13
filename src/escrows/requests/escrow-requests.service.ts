@@ -83,9 +83,11 @@ export class EscrowRequestsService {
 		}
 
 		return {
+			externalId: found.externalId,
 			side: found.side as "receiver" | "sender",
 			amount: found.amount ?? undefined,
 			description: found.description,
+			status: found.status,
 			public: found.public,
 			createdAt: found.createdAt.getTime(),
 		};
@@ -125,7 +127,7 @@ export class EscrowRequestsService {
 
 		const qb = this.repo
 			.createQueryBuilder("r")
-			.where("r.pubkey = :pubKey", { pubKey });
+			.where("r.creatorPubkey = :pubKey", { pubKey });
 
 		if (createdBefore !== undefined && idBefore !== undefined) {
 			qb.andWhere(
@@ -160,9 +162,11 @@ export class EscrowRequestsService {
 		}
 
 		const items: EscrowRequestGetDto[] = rows.map((r) => ({
+			externalId: r.externalId,
 			side: r.side as "receiver" | "sender",
 			amount: r.amount ?? undefined,
 			description: r.description,
+			status: r.status,
 			public: r.public,
 			createdAt: r.createdAt.getTime(),
 		}));
@@ -185,8 +189,6 @@ export class EscrowRequestsService {
 			status: "accepted",
 		});
 	}
-
-	//      - POST /escrows/requests/:id/cancel → signed by creator
 
 	async orderbook(
 		limit = 20,
@@ -257,6 +259,7 @@ export class EscrowRequestsService {
 			creatorPublicKey: r.creatorPubkey,
 			amount: r.amount ?? undefined,
 			description: r.description,
+			status: r.status,
 			createdAt: r.createdAt.getTime(),
 		}));
 

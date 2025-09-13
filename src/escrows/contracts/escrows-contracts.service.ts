@@ -14,7 +14,7 @@ export class EscrowsContractsService {
 		private readonly configService: ConfigService,
 		@InjectRepository(EscrowContract)
 		private readonly repo: Repository<EscrowContract>,
-		private readonly ark: ArkService,
+		private readonly arkService: ArkService,
 	) {}
 
 	private repoFor(manager?: EntityManager) {
@@ -30,17 +30,29 @@ export class EscrowsContractsService {
 		},
 		manager?: EntityManager,
 	) {
-		const arkAddress = await this.ark.deriveEscrowAddress({
-			senderXOnly: input.senderPubKey,
-			receiverXOnly: input.receiverPubKey,
-			// biome-ignore lint/style/noNonNullAssertion: default value
-			arbitratorXOnly: this.configService.get(
-				"ARBITRATOR_XONLY_PUBKEY",
-				"NOT_SET",
-			)!,
-			network: this.configService.get("ARK_NETWORK", "testnet"),
+		const arbitratorPubKey = this.configService.get("ARBITRATOR_PUB_KEY");
+		if (!arbitratorPubKey) {
+			throw new Error("ARBITRATOR_PUB_KEY is not set");
+		}
+		if (input.senderPubKey === arbitratorPubKey) {
+			throw new Error("Cannot create a contract with the arbitrator as sender");
+		}
+		if (input.receiverPubKey === arbitratorPubKey) {
+			throw new Error(
+				"Cannot create a contract with the arbitrator as receiver",
+			);
+		}
+		const arkAddress = this.arkService.createArkAddressForContract({
+			receiver: {
+				pubKey: input.receiverPubKey,
+			},
+			sender: {
+				pubKey: input.senderPubKey,
+			},
+			arbitrator: {
+				pubKey: arbitratorPubKey,
+			},
 		});
-
 		const repo = this.repoFor(manager);
 		const entity = repo.create({
 			externalId: nanoid(16),

@@ -1,5 +1,10 @@
 import { ConfigModule } from "@nestjs/config";
-import { Module } from "@nestjs/common";
+import {
+	MiddlewareConsumer,
+	Module,
+	NestModule,
+	RequestMethod,
+} from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { AuthModule } from "./auth/auth.module";
@@ -9,6 +14,7 @@ import { HealthModule } from "./health.module";
 import { User } from "./users/user.entity";
 import { UsersModule } from "./users/users.module";
 import { EscrowsModule } from "./escrows/escrows.module";
+import { RequestLoggingMiddleware } from "./common/middlewares/request-logging.middleware";
 
 const isTest = process.env.NODE_ENV === "test";
 
@@ -31,4 +37,10 @@ const isTest = process.env.NODE_ENV === "test";
 		HealthModule,
 	],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+	configure(consumer: MiddlewareConsumer) {
+		consumer
+			.apply(RequestLoggingMiddleware)
+			.forRoutes({ path: "*", method: RequestMethod.ALL });
+	}
+}

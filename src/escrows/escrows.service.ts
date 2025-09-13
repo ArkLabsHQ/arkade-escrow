@@ -23,7 +23,7 @@ export class EscrowsService {
 	constructor(
 		private readonly dataSource: DataSource,
 		private readonly configService: ConfigService,
-		private readonly ark: ArkService,
+		private readonly arkService: ArkService,
 		private readonly requestsService: EscrowRequestsService,
 		private readonly contractsService: EscrowsContractsService,
 	) {}
@@ -52,26 +52,23 @@ export class EscrowsService {
 			? request.creatorPubkey
 			: acceptorPubkey;
 
-		return this.dataSource.transaction(
-			"READ COMMITTED",
-			async (manager: EntityManager) => {
-				const escrowContract =
-					await this.contractsService.createContractForRequest(
-						{
-							requestExternalId: request.externalId,
-							senderPubKey: senderPubkey,
-							receiverPubKey: receiverPubkey,
-							amount: request.amount ?? 0,
-						},
-						manager,
-					);
-				const escrowRequest = await this.requestsService.writeAccepted({
-					...request,
-					acceptedByPubkey: acceptorPubkey,
-				});
-				return { escrowContract, escrowRequest };
-			},
-		);
+		return this.dataSource.transaction(async (manager: EntityManager) => {
+			const escrowContract =
+				await this.contractsService.createContractForRequest(
+					{
+						requestExternalId: request.externalId,
+						senderPubKey: senderPubkey,
+						receiverPubKey: receiverPubkey,
+						amount: request.amount ?? 0,
+					},
+					manager,
+				);
+			const escrowRequest = await this.requestsService.writeAccepted({
+				...request,
+				acceptedByPubkey: acceptorPubkey,
+			});
+			return { escrowContract, escrowRequest };
+		});
 	}
 
 	async cancelRequest(requestExternalId: string, pubkey: string) {

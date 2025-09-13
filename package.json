@@ -21,6 +21,7 @@
 		"ci:check": "biome ci"
 	},
 	"dependencies": {
+		"@arkade-os/sdk": "^0.2.3",
 		"@nestjs/common": "^11.1.6",
 		"@nestjs/config": "^4.0.2",
 		"@nestjs/core": "^11.1.6",
