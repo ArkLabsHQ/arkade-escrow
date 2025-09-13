@@ -10,16 +10,11 @@ import { ARK_PROVIDER } from "./ark.constants";
 		{
 			provide: ARK_PROVIDER,
 			inject: [ConfigService],
-			useFactory: async (cfg: ConfigService) => {
-				// biome-ignore lint/style/noNonNullAssertion: default value is set
-				const baseUrl = cfg.get<string>(
-					"ARK_SERVER_URL",
-					"https://mutinynet.arkade.sh",
-				)!;
-				const provider = new RestArkProvider(baseUrl);
-				// Quick readiness check
-				await provider.getInfo();
-				return provider;
+			useFactory: (cfg: ConfigService) => {
+				const arkServerUrl = cfg.get<string>("ARK_SERVER_URL");
+				return new RestArkProvider(
+					arkServerUrl ?? "https://mutinynet.arkade.sh",
+				);
 			},
 		},
 		ArkService,

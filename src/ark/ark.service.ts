@@ -1,17 +1,8 @@
-// libs/ark/ark.service.ts
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { VEscrow } from "./escrow";
 import { ArkInfo, RelativeTimelock, RestArkProvider } from "@arkade-os/sdk";
-import { ConfigService } from "@nestjs/config";
 import { ARK_PROVIDER } from "./ark.constants";
 import { hex } from "@scure/base";
-
-export type ArkNetwork =
-	| "bitcoin"
-	| "testnet"
-	| "signet"
-	| "regtest"
-	| "mutinynet";
 
 export type ContractParty = { pubKey: string };
 export type EscrowContract = {
@@ -20,10 +11,6 @@ export type EscrowContract = {
 	arbitrator: ContractParty;
 };
 
-/**
- * Thin seam around Arkade SDK's escrow address derivation, aligned with
- * Kukks' demo (2-of-3 sender/receiver/arbitrator keys).
- */
 @Injectable()
 export class ArkService {
 	private readonly logger = new Logger(ArkService.name);
@@ -34,7 +21,14 @@ export class ArkService {
 	) {}
 
 	async onModuleInit() {
-		this.arkInfo = await this.provider.getInfo();
+		try {
+			this.arkInfo = await this.provider.getInfo();
+			this.logger.log(
+				`ARK provider version ${this.arkInfo.version} connected to ${this.arkInfo.network}`,
+			);
+		} catch (cause) {
+			throw new Error("Failed to connect to Ark provider", { cause });
+		}
 	}
 
 	async onModuleDestroy() {
