@@ -18,7 +18,7 @@ COPY package*.json ./
 # Force build from source for sqlite3 (skip prebuilt download),
 # and make sure npm uses python3 for node-gyp.
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm ci --only=production --no-audit --fund=false --build-from-source=sqlite3
+    npm ci --omit-dev --no-audit --fund=false --build-from-source=sqlite3
 
 # Build stage
 FROM deps-dev AS build
