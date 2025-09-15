@@ -27,10 +27,8 @@ function buildConfig(): TypeOrmModuleOptions {
 		!POSTGRES_PASSWORD ||
 		!POSTGRES_USER ||
 		!POSTGRES_HOST ||
-		POSTGRES_PORT
+		!POSTGRES_PORT
 	) {
-	}
-	if (!process.env.POSTGRES_HOST) {
 		throw new Error(`Missing Postgres env vars`);
 	}
 	return {
