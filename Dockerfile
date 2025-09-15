@@ -1,8 +1,8 @@
-FROM node:24 as base
+FROM node:24 AS base
 WORKDIR /app
 
 # Production dependencies stage
-FROM base AS deps-prod
+FROM base AS deps-dev
 ENV NODE_ENV=production
 RUN npm config set python /usr/bin/python3 || true
 COPY package*.json ./
@@ -11,7 +11,7 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
     npm cache clean --force
 
 # Development dependencies stage (for building)
-FROM base AS deps
+FROM base AS deps-prod
 # often avoids mirror flakiness; still set python explicitly
 RUN npm config set python /usr/bin/python3 || true
 COPY package*.json ./
