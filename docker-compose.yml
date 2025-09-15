@@ -1,41 +1,49 @@
 services:
-  # Production
-  # trick for SQLite file permissions without using root user in the app
-  init-perms:
-    image: busybox:latest
-    user: "0:0"
-    volumes:
-      - arkade_sqlite:/app/data
-    command: sh -c "mkdir -p /app/data && chown -R 1001:1001 /app/data"
-    restart: "no"
-
-  api:
-    depends_on:
-      init-perms:
-        condition: service_completed_successfully
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-      args:
-        DEPS_CACHE_BUST: "2025-09-15-1"
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-    volumes:
-      # Mount volume for SQLite database persistence
-      - arkade_sqlite:/app/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+#  api:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: production
+#      args:
+#        DEPS_CACHE_BUST: "2025-09-15-1"
+#    ports:
+#      - "3000:3000"
+#    environment:
+#      - NODE_ENV=production
+#    volumes:
+#      # Mount volume for SQLite database persistence
+#      - arkade_sqlite:/app/data
+#    restart: unless-stopped
+#    healthcheck:
+#      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+#      start_period: 10s
 
   # Development
+  db:
+    image: postgres:16
+    profiles:
+      - dev
+    environment:
+      - POSTGRES_DB=ark_escrow
+      - POSTGRES_USER=ark
+      - POSTGRES_PASSWORD=password4ark
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api-dev:
+    depends_on:
+      db:
+        condition: service_healthy
     profiles:
       - dev
     build:
@@ -45,11 +53,25 @@ services:
       # Using 3002 to avoid conflict with Nigiri
       - "3002:3002"
     environment:
+      - PORT=3002
       - NODE_ENV=development
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=ark_escrow
+      - POSTGRES_USER=ark
+      - POSTGRES_PASSWORD=password4ark
+      - ARK_SERVER_URL=http://ark:7070
+    networks:
+      - default
+      - nigiri
     volumes:
       - .:/app
       - /app/node_modules
     command: npm run dev
 
 volumes:
-  arkade_sqlite: {}
+  pgdata: {}
+
+networks:
+  nigiri:
+    external: true
