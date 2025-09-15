@@ -14,8 +14,11 @@ services:
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=5432
       - POSTGRES_DB=ark_escrow
+      - POSTGRES_USER=ark
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - ARK_SERVER_URL=https://mutinynet.arkade.sh
+      - JWT_SECRET=${JWT_SECRET}
+      - ARBITRATOR_PUB_KEY=${ARBITRATOR_PUB_KEY}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
