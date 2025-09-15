@@ -11,11 +11,10 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
-      # - POSTGRES_HOST= look in Dockploy
+      - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=5432
       - POSTGRES_DB=ark_escrow
-      - POSTGRES_USER=ark
-      # - POSTGRES_PASSWORD= look in Dockploy
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - ARK_SERVER_URL=https://mutinynet.arkade.sh
     volumes:
       - pgdata:/var/lib/postgresql/data
