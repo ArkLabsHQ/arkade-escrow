@@ -22,10 +22,10 @@ export class User {
 	@Column({ type: "text", nullable: true })
 	challengeId?: string | null;
 
-	@Column({ type: "timestamptz", nullable: true })
+	@Column({ type: "datetime", nullable: true })
 	challengeExpiresAt?: Date | null;
 
-	@Column({ type: "timestamptz", nullable: true })
+	@Column({ type: "datetime", nullable: true })
 	lastLoginAt?: Date | null;
 
 	@CreateDateColumn()

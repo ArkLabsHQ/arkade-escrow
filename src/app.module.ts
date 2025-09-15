@@ -13,11 +13,23 @@ import { UsersModule } from "./users/users.module";
 import { EscrowsModule } from "./escrows/escrows.module";
 import { RequestLoggingMiddleware } from "./common/middlewares/request-logging.middleware";
 import AppDataSourceConfig from "./db/DataSource";
+import { User } from "./users/user.entity";
+import { EscrowRequest } from "./escrows/requests/escrow-request.entity";
+import { EscrowContract } from "./escrows/contracts/escrow-contract.entity";
+const isTest = process.env.NODE_ENV === "test";
 
 @Module({
 	imports: [
 		ConfigModule.forRoot({ isGlobal: true }),
-		TypeOrmModule.forRoot(AppDataSourceConfig),
+		TypeOrmModule.forRootAsync({
+			useFactory: () => ({
+				type: "sqlite",
+				database: isTest ? ":memory:" : process.env.SQLITE_DB_PATH,
+				entities: [User, EscrowRequest, EscrowContract],
+				synchronize: true,
+				logging: true,
+			}),
+		}),
 		AuthModule,
 		EscrowsModule,
 		UsersModule,
