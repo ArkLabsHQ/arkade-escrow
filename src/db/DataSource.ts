@@ -29,7 +29,9 @@ function buildConfig(): TypeOrmModuleOptions {
 		!POSTGRES_HOST ||
 		!POSTGRES_PORT
 	) {
-		throw new Error(`Missing Postgres env vars`);
+		throw new Error(
+			`Missing Postgres env vars. Host ${POSTGRES_HOST}, port ${POSTGRES_PORT}, user ${POSTGRES_USER}, password ${POSTGRES_PASSWORD?.slice(0, 3)}, db ${POSTGRES_DB}`,
+		);
 	}
 	return {
 		...base,
