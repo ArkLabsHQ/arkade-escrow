@@ -1,5 +1,22 @@
 services:
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=ark_escrow
+      - POSTGRES_USER=ark
+      - POSTGRES_PASSWORD=password4ark
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
+    depends_on:
+      db:
+        condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,14 +28,14 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
-      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=ark_escrow
       - POSTGRES_USER=ark
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - ARK_SERVER_URL=https://mutinynet.arkade.sh
-      - JWT_SECRET=${JWT_SECRET}
-      - ARBITRATOR_PUB_KEY=${ARBITRATOR_PUB_KEY}
+      - POSTGRES_PASSWORD=password4ark
+      - ARK_SERVER_URL=http://ark:7070
+      - JWT_SECRET=dev_super_secret_change_me
+      - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -28,25 +45,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  # Development
-  db:
-    image: postgres:16
-    profiles:
-      - dev
-    environment:
-      - POSTGRES_DB=ark_escrow
-      - POSTGRES_USER=ark
-      - POSTGRES_PASSWORD=password4ark
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   api-dev:
     depends_on:
@@ -69,6 +67,8 @@ services:
       - POSTGRES_USER=ark
       - POSTGRES_PASSWORD=password4ark
       - ARK_SERVER_URL=http://ark:7070
+      - JWT_SECRET=dev_super_secret_change_me
+      - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
     networks:
       - default
       - nigiri
