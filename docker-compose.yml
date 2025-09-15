@@ -5,7 +5,7 @@ services:
     image: busybox:latest
     user: "0:0"
     volumes:
-      - arkade_sqlite:/app/data
+      - ./data:/app/data
     command: sh -c "mkdir -p /app/data && chown -R 1001:1001 /app/data"
     restart: "no"
 
