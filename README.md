@@ -18,6 +18,15 @@ Includes the API ~~and the companion webapp~~ (not yet)...
 
 ## Development Workflow
 
+### Prepare your environment
+
+Docker configuration expects [Nigiri](https://github.com/vulpemventures/nigiri/) to be running with `--ark` 
+and the `ark` service to be running at `localhost:7070`.
+
+The Docker compose command **will not work** otherwise!
+
+### Signup
+
 To signup you can use the utility under `scripts/signup.js`:
 ```bash
 node scripts/signup.js
@@ -50,6 +59,8 @@ which is available at `http://localhost:3000/api/v1/docs`
    ```bash
    docker compose down
    ```
+   
+5. the Postgres database is available at `localhost:5432`
 
 ### Local
 

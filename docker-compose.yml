@@ -1,25 +1,32 @@
 services:
-#  api:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#      target: production
-#      args:
-#        DEPS_CACHE_BUST: "2025-09-15-1"
-#    ports:
-#      - "3000:3000"
-#    environment:
-#      - NODE_ENV=production
-#    volumes:
-#      # Mount volume for SQLite database persistence
-#      - arkade_sqlite:/app/data
-#    restart: unless-stopped
-#    healthcheck:
-#      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
-#      start_period: 10s
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        DEPS_CACHE_BUST: "2025-09-15-1"
+    ports:
+      - "80:80"
+    environment:
+      - PORT=80
+      - NODE_ENV=production
+      # - POSTGRES_HOST= look in Dockploy
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=ark_escrow
+      - POSTGRES_USER=ark
+      # - POSTGRES_PASSWORD= look in Dockploy
+      - ARK_SERVER_URL=https://mutinynet.arkade.sh
+    volumes:
+      # Mount volume for SQLite database persistence
+      - arkade_sqlite:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Development
   db:
