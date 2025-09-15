@@ -1,21 +1,24 @@
-# syntax=docker/dockerfile:1.7
-FROM node:20-bookworm-slim AS base
+FROM node:24 as base
 WORKDIR /app
 
 # Production dependencies stage
 FROM base AS deps-prod
 ENV NODE_ENV=production
+RUN npm config set python /usr/bin/python3 || true
 COPY package*.json ./
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
     npm ci --only=production --no-audit --fund=false && \
     npm cache clean --force
 
 # Development dependencies stage (for building)
-FROM base AS deps-dev
-ENV NODE_ENV=development
+FROM base AS deps
+# often avoids mirror flakiness; still set python explicitly
+RUN npm config set python /usr/bin/python3 || true
 COPY package*.json ./
+# Force build from source for sqlite3 (skip prebuilt download),
+# and make sure npm uses python3 for node-gyp.
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm ci --no-audit --fund=false
+    npm ci --no-audit --fund=false --build-from-source=sqlite3
 
 # Build stage
 FROM deps-dev AS build
@@ -25,13 +28,11 @@ RUN npm run build && \
     npm prune --production
 
 # Production stage
-FROM node:20-bookworm-slim AS production
+FROM base AS production
 WORKDIR /app
-
 # Create non-root user
 RUN groupadd --gid 1001 --system nodejs && \
     useradd --uid 1001 --system --gid nodejs --shell /bin/bash nodejs
-
 # Set production environment
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -48,10 +49,6 @@ USER nodejs
 
 # Expose port
 EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Start the application
 CMD ["node", "dist/main.js"]

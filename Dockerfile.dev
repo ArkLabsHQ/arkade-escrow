@@ -5,9 +5,7 @@ ENV NODE_ENV=development
 FROM base AS deps
 # often avoids mirror flakiness; still set python explicitly
 RUN npm config set python /usr/bin/python3 || true
-
 COPY package*.json ./
-
 # Force build from source for sqlite3 (skip prebuilt download),
 # and make sure npm uses python3 for node-gyp.
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
