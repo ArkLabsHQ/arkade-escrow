@@ -25,8 +25,10 @@ FROM node:24 AS production
 WORKDIR /app
 RUN groupadd --gid 1001 --system nodejs && \
     useradd  --uid 1001 --system --gid nodejs --shell /bin/bash nodejs
+RUN mkdir -p /app/data && chown -R nodejs:nodejs /app
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV SQLITE_DB_PATH="/app/data/ark.sqlite"
 
 COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
