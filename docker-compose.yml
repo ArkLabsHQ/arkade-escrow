@@ -4,6 +4,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
+      args:
+        DEPS_CACHE_BUST: "2025-09-15-1"
     ports:
       - "3000:3000"
     environment:
