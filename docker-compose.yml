@@ -1,6 +1,18 @@
 services:
   # Production
+  # trick for SQLite file permissions without using root user in the app
+  init-perms:
+    image: busybox:latest
+    user: "0:0"
+    volumes:
+      - arkade_sqlite:/app/data
+    command: sh -c "mkdir -p /app/data && chown -R 1001:1001 /app/data"
+    restart: "no"
+
   api:
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
     build:
       context: .
       dockerfile: Dockerfile
