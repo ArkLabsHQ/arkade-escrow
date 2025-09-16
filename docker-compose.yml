@@ -7,7 +7,7 @@ services:
       args:
         DEPS_CACHE_BUST: "2025-09-15-1"
     ports:
-      - "3000:3000"
+      - "80:3000"
     environment:
       - PORT=3000
       - NODE_ENV=production
