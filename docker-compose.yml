@@ -55,4 +55,3 @@ networks:
 
 volumes:
   sqlite-data:
-    external: true

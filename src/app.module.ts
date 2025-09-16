@@ -1,5 +1,6 @@
 import { ConfigModule } from "@nestjs/config";
 import {
+	Logger,
 	MiddlewareConsumer,
 	Module,
 	NestModule,
@@ -16,7 +17,15 @@ import AppDataSourceConfig from "./db/DataSource";
 import { User } from "./users/user.entity";
 import { EscrowRequest } from "./escrows/requests/escrow-request.entity";
 import { EscrowContract } from "./escrows/contracts/escrow-contract.entity";
+import { existsSync } from "node:fs";
 const isTest = process.env.NODE_ENV === "test";
+
+Logger.log(`AppModule - looking for ${process.env.SQLITE_DB_PATH}`);
+if (existsSync(process.env.SQLITE_DB_PATH!)) {
+	Logger.log(`AppModule - ${process.env.SQLITE_DB_PATH} exists`);
+} else {
+	Logger.log(`AppModule - ${process.env.SQLITE_DB_PATH} does not exist`);
+}
 
 @Module({
 	imports: [
