@@ -11,7 +11,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
-      - SQLITE_DB_PATH=data/db.sqlite
+      - SQLITE_DB_PATH=/app/data/db.sqlite
       - ARK_SERVER_URL=http://ark:7070
       - JWT_SECRET=dev_super_secret_change_me
       - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
@@ -37,7 +37,7 @@ services:
     environment:
       - PORT=3002
       - NODE_ENV=development
-      - SQLITE_DB_PATH=data/db.sqlite
+      - SQLITE_DB_PATH=/app/data/db.sqlite
       - ARK_SERVER_URL=http://ark:7070
       - JWT_SECRET=dev_super_secret_change_me
       - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
