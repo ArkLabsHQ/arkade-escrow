@@ -71,7 +71,7 @@ There is a `.tool-versions` file in the root of the project.
 - Env variables are in `.env.example` file
 
 I use WebStorm for development, but you can use whatever you want.
-Please don't check in your local editor's files.
+Please don't check in your local editor files.
 
 # TODOs
 
