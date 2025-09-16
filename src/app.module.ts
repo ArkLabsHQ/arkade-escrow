@@ -26,6 +26,11 @@ if (existsSync(process.env.SQLITE_DB_PATH!)) {
 } else {
 	Logger.log(`AppModule - ${process.env.SQLITE_DB_PATH} does not exist`);
 }
+/*
+
+[Nest] 1  - 09/16/2025, 1:50:05 PM     LOG AppModule - looking for data/db.sqlite
+[Nest] 1  - 09/16/2025, 1:50:05 PM     LOG AppModule - data/db.sqlite does not exist
+ */
 
 @Module({
 	imports: [
