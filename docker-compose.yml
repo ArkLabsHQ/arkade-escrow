@@ -16,7 +16,7 @@ services:
       - JWT_SECRET=dev_super_secret_change_me
       - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - sqlite-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
@@ -49,9 +49,9 @@ services:
       - /app/node_modules
     command: npm run dev
 
-volumes:
-  pgdata: {}
-
 networks:
   nigiri:
     external: true
+
+volumes:
+  sqlite-data:
