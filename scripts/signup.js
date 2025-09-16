@@ -18,7 +18,8 @@ function normalizeToXOnly(pubHex) {
 }
 
 async function debugFlow() {
-	const baseUrl = "http://localhost:3002/api/v1";
+	// const baseUrl = "http://localhost:3002/api/v1";
+	const baseUrl = "http://api.escrow.mutinynet.arkade.sh/api/v1";
 
 	try {
 		console.log("1. Generating keypair...");
@@ -42,6 +43,9 @@ async function debugFlow() {
 			},
 			body: JSON.stringify({ publicKey: pubCompressed }),
 		});
+
+		console.log("Challenge response status:", challengeResponse.status);
+		console.log("Challenge response headers:", challengeResponse.headers);
 
 		const challengeData = await challengeResponse.json();
 		console.log("Challenge data:", challengeData);
