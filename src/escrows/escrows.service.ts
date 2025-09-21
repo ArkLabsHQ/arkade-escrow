@@ -59,11 +59,7 @@ export class EscrowsService {
 					},
 					manager,
 				);
-			const escrowRequest = await this.requestsService.writeAccepted({
-				...request,
-				acceptedByPubkey: acceptorPubkey,
-			});
-			return { escrowContract, escrowRequest };
+			return { escrowContract };
 		});
 	}
 
@@ -75,16 +71,14 @@ export class EscrowsService {
 			throw new ConflictException(`Request is ${request.status}`);
 		if (request.creatorPubkey !== pubkey)
 			throw new ForbiddenException("Only the request creator can cancel");
-		if (request.acceptedByPubkey !== undefined) {
-			const contract =
-				await this.contractsService.findByRequestId(requestExternalId);
-			if (contract) {
-				throw new ConflictException("Cannot cancel a request with a contract");
-			} else {
-				this.logger.warn(
-					`Cancelling request ${requestExternalId} already accepted, but not found in contracts.`,
-				);
-			}
+		const contract =
+			await this.contractsService.findByRequestId(requestExternalId);
+		if (contract) {
+			throw new ConflictException("Cannot cancel a request with a contract");
+		} else {
+			this.logger.warn(
+				`Cancelling request ${requestExternalId} already accepted, but not found in contracts.`,
+			);
 		}
 		return await this.requestsService.cancel(requestExternalId);
 	}

@@ -7,6 +7,7 @@ import {
 	RequestMethod,
 } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health.module";
@@ -22,6 +23,9 @@ const isDev = process.env.NODE_ENV === "development";
 
 @Module({
 	imports: [
+		EventEmitterModule.forRoot({
+			// optional: wildcard: true, delimiter: '.', etc.
+		}),
 		ConfigModule.forRoot({ isGlobal: true }),
 		TypeOrmModule.forRootAsync({
 			useFactory: () => ({

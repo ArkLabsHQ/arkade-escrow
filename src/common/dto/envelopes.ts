@@ -18,6 +18,46 @@ export type ApiEnvelope<T> = {
 	data: T;
 };
 
+export type Cursor = {
+	createdBefore?: Date;
+	idBefore?: number;
+};
+export const emptyCursor: Cursor = {
+	createdBefore: undefined,
+	idBefore: undefined,
+};
+
+/**
+ * Parses a base64-encoded cursor string into an object with a timestamp and an ID.
+ * Fails gracefully if the cursor is invalid.
+ *
+ * @param {string} cursor - The base64-encoded string representing the cursor.
+ * @return {Object} An object containing the parsed cursor data:
+ *                  - `createdBefore` (number | undefined): The timestamp extracted from the cursor, or `undefined` if invalid.
+ *                  - `idBefore` (number | undefined): The ID extracted from the cursor, or `undefined` if invalid.
+ */
+export function cursorFromString(cursor: string): Cursor {
+	const raw = Buffer.from(cursor, "base64").toString("utf8");
+	const [tsStr, idStr] = raw.split(":");
+	const ts = Number(tsStr);
+	const idNum = Number(idStr);
+	return {
+		createdBefore: Number.isFinite(ts) ? new Date(ts) : undefined,
+		idBefore: Number.isFinite(idNum) ? idNum : undefined,
+	};
+}
+
+/**
+ * Converts a combination of a date and an identifier into a base64-encoded string.
+ *
+ * @param {Date} createdAt - The date object representing the creation time.
+ * @param {number} id - A unique identifier to be combined with the date.
+ * @return {string} A base64-encoded string representation of the combined date and identifier.
+ */
+export function cursorToString(createdAt: Date, id: number): string {
+	return Buffer.from(`${createdAt.getTime()}:${id}`, "utf8").toString("base64");
+}
+
 export const envelope = <T>(data?: T): ApiEnvelope<T> => ({
 	data: data ?? ({} as T),
 });

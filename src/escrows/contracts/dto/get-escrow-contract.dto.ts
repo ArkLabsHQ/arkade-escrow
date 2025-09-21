@@ -1,7 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNumber, Min } from "class-validator";
+import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
 
-export class EscrowContractCreatedDto {
+export class GetEscrowContractDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
 	externalId!: string;
 
@@ -30,6 +31,19 @@ export class EscrowContractCreatedDto {
 		example: 1732690234123,
 	})
 	createdAt!: number;
+
+	@ApiProperty({
+		enum: CONTRACT_STATUS,
+		description: "Contract status",
+		default: "created",
+	})
+	status!: ContractStatus;
+
+	@ApiProperty({
+		description: "Balance in satoshis or your smallest unit",
+		example: 100000000,
+	})
+	balance: bigint = BigInt(0);
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",

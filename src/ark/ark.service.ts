@@ -1,6 +1,13 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { VEscrow } from "./escrow";
-import { ArkInfo, RelativeTimelock, RestArkProvider } from "@arkade-os/sdk";
+import {
+	ArkAddress,
+	ArkInfo,
+	RelativeTimelock,
+	RestArkProvider,
+	RestIndexerProvider,
+	VirtualCoin,
+} from "@arkade-os/sdk";
 import { ARK_PROVIDER } from "./ark.constants";
 import { hex } from "@scure/base";
 
@@ -15,6 +22,7 @@ export type EscrowContract = {
 export class ArkService {
 	private readonly logger = new Logger(ArkService.name);
 	private arkInfo: ArkInfo | undefined;
+	private indexerProvider?: RestIndexerProvider = undefined;
 
 	constructor(
 		@Inject(ARK_PROVIDER) private readonly provider: RestArkProvider,
@@ -26,6 +34,7 @@ export class ArkService {
 			this.logger.log(
 				`ARK provider version ${this.arkInfo.version} connected to ${this.arkInfo.network}`,
 			);
+			this.indexerProvider = new RestIndexerProvider(this.provider.serverUrl);
 		} catch (cause) {
 			throw new Error("Failed to connect to Ark provider", { cause });
 		}
@@ -35,7 +44,7 @@ export class ArkService {
 		// TODO: anything to clean up on Ark side?
 	}
 
-	createArkAddressForContract(contract: EscrowContract): string {
+	createArkAddressForContract(contract: EscrowContract): ArkAddress {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
@@ -43,7 +52,36 @@ export class ArkService {
 		const addrPrefix = ArkService.getAddrPrefix(this.arkInfo);
 		const serverKey = ArkService.getServerKey(this.arkInfo);
 		const arkAddress = escrowScript.address(addrPrefix, hex.decode(serverKey));
-		return arkAddress.encode();
+		return arkAddress;
+	}
+
+	async getSpendableVtxoForContract(
+		address: ArkAddress,
+	): Promise<VirtualCoin[]> {
+		if (this.indexerProvider === undefined) {
+			throw new Error("RestIndexerProvider not ready");
+		}
+		const script = hex.encode(address.pkScript);
+		const vtxos = await ArkService.getVtxosForScript(
+			script,
+			this.indexerProvider,
+		);
+		return vtxos.filter((_) => _.spentBy === undefined);
+	}
+
+	static async getVtxosForScript(
+		script: string,
+		indexerProvider: RestIndexerProvider,
+		currentVtxos: VirtualCoin[] = [],
+	): Promise<VirtualCoin[]> {
+		const { vtxos, page } = await indexerProvider.getVtxos({
+			scripts: [script],
+		});
+		const nextVtxos = currentVtxos.concat(vtxos);
+		if (page?.next) {
+			return ArkService.getVtxosForScript(script, indexerProvider, nextVtxos);
+		}
+		return nextVtxos;
 	}
 
 	static restoreScript(

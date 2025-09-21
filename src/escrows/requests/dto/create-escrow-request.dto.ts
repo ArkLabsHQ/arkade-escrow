@@ -8,9 +8,8 @@ import {
 	MaxLength,
 	Min,
 } from "class-validator";
-import { RequestStatus } from "../escrow-request.entity";
 
-export class CreateEscrowRequestDto {
+export class CreateEscrowRequestInDto {
 	@ApiProperty({
 		enum: ["receiver", "sender"],
 		description: "The receiver or sender of the funds",
@@ -39,7 +38,7 @@ export class CreateEscrowRequestDto {
 	public?: boolean;
 }
 
-export class EscrowRequestCreatedDto {
+export class CreateEscrowRequestOutDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
 	externalId!: string;
 
@@ -47,67 +46,4 @@ export class EscrowRequestCreatedDto {
 		example: "https://app.example/escrows/requests/q3f7p9n4z81k6c0b",
 	})
 	shareUrl!: string;
-}
-
-export class EscrowRequestGetDto {
-	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
-	externalId!: string;
-
-	@ApiProperty({ enum: ["receiver", "sender"] })
-	side!: "receiver" | "sender";
-
-	@ApiPropertyOptional()
-	amount?: number;
-
-	@ApiProperty()
-	description!: string;
-
-	@ApiProperty({
-		enum: ["open", "cancelled", "accepted"],
-		description: "Request status",
-	})
-	status!: RequestStatus;
-
-	@ApiProperty()
-	public!: boolean;
-
-	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	createdAt!: number;
-}
-
-export class OrderbookItemDto {
-	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
-	externalId!: string;
-
-	@ApiProperty({ enum: ["receiver", "sender"] })
-	side!: "receiver" | "sender";
-
-	@ApiProperty({ description: "Owner public key" })
-	creatorPublicKey!: string;
-
-	@ApiProperty({
-		minimum: 0,
-		description: "Amount in satoshis or your smallest unit",
-	})
-	@IsNumber()
-	@Min(0)
-	amount?: number;
-
-	@ApiProperty()
-	description!: string;
-
-	@ApiProperty({
-		enum: ["open", "cancelled", "accepted"],
-		description: "Request status",
-	})
-	status!: RequestStatus;
-
-	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	createdAt!: number;
 }

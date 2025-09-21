@@ -9,7 +9,8 @@ import {
 } from "typeorm";
 
 export type RequestSide = "receiver" | "sender";
-export type RequestStatus = "open" | "accepted" | "cancelled";
+export const REQUEST_STATUS = ["open", "cancelled"] as const;
+export type RequestStatus = (typeof REQUEST_STATUS)[number];
 
 @Entity("escrow_requests")
 @Unique("uq_escrow_requests_external_id", ["externalId"])
@@ -40,9 +41,6 @@ export class EscrowRequest {
 
 	@Column({ type: "text", default: "open" })
 	status!: RequestStatus;
-
-	@Column({ type: "text", nullable: true })
-	acceptedByPubkey?: string;
 
 	@CreateDateColumn()
 	createdAt!: Date;

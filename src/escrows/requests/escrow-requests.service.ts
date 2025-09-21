@@ -11,12 +11,18 @@ import { type Repository, Brackets, EntityManager } from "typeorm";
 import { customAlphabet } from "nanoid";
 import { EscrowRequest } from "./escrow-request.entity";
 import type {
-	CreateEscrowRequestDto,
-	EscrowRequestCreatedDto,
-	EscrowRequestGetDto,
-	OrderbookItemDto,
+	CreateEscrowRequestInDto,
+	CreateEscrowRequestOutDto,
 } from "./dto/create-escrow-request.dto";
 import { ConfigService } from "@nestjs/config";
+import { OrderbookItemDto } from "./dto/orderbook.dto";
+import { EscrowRequestGetDto } from "./dto/get-escrow-request.dto";
+import {
+	Cursor,
+	emptyCursor,
+	cursorFromString,
+	cursorToString,
+} from "../../common/dto/envelopes";
 
 // TODO: from configuration?
 const generateNanoid = customAlphabet(
@@ -45,9 +51,9 @@ export class EscrowRequestsService {
 	}
 
 	async create(
-		dto: CreateEscrowRequestDto,
+		dto: CreateEscrowRequestInDto,
 		pubKey: string,
-	): Promise<EscrowRequestCreatedDto> {
+	): Promise<CreateEscrowRequestOutDto> {
 		const externalId = generateNanoid();
 		try {
 			const entity = this.repo.create({
@@ -98,46 +104,29 @@ export class EscrowRequestsService {
 	 */
 	async getByUser(
 		pubKey: string,
-		limit = 20,
-		cursor?: string,
+		limit: number,
+		cursor: Cursor = emptyCursor,
 	): Promise<{
 		items: EscrowRequestGetDto[];
 		nextCursor?: string;
 		total: number;
 	}> {
-		let createdBefore: number | undefined;
-		let idBefore: number | undefined;
-
-		if (cursor) {
-			try {
-				const raw = Buffer.from(cursor, "base64").toString("utf8");
-				// cursor format: `${createdAtMs}:${id}`
-				const [tsStr, idStr] = raw.split(":");
-				const ts = Number(tsStr);
-				const idNum = Number(idStr);
-				if (Number.isFinite(ts)) createdBefore = ts;
-				if (Number.isFinite(idNum)) idBefore = idNum;
-			} catch (e: unknown) {
-				this.logger.error("Malformed cursor", e);
-			}
-		}
-
-		const take = Math.min(Math.max(limit ?? 1, 1), 100);
+		const take = Math.min(limit, 100);
 
 		const qb = this.repo
 			.createQueryBuilder("r")
 			.where("r.creatorPubkey = :pubKey", { pubKey });
 
-		if (createdBefore !== undefined && idBefore !== undefined) {
+		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
 				new Brackets((w) => {
 					w.where("r.createdAt < :createdBefore", {
-						createdBefore: new Date(createdBefore),
+						createdBefore: cursor.createdBefore,
 					}).orWhere(
 						new Brackets((w2) => {
 							w2.where("r.createdAt = :createdAtEq", {
-								createdAtEq: new Date(createdBefore),
-							}).andWhere("r.id < :idBefore", { idBefore });
+								createdAtEq: cursor.createdBefore,
+							}).andWhere("r.id < :idBefore", { idBefore: cursor.idBefore });
 						}),
 					);
 				}),
@@ -157,7 +146,7 @@ export class EscrowRequestsService {
 		let nextCursor: string | undefined;
 		if (rows.length === take) {
 			const last = rows[rows.length - 1];
-			nextCursor = EscrowRequestsService.makeCursor(last.createdAt, last.id);
+			nextCursor = cursorToString(last.createdAt, last.id);
 		}
 
 		const items: EscrowRequestGetDto[] = rows.map((r) => ({
@@ -173,63 +162,30 @@ export class EscrowRequestsService {
 		return { items, nextCursor, total };
 	}
 
-	async writeAccepted(
-		request: EscrowRequest,
-		manager?: EntityManager,
-	): Promise<EscrowRequest> {
-		if (!request.acceptedByPubkey) {
-			throw new ConflictException(
-				"Cannot accept a request without an acceptor",
-			);
-		}
-		const repo = this.repoFor(manager);
-		return await repo.save({
-			...request,
-			status: "accepted",
-		});
-	}
-
 	async orderbook(
-		limit = 20,
-		cursor?: string,
+		limit: number,
+		cursor: Cursor = emptyCursor,
 	): Promise<{
 		items: OrderbookItemDto[];
 		nextCursor?: string;
 		total: number;
 	}> {
-		let createdBefore: number | undefined;
-		let idBefore: number | undefined;
-
-		if (cursor) {
-			try {
-				const raw = Buffer.from(cursor, "base64").toString("utf8");
-				// cursor format: `${createdAtMs}:${id}`
-				const [tsStr, idStr] = raw.split(":");
-				const ts = Number(tsStr);
-				const idNum = Number(idStr);
-				if (Number.isFinite(ts)) createdBefore = ts;
-				if (Number.isFinite(idNum)) idBefore = idNum;
-			} catch (e: unknown) {
-				this.logger.error("Malformed cursor", e);
-			}
-		}
-
-		const take = Math.min(Math.max(limit ?? 1, 1), 100);
+		const take = Math.min(limit, 100);
 
 		const qb = this.repo
 			.createQueryBuilder("r")
 			.where("r.public = :pub", { pub: true });
 
-		if (createdBefore !== undefined && idBefore !== undefined) {
+		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
 				new Brackets((w) => {
 					w.where("r.createdAt < :createdBefore", {
-						createdBefore: new Date(createdBefore),
+						createdBefore: cursor.createdBefore,
 					}).orWhere(
 						new Brackets((w2) => {
 							w2.where("r.createdAt = :createdAtEq", {
-								createdAtEq: new Date(createdBefore),
-							}).andWhere("r.id < :idBefore", { idBefore });
+								createdAtEq: cursor.createdBefore,
+							}).andWhere("r.id < :idBefore", { idBefore: cursor.idBefore });
 						}),
 					);
 				}),
@@ -249,7 +205,7 @@ export class EscrowRequestsService {
 		let nextCursor: string | undefined;
 		if (rows.length === take) {
 			const last = rows[rows.length - 1];
-			nextCursor = EscrowRequestsService.makeCursor(last.createdAt, last.id);
+			nextCursor = cursorToString(last.createdAt, last.id);
 		}
 
 		const items: OrderbookItemDto[] = rows.map((r) => ({
@@ -273,11 +229,5 @@ export class EscrowRequestsService {
 
 	async cancel(externalId: string) {
 		this.repo.update({ externalId }, { status: "cancelled" });
-	}
-
-	static makeCursor(createdAt: Date, id: number): string {
-		return Buffer.from(`${createdAt.getTime()}:${id}`, "utf8").toString(
-			"base64",
-		);
 	}
 }

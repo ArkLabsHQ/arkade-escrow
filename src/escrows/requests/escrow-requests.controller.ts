@@ -1,9 +1,11 @@
 import {
 	Body,
 	Controller,
+	DefaultValuePipe,
 	Delete,
 	Get,
 	Param,
+	ParseIntPipe,
 	Post,
 	Query,
 	UseGuards,
@@ -35,24 +37,25 @@ import {
 	getSchemaPathForDto,
 	getSchemaPathForPaginatedDto,
 	getSchemaPathForEmptyResponse,
+	Cursor,
 } from "../../common/dto/envelopes";
 import {
-	CreateEscrowRequestDto,
-	EscrowRequestCreatedDto,
-	EscrowRequestGetDto,
-	OrderbookItemDto,
+	CreateEscrowRequestInDto,
+	CreateEscrowRequestOutDto,
 } from "./dto/create-escrow-request.dto";
 import { EscrowRequestsService } from "./escrow-requests.service";
 import { User } from "../../users/user.entity";
-import { EscrowContractCreatedDto } from "../contracts/dto/escrow-contract.dto";
 import { EscrowsService } from "../escrows.service";
+import { OrderbookItemDto } from "./dto/orderbook.dto";
+import { EscrowRequestGetDto } from "./dto/get-escrow-request.dto";
+import { CreateEscrowContractOutDto } from "../contracts/dto/create-escrow-contract.dto";
+import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 
 @ApiTags("Escrow Requests")
 @ApiExtraModels(
 	ApiEnvelopeShellDto,
 	ApiPaginatedMetaDto,
-	EscrowRequestCreatedDto,
-	EscrowRequestGetDto,
+	CreateEscrowRequestOutDto,
 	OrderbookItemDto,
 )
 @Controller("api/v1/escrows/requests")
@@ -83,12 +86,11 @@ export class EscrowRequestsController {
 		summary: "Public orderbook of escrow requests (only public=true)",
 	})
 	async orderbook(
-		@Query("limit") limit?: string,
-		@Query("cursor") cursor?: string,
+		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
+		@Query("cursor", ParseCursorPipe) cursor: Cursor,
 	): Promise<ApiEnvelope<OrderbookItemDto[]>> {
-		const n = limit ? parseInt(limit, 10) : undefined;
 		const { items, nextCursor, total } = await this.requestsService.orderbook(
-			n,
+			limit,
 			cursor,
 		);
 		return paginatedEnvelope(items, { total, nextCursor });
@@ -96,18 +98,18 @@ export class EscrowRequestsController {
 
 	@Post("")
 	@ApiBearerAuth()
-	@ApiBody({ type: CreateEscrowRequestDto })
+	@ApiBody({ type: CreateEscrowRequestInDto })
 	@ApiCreatedResponse({
 		description: "Created successfully",
-		schema: getSchemaPathForDto(EscrowRequestCreatedDto),
+		schema: getSchemaPathForDto(CreateEscrowRequestOutDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@UseGuards(AuthGuard)
 	@ApiOperation({ summary: "Create an escrow request" })
 	async create(
-		@Body() dto: CreateEscrowRequestDto,
+		@Body() dto: CreateEscrowRequestInDto,
 		@UserFromJwt() user: User,
-	): Promise<ApiEnvelope<EscrowRequestCreatedDto>> {
+	): Promise<ApiEnvelope<CreateEscrowRequestOutDto>> {
 		const data = await this.requestsService.create(dto, user.publicKey);
 		return envelope(data);
 	}
@@ -135,13 +137,12 @@ export class EscrowRequestsController {
 	@ApiOperation({ summary: "Get authenticated user's escrow requests" })
 	async getMine(
 		@UserFromJwt() user: User,
-		@Query("limit") limit?: string,
-		@Query("cursor") cursor?: string,
+		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
+		@Query("cursor", ParseCursorPipe) cursor: Cursor,
 	): Promise<ApiEnvelope<EscrowRequestGetDto[]>> {
-		const n = limit ? parseInt(limit, 10) : undefined;
 		const { items, nextCursor, total } = await this.requestsService.getByUser(
 			user.publicKey,
-			n,
+			limit,
 			cursor,
 		);
 		return paginatedEnvelope(items, { total, nextCursor });
@@ -156,7 +157,7 @@ export class EscrowRequestsController {
 	@ApiParam({ name: "externalId", description: "Public request external id" })
 	@ApiCreatedResponse({
 		description: "Contract created",
-		schema: getSchemaPathForDto(EscrowContractCreatedDto),
+		schema: getSchemaPathForDto(CreateEscrowRequestOutDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to accept this request" })
@@ -166,20 +167,22 @@ export class EscrowRequestsController {
 	async accept(
 		@Param("externalId") externalId: string,
 		@UserFromJwt() user: User,
-	): Promise<ApiEnvelope<EscrowContractCreatedDto>> {
+	): Promise<ApiEnvelope<CreateEscrowContractOutDto>> {
+		// TODO: move to contracts endpoints
 		const acceptorPubkey: string = user.publicKey;
 		const { escrowContract: c } =
 			await this.orchestrator.createContractFromPublicRequest(
 				externalId,
 				acceptorPubkey,
 			);
-		const dto: EscrowContractCreatedDto = {
+		const dto: CreateEscrowContractOutDto = {
 			externalId: c.externalId,
 			requestId: c.request.externalId,
 			sender: c.senderPubkey,
 			receiver: c.receiverPubkey,
 			amount: c.amount,
 			arkAddress: c.arkAddress,
+			status: "created",
 			createdAt: c.createdAt.getTime(),
 			updatedAt: c.updatedAt.getTime(),
 		};

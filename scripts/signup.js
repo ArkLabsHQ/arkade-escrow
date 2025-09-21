@@ -18,8 +18,8 @@ function normalizeToXOnly(pubHex) {
 }
 
 async function debugFlow() {
-	// const baseUrl = "http://localhost:3002/api/v1";
-	const baseUrl = "http://api.escrow.mutinynet.arkade.sh/api/v1";
+	const baseUrl = "http://localhost:3002/api/v1";
+	// const baseUrl = "http://api.escrow.mutinynet.arkade.sh/api/v1";
 
 	try {
 		console.log("1. Generating keypair...");
