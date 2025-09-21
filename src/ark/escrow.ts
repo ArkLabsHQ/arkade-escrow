@@ -7,37 +7,39 @@ import {
 	RelativeTimelock,
 } from "@arkade-os/sdk";
 
+export type Signers = "sender" | "receiver" | "server" | "arbitrator";
+
 /**
  * Virtual Escrow Contract (VEC) namespace containing types and implementation
- * for a 3-party escrow contract with a buyer, seller, and arbitrator.
+ * for a 3-party escrow contract with a sender, receiver, and arbitrator.
  */
 export namespace VEscrow {
 	/**
 	 * Configuration options for the escrow contract
 	 */
-	export interface Options {
+	export type Options = {
 		/** Buyer's x-only public key */
-		buyer: Bytes;
+		sender: Bytes;
 		/** Seller's x-only public key */
-		seller: Bytes;
+		receiver: Bytes;
 		/** Arbitrator's x-only public key */
 		arbitrator: Bytes;
 		/** Ark server's x-only public key */
 		server: Bytes;
 		/** Unilateral delay for unilateral paths */
 		unilateralDelay: RelativeTimelock;
-	}
+	};
 
 	/**
 	 * Validates the escrow contract options
 	 */
 	function validateOptions(options: Options): void {
-		const { buyer, seller, arbitrator, server } = options;
+		const { sender, receiver, arbitrator, server } = options;
 
 		// Validate public key lengths
 		const keys = [
-			{ name: "buyer", key: buyer },
-			{ name: "seller", key: seller },
+			{ name: "sender", key: sender },
+			{ name: "receiver", key: receiver },
 			{ name: "arbitrator", key: arbitrator },
 			{ name: "server", key: server },
 		];
@@ -52,8 +54,8 @@ export namespace VEscrow {
 
 		// Ensure all parties are unique
 		const keySet = new Set([
-			hex.encode(buyer),
-			hex.encode(seller),
+			hex.encode(sender),
+			hex.encode(receiver),
 			hex.encode(arbitrator),
 			hex.encode(server),
 		]);
@@ -81,34 +83,35 @@ export namespace VEscrow {
 		constructor(readonly options: Options) {
 			validateOptions(options);
 
-			const { buyer, seller, arbitrator, server, unilateralDelay } = options;
+			const { sender, receiver, arbitrator, server, unilateralDelay } = options;
 
 			// Collaborative spending paths (with server)
 			const releaseScript = MultisigTapscript.encode({
-				pubkeys: [seller, arbitrator, server],
+				pubkeys: [receiver, arbitrator, server],
 			}).script;
 
 			const refundScript = MultisigTapscript.encode({
-				pubkeys: [buyer, arbitrator, server],
+				pubkeys: [sender, arbitrator, server],
 			}).script;
 
+			// the happy path - transaction occurred as expected
 			const directScript = MultisigTapscript.encode({
-				pubkeys: [buyer, seller, server],
+				pubkeys: [sender, receiver, server],
 			}).script;
 
 			// Unilateral spending paths (with timelock)
 			const unilateralReleaseScript = CSVMultisigTapscript.encode({
-				pubkeys: [seller, arbitrator],
+				pubkeys: [receiver, arbitrator],
 				timelock: unilateralDelay,
 			}).script;
 
 			const unilateralRefundScript = CSVMultisigTapscript.encode({
-				pubkeys: [buyer, arbitrator],
+				pubkeys: [sender, arbitrator],
 				timelock: unilateralDelay,
 			}).script;
 
 			const unilateralDirectScript = CSVMultisigTapscript.encode({
-				pubkeys: [buyer, seller],
+				pubkeys: [sender, receiver],
 				timelock: unilateralDelay,
 			}).script;
 
@@ -133,7 +136,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for collaborative release path
-		 * (seller + arbitrator + server)
+		 * (receiver + arbitrator + server)
 		 */
 		release(): TapLeafScript {
 			return this.findLeaf(this.releaseScript);
@@ -141,7 +144,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for collaborative refund path
-		 * (buyer + arbitrator + server)
+		 * (sender + arbitrator + server)
 		 */
 		refund(): TapLeafScript {
 			return this.findLeaf(this.refundScript);
@@ -149,7 +152,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for collaborative direct path
-		 * (buyer + seller + server)
+		 * (sender + receiver + server)
 		 */
 		direct(): TapLeafScript {
 			return this.findLeaf(this.directScript);
@@ -157,7 +160,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for unilateral release path
-		 * (seller + arbitrator after timelock)
+		 * (receiver + arbitrator after timelock)
 		 */
 		unilateralRelease(): TapLeafScript {
 			return this.findLeaf(this.unilateralReleaseScript);
@@ -165,7 +168,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for unilateral refund path
-		 * (buyer + arbitrator after timelock)
+		 * (sender + arbitrator after timelock)
 		 */
 		unilateralRefund(): TapLeafScript {
 			return this.findLeaf(this.unilateralRefundScript);
@@ -173,7 +176,7 @@ export namespace VEscrow {
 
 		/**
 		 * Get the tap leaf script for unilateral direct path
-		 * (buyer + seller after timelock)
+		 * (sender + receiver after timelock)
 		 */
 		unilateralDirect(): TapLeafScript {
 			return this.findLeaf(this.unilateralDirectScript);
@@ -187,50 +190,50 @@ export namespace VEscrow {
 			type: "collaborative" | "unilateral";
 			description: string;
 			script: string;
-			signers: string[];
+			signers: Signers[];
 		}> {
 			return [
 				{
 					name: "release",
 					type: "collaborative",
-					description: "Release funds to seller (goods delivered)",
+					description: "Release funds to receiver (goods delivered)",
 					script: this.releaseScript,
-					signers: ["seller", "arbitrator", "server"],
+					signers: ["receiver", "arbitrator", "server"],
 				},
 				{
 					name: "refund",
 					type: "collaborative",
-					description: "Refund funds to buyer (dispute resolved)",
+					description: "Refund funds to sender (dispute resolved)",
 					script: this.refundScript,
-					signers: ["buyer", "arbitrator", "server"],
+					signers: ["sender", "arbitrator", "server"],
 				},
 				{
 					name: "direct",
 					type: "collaborative",
 					description: "Direct settlement between parties",
 					script: this.directScript,
-					signers: ["buyer", "seller", "server"],
+					signers: ["sender", "receiver", "server"],
 				},
 				{
 					name: "unilateralRelease",
 					type: "unilateral",
 					description: "Release funds after timelock",
 					script: this.unilateralReleaseScript,
-					signers: ["seller", "arbitrator"],
+					signers: ["receiver", "arbitrator"],
 				},
 				{
 					name: "unilateralRefund",
 					type: "unilateral",
 					description: "Refund funds after timelock",
 					script: this.unilateralRefundScript,
-					signers: ["buyer", "arbitrator"],
+					signers: ["sender", "arbitrator"],
 				},
 				{
 					name: "unilateralDirect",
 					type: "unilateral",
 					description: "Direct settlement after timelock",
 					script: this.unilateralDirectScript,
-					signers: ["buyer", "seller"],
+					signers: ["sender", "receiver"],
 				},
 			];
 		}

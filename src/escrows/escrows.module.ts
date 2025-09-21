@@ -11,10 +11,16 @@ import { EscrowsService } from "./escrows.service";
 import { EscrowRequestsService } from "./requests/escrow-requests.service";
 import { EscrowRequestsController } from "./requests/escrow-requests.controller";
 import { ArkModule } from "../ark/ark.module";
+import { ContractExecution } from "./contracts/contract-execution.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([EscrowContract, EscrowRequest, User]),
+		TypeOrmModule.forFeature([
+			EscrowContract,
+			EscrowRequest,
+			User,
+			ContractExecution,
+		]),
 		AuthModule,
 		ArkModule,
 	],

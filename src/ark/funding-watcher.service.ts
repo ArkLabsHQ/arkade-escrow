@@ -7,10 +7,14 @@ import {
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { randomUUID } from "node:crypto";
 import {
-	ContractAddressCreatedEvent,
-	ContractAddressFundedEvent,
-	ContractAddressVoidedEvent,
-} from "../common/ContractAddress";
+	ContractCreated,
+	ContractFunded,
+	ContractVoided,
+	ContractExecuted,
+	CONTRACT_FUNDED_ID,
+	CONTRACT_VOIDED_ID,
+	CONTRACT_EXECUTED_ID,
+} from "../common/contract-address.event";
 import { ArkService } from "./ark.service";
 import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
 // import your event types
@@ -58,8 +62,8 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 
 	// Event handlers to maintain the watch set
 
-	@OnEvent("contracts.address.created")
-	onAddressCreated(evt: ContractAddressCreatedEvent) {
+	@OnEvent("contract.created")
+	onAddressCreated(evt: ContractCreated) {
 		const lastKnownVtxoIds =
 			this.watchMap.get(evt.arkAddress.encode())?.lastKnownVtxoIds ?? new Set();
 		this.watchMap.set(evt.arkAddress.encode(), {
@@ -74,10 +78,16 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 		);
 	}
 
-	@OnEvent("contracts.address.voided")
-	onAddressVoided(evt: ContractAddressVoidedEvent) {
+	@OnEvent(CONTRACT_VOIDED_ID)
+	onAddressVoided(evt: ContractVoided) {
 		this.watchMap.delete(evt.arkAddress.encode());
 		this.logger.debug(`Stopped watching ${evt.arkAddress} (voided)`);
+	}
+
+	@OnEvent(CONTRACT_EXECUTED_ID)
+	onContractExecuted(evt: ContractExecuted) {
+		this.watchMap.delete(evt.arkAddress.encode());
+		this.logger.debug(`Stopped watching ${evt.arkAddress} (executed)`);
 	}
 
 	// TODO: generated with AI, can certainly be improved
@@ -125,17 +135,17 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 				entry.nextCheckAt = Date.now() + this.defaultBackoffMs;
 
 				// Emit funded event
-				const fundedEvent: ContractAddressFundedEvent = {
+				const fundedEvent: ContractFunded = {
 					eventId: randomUUID(),
 					contractId: entry.contractId,
 					arkAddress: entry.arkAddress,
 					amountSats: BigInt(
 						newFunds.reduce((sum, vtxo) => sum + vtxo.value, 0),
 					),
-					vtxoIds: newFunds.map((vtxo) => vtxo.txid),
+					vtxos: newFunds,
 					detectedAt: new Date().toISOString(),
 				};
-				this.events.emit("contracts.address.funded", fundedEvent);
+				this.events.emit(CONTRACT_FUNDED_ID, fundedEvent);
 				this.logger.log(
 					`Funding detected for ${entry.arkAddress} (contract ${entry.contractId})`,
 				);

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { REQUEST_STATUS, RequestStatus } from "../escrow-request.entity";
 
-export class EscrowRequestGetDto {
+export class GetEscrowRequestDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
 	externalId!: string;
 

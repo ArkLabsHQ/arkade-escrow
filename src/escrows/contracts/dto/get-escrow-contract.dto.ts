@@ -1,6 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNumber, Min } from "class-validator";
 import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
+import { VirtualCoin } from "@arkade-os/sdk";
+import {
+	ContractExecution,
+	ExecutionTransaction,
+} from "../contract-execution.entity";
 
 export class GetEscrowContractDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
@@ -27,23 +32,31 @@ export class GetEscrowContractDto {
 	arkAddress!: string;
 
 	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	createdAt!: number;
-
-	@ApiProperty({
 		enum: CONTRACT_STATUS,
 		description: "Contract status",
 		default: "created",
 	})
 	status!: ContractStatus;
 
+	@ApiProperty({ description: "Cancellation reason, if any", nullable: true })
+	cancelationReason?: string;
+
 	@ApiProperty({
-		description: "Balance in satoshis or your smallest unit",
-		example: 100000000,
+		description: "Unspent VTXO for this contract",
 	})
-	balance: bigint = BigInt(0);
+	virtualCoins?: VirtualCoin[];
+
+	@ApiProperty({
+		description: "Last execution transaction for thsi contract, if any",
+		nullable: true,
+	})
+	lastExecution?: ContractExecution;
+
+	@ApiProperty({
+		description: "Unix epoch in milliseconds",
+		example: 1732690234123,
+	})
+	createdAt!: number;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",

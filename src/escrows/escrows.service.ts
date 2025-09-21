@@ -9,7 +9,6 @@ import {
 
 import { EscrowsContractsService } from "./contracts/escrows-contracts.service";
 import { EscrowRequestsService } from "./requests/escrow-requests.service";
-import { DataSource, EntityManager } from "typeorm";
 
 /**
  * Orchestrator service for escrow requests and contracts.
@@ -19,7 +18,6 @@ export class EscrowsService {
 	private readonly logger = new Logger(EscrowsService.name);
 
 	constructor(
-		private readonly dataSource: DataSource,
 		private readonly requestsService: EscrowRequestsService,
 		private readonly contractsService: EscrowsContractsService,
 	) {}
@@ -48,19 +46,15 @@ export class EscrowsService {
 			? request.creatorPubkey
 			: acceptorPubkey;
 
-		return this.dataSource.transaction(async (manager: EntityManager) => {
-			const escrowContract =
-				await this.contractsService.createContractForRequest(
-					{
-						requestExternalId: request.externalId,
-						senderPubKey: senderPubkey,
-						receiverPubKey: receiverPubkey,
-						amount: request.amount ?? 0,
-					},
-					manager,
-				);
-			return { escrowContract };
-		});
+		const escrowContract = await this.contractsService.createContractForRequest(
+			{
+				requestExternalId: request.externalId,
+				senderPubKey: senderPubkey,
+				receiverPubKey: receiverPubkey,
+				amount: request.amount ?? 0,
+			},
+		);
+		return escrowContract;
 	}
 
 	async cancelRequest(requestExternalId: string, pubkey: string) {

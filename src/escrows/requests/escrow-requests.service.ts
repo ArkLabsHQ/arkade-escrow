@@ -16,7 +16,7 @@ import type {
 } from "./dto/create-escrow-request.dto";
 import { ConfigService } from "@nestjs/config";
 import { OrderbookItemDto } from "./dto/orderbook.dto";
-import { EscrowRequestGetDto } from "./dto/get-escrow-request.dto";
+import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
 import {
 	Cursor,
 	emptyCursor,
@@ -78,7 +78,7 @@ export class EscrowRequestsService {
 	async getByExternalId(
 		externalId: string,
 		pubKey: string,
-	): Promise<EscrowRequestGetDto> {
+	): Promise<GetEscrowRequestDto> {
 		const found = await this.findOneByExternalId(externalId);
 		if (!found) throw new NotFoundException("Escrow request not found");
 
@@ -107,7 +107,7 @@ export class EscrowRequestsService {
 		limit: number,
 		cursor: Cursor = emptyCursor,
 	): Promise<{
-		items: EscrowRequestGetDto[];
+		items: GetEscrowRequestDto[];
 		nextCursor?: string;
 		total: number;
 	}> {
@@ -149,7 +149,7 @@ export class EscrowRequestsService {
 			nextCursor = cursorToString(last.createdAt, last.id);
 		}
 
-		const items: EscrowRequestGetDto[] = rows.map((r) => ({
+		const items: GetEscrowRequestDto[] = rows.map((r) => ({
 			externalId: r.externalId,
 			side: r.side as "receiver" | "sender",
 			amount: r.amount ?? undefined,

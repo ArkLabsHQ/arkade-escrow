@@ -47,7 +47,7 @@ import { EscrowRequestsService } from "./escrow-requests.service";
 import { User } from "../../users/user.entity";
 import { EscrowsService } from "../escrows.service";
 import { OrderbookItemDto } from "./dto/orderbook.dto";
-import { EscrowRequestGetDto } from "./dto/get-escrow-request.dto";
+import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
 import { CreateEscrowContractOutDto } from "../contracts/dto/create-escrow-contract.dto";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 
@@ -130,7 +130,7 @@ export class EscrowRequestsController {
 	})
 	@ApiOkResponse({
 		description: "A page of user's requests",
-		schema: getSchemaPathForPaginatedDto(EscrowRequestGetDto),
+		schema: getSchemaPathForPaginatedDto(GetEscrowRequestDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@UseGuards(AuthGuard)
@@ -139,7 +139,7 @@ export class EscrowRequestsController {
 		@UserFromJwt() user: User,
 		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
 		@Query("cursor", ParseCursorPipe) cursor: Cursor,
-	): Promise<ApiEnvelope<EscrowRequestGetDto[]>> {
+	): Promise<ApiEnvelope<GetEscrowRequestDto[]>> {
 		const { items, nextCursor, total } = await this.requestsService.getByUser(
 			user.publicKey,
 			limit,
@@ -170,11 +170,10 @@ export class EscrowRequestsController {
 	): Promise<ApiEnvelope<CreateEscrowContractOutDto>> {
 		// TODO: move to contracts endpoints
 		const acceptorPubkey: string = user.publicKey;
-		const { escrowContract: c } =
-			await this.orchestrator.createContractFromPublicRequest(
-				externalId,
-				acceptorPubkey,
-			);
+		const c = await this.orchestrator.createContractFromPublicRequest(
+			externalId,
+			acceptorPubkey,
+		);
 		const dto: CreateEscrowContractOutDto = {
 			externalId: c.externalId,
 			requestId: c.request.externalId,
@@ -193,7 +192,7 @@ export class EscrowRequestsController {
 	@ApiBearerAuth()
 	@ApiOkResponse({
 		description: "One Escrow request by ID",
-		schema: getSchemaPathForDto(EscrowRequestGetDto),
+		schema: getSchemaPathForDto(GetEscrowRequestDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to view this request" })
@@ -206,7 +205,7 @@ export class EscrowRequestsController {
 	async getOne(
 		@Param("externalId") externalId: string,
 		@UserFromJwt() user: User,
-	): Promise<ApiEnvelope<EscrowRequestGetDto>> {
+	): Promise<ApiEnvelope<GetEscrowRequestDto>> {
 		const data = await this.requestsService.getByExternalId(
 			externalId,
 			user.publicKey,

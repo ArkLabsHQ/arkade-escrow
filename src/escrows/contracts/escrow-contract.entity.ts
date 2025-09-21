@@ -9,6 +9,7 @@ import {
 	UpdateDateColumn,
 } from "typeorm";
 import { EscrowRequest } from "../requests/escrow-request.entity";
+import { VirtualCoin } from "@arkade-os/sdk";
 
 export const CONTRACT_STATUS = [
 	// first status
@@ -43,7 +44,7 @@ export class EscrowContract {
 	@Column({ type: "text" })
 	externalId!: string;
 
-	@Index({ unique: true })
+	@Index()
 	@OneToOne(() => EscrowRequest, { eager: true })
 	@JoinColumn({ name: "requestExternalId", referencedColumnName: "externalId" })
 	request!: EscrowRequest;
@@ -52,9 +53,15 @@ export class EscrowContract {
 	@Column({ type: "text" })
 	senderPubkey!: string;
 
+	@Column({ type: "text" })
+	senderAddress!: string;
+
 	@Index()
 	@Column({ type: "text" })
 	receiverPubkey!: string;
+
+	@Column({ type: "text" })
+	receiverAddress!: string;
 
 	@Column({ type: "integer" })
 	amount!: number;
@@ -66,8 +73,11 @@ export class EscrowContract {
 	@Column({ type: "text", default: "open" })
 	status!: ContractStatus;
 
-	@Column({ type: "bigint", nullable: true })
-	balance?: bigint;
+	@Column({ type: "text", nullable: true })
+	cancelationReason?: string;
+
+	@Column({ type: "simple-json", nullable: true })
+	virtualCoins?: VirtualCoin[];
 
 	@CreateDateColumn()
 	createdAt!: Date;
