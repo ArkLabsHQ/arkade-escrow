@@ -14,6 +14,7 @@ import {
 	CONTRACT_FUNDED_ID,
 	CONTRACT_VOIDED_ID,
 	CONTRACT_EXECUTED_ID,
+	CONTRACT_CREATED_ID,
 } from "../common/contract-address.event";
 import { ArkService } from "./ark.service";
 import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
@@ -62,8 +63,8 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 
 	// Event handlers to maintain the watch set
 
-	@OnEvent("contract.created")
-	onAddressCreated(evt: ContractCreated) {
+	@OnEvent(CONTRACT_CREATED_ID)
+	onContractCreated(evt: ContractCreated) {
 		const lastKnownVtxoIds =
 			this.watchMap.get(evt.arkAddress.encode())?.lastKnownVtxoIds ?? new Set();
 		this.watchMap.set(evt.arkAddress.encode(), {
@@ -74,20 +75,20 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 			errorBackoffMs: this.defaultBackoffMs,
 		});
 		this.logger.debug(
-			`Watching ${evt.arkAddress} for contract ${evt.contractId}`,
+			`Watching ${evt.arkAddress.encode()} for contract ${evt.contractId}`,
 		);
 	}
 
 	@OnEvent(CONTRACT_VOIDED_ID)
-	onAddressVoided(evt: ContractVoided) {
+	onContractVoided(evt: ContractVoided) {
 		this.watchMap.delete(evt.arkAddress.encode());
-		this.logger.debug(`Stopped watching ${evt.arkAddress} (voided)`);
+		this.logger.debug(`Stopped watching ${evt.arkAddress.encode()} (voided)`);
 	}
 
 	@OnEvent(CONTRACT_EXECUTED_ID)
 	onContractExecuted(evt: ContractExecuted) {
 		this.watchMap.delete(evt.arkAddress.encode());
-		this.logger.debug(`Stopped watching ${evt.arkAddress} (executed)`);
+		this.logger.debug(`Stopped watching ${evt.arkAddress.encode()} (executed)`);
 	}
 
 	// TODO: generated with AI, can certainly be improved

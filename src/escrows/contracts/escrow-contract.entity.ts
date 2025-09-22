@@ -4,6 +4,7 @@ import {
 	Entity,
 	Index,
 	JoinColumn,
+	ManyToOne,
 	OneToOne,
 	PrimaryGeneratedColumn,
 	UpdateDateColumn,
@@ -45,7 +46,7 @@ export class EscrowContract {
 	externalId!: string;
 
 	@Index()
-	@OneToOne(() => EscrowRequest, { eager: true })
+	@ManyToOne(() => EscrowRequest, { eager: true })
 	@JoinColumn({ name: "requestExternalId", referencedColumnName: "externalId" })
 	request!: EscrowRequest;
 
@@ -53,14 +54,14 @@ export class EscrowContract {
 	@Column({ type: "text" })
 	senderPubkey!: string;
 
-	@Column({ type: "text" })
+	@Column({ type: "text", nullable: true })
 	senderAddress!: string;
 
 	@Index()
 	@Column({ type: "text" })
 	receiverPubkey!: string;
 
-	@Column({ type: "text" })
+	@Column({ type: "text", nullable: true })
 	receiverAddress!: string;
 
 	@Column({ type: "integer" })
@@ -70,7 +71,7 @@ export class EscrowContract {
 	@Column({ type: "text" })
 	arkAddress!: string;
 
-	@Column({ type: "text", default: "open" })
+	@Column({ type: "text" })
 	status!: ContractStatus;
 
 	@Column({ type: "text", nullable: true })

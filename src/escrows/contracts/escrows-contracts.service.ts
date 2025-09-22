@@ -92,6 +92,7 @@ export class EscrowsContractsService {
 				EscrowRequest,
 				"externalId"
 			>,
+			status: "created",
 			senderPubkey: input.senderPubKey,
 			receiverPubkey: input.receiverPubKey,
 			amount: input.amount ?? 0,
@@ -141,6 +142,8 @@ export class EscrowsContractsService {
 			}),
 		);
 
+		qb.leftJoinAndSelect("r.request", "request");
+
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
 				new Brackets((w) => {
@@ -172,7 +175,6 @@ export class EscrowsContractsService {
 			const last = rows[rows.length - 1];
 			nextCursor = cursorToString(last.createdAt, last.id);
 		}
-
 		const items: GetEscrowContractDto[] = rows.map((r) => ({
 			externalId: r.externalId,
 			requestId: r.request.externalId,

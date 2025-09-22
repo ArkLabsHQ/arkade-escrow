@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { RestArkProvider } from "@arkade-os/sdk";
 import { ArkService } from "./ark.service";
 import { ARK_PROVIDER } from "./ark.constants";
+import { ArkFundingWatcher } from "./funding-watcher.service";
 
 @Module({
 	imports: [ConfigModule.forRoot()],
@@ -18,7 +19,8 @@ import { ARK_PROVIDER } from "./ark.constants";
 			},
 		},
 		ArkService,
+		ArkFundingWatcher,
 	],
-	exports: [ArkService, ARK_PROVIDER],
+	exports: [ArkService, ARK_PROVIDER, ArkFundingWatcher],
 })
 export class ArkModule {}

@@ -47,7 +47,7 @@ import {
 import { GetExecutionsByContractDto } from "./dto/get-executions-by-contract";
 
 @ApiTags("Escrow Contracts")
-@Controller()
+@Controller("api/v1/escrows/contracts")
 export class EscrowsContractsController {
 	constructor(private readonly service: EscrowsContractsService) {}
 
@@ -63,7 +63,7 @@ export class EscrowsContractsController {
 		name: "cursor",
 		required: false,
 		description: "Opaque cursor from previous page",
-		schema: { type: "string", example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==" },
+		schema: { type: "string" },
 	})
 	@ApiOkResponse({
 		description: "A page of user's contracts",
@@ -101,7 +101,7 @@ export class EscrowsContractsController {
 	async initiateSpendingPath(
 		@Body() dto: ExecuteEscrowContractInDto,
 		@UserFromJwt() user: User,
-		@Param("externaId") externalId: string,
+		@Param("externalId") externalId: string,
 	): Promise<ApiEnvelope<ExecuteEscrowContractOutDto>> {
 		const ce = await this.service.createContractExecution(
 			externalId,
@@ -111,7 +111,7 @@ export class EscrowsContractsController {
 		return envelope(ce);
 	}
 
-	@Get(":externaId")
+	@Get(":externalId")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Retrieve a contract by externalId" })
@@ -125,7 +125,7 @@ export class EscrowsContractsController {
 	@ApiNotFoundResponse({ description: "Escrow contract not found" })
 	async getOne(
 		@UserFromJwt() user: User,
-		@Param("externaId") externalId: string,
+		@Param("externalId") externalId: string,
 	): Promise<ApiEnvelope<GetEscrowContractDto>> {
 		const contract = await this.service.getOneByExternalId(
 			externalId,
@@ -134,7 +134,7 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
-	@Get(":externaId/executions")
+	@Get(":externalId/executions")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Retrieve all contract executions by contract" })
@@ -148,7 +148,7 @@ export class EscrowsContractsController {
 	@ApiNotFoundResponse({ description: "Escrow contract not found" })
 	async getExecutionsForContract(
 		@UserFromJwt() user: User,
-		@Param("externaId") externalId: string,
+		@Param("externalId") externalId: string,
 	): Promise<ApiPaginatedEnvelope<GetExecutionsByContractDto[]>> {
 		const executions = await this.service.getAllExecutionsByContractId(
 			externalId,
