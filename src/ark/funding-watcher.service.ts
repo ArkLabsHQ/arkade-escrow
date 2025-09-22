@@ -121,10 +121,10 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 			const vtxos = await this.arkService.getSpendableVtxoForContract(
 				entry.arkAddress,
 			);
-
+			this.logger.debug(vtxos);
 			const newFunds: VirtualCoin[] = [];
 			for (const vtxo of vtxos) {
-				// TODO: is txid unique per VirtualCoin?
+				// TODO: is txid unique per VirtualCoin?. Can VC become
 				if (!entry.lastKnownVtxoIds.has(vtxo.txid)) {
 					newFunds.push(vtxo);
 					entry.lastKnownVtxoIds.add(vtxo.txid);
@@ -148,7 +148,7 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 				};
 				this.events.emit(CONTRACT_FUNDED_ID, fundedEvent);
 				this.logger.log(
-					`Funding detected for ${entry.arkAddress} (contract ${entry.contractId})`,
+					`Funding detected for ${entry.arkAddress.encode()} (contract ${entry.contractId})`,
 				);
 			} else {
 				// No change

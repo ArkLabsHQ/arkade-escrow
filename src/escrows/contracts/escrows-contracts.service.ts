@@ -56,6 +56,25 @@ export class EscrowsContractsService {
 		private readonly events: EventEmitter2,
 	) {}
 
+	async onModuleInit() {
+		const qb = this.contractRepository.createQueryBuilder("r").where(
+			new Brackets((w) => {
+				w.where("r.status in ('created','funded')");
+			}),
+		);
+		const contractsWaitingForFunding = await qb.getMany();
+		setTimeout(() => {
+			contractsWaitingForFunding.forEach((entity) => {
+				this.events.emit(CONTRACT_CREATED_ID, {
+					eventId: randomUUID(),
+					contractId: entity.externalId,
+					arkAddress: ArkService.decodeArkAddress(entity.arkAddress),
+					createdAt: new Date().toISOString(),
+				} satisfies ContractCreated);
+			});
+		}, 5000);
+	}
+
 	async createContractForRequest(input: {
 		requestExternalId: string;
 		senderPubKey: string;

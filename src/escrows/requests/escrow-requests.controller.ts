@@ -76,7 +76,7 @@ export class EscrowRequestsController {
 		name: "cursor",
 		required: false,
 		description: "Opaque cursor from previous page",
-		schema: { type: "string", example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==" },
+		schema: { type: "string" },
 	})
 	@ApiOkResponse({
 		description: "A page of public requests",
@@ -126,7 +126,7 @@ export class EscrowRequestsController {
 		name: "cursor",
 		required: false,
 		description: "Opaque cursor from previous page",
-		schema: { type: "string", example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==" },
+		schema: { type: "string" },
 	})
 	@ApiOkResponse({
 		description: "A page of user's requests",

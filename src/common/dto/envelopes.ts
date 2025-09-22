@@ -78,7 +78,6 @@ export class ApiPaginatedMetaDto implements ApiPaginatedMeta {
 	@ApiPropertyOptional({
 		description:
 			"Opaque cursor to fetch the next page. Omitted when there is no next page.",
-		example: "MTczMjc5NDQ2NTAwMDoxMjM0NQ==",
 	})
 	nextCursor?: string;
 

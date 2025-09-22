@@ -17,6 +17,7 @@ import { RequestLoggingMiddleware } from "./common/middlewares/request-logging.m
 import { User } from "./users/user.entity";
 import { EscrowRequest } from "./escrows/requests/escrow-request.entity";
 import { EscrowContract } from "./escrows/contracts/escrow-contract.entity";
+import { ContractExecution } from "./escrows/contracts/contract-execution.entity";
 
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV === "development";
@@ -31,9 +32,9 @@ const isDev = process.env.NODE_ENV === "development";
 			useFactory: () => ({
 				type: "sqlite",
 				database: isTest ? ":memory:" : process.env.SQLITE_DB_PATH,
-				entities: [User, EscrowRequest, EscrowContract],
 				synchronize: true,
 				logging: isDev,
+				autoLoadEntities: true,
 			}),
 		}),
 		AuthModule,

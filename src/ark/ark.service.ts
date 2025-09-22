@@ -82,7 +82,12 @@ export class ArkService {
 			script,
 			this.indexerProvider,
 		);
-		return vtxos.filter((_) => _.spentBy === undefined);
+		this.logger.debug(vtxos);
+		return vtxos.filter(
+			(_) =>
+				// spentBy can be an empty string
+				(_.spentBy?.length ?? 0) === 0,
+		);
 	}
 
 	async createEscrowTransaction(
@@ -300,6 +305,14 @@ export class ArkService {
 			throw new Error(`Cannot convert address to script: ${address}`, {
 				cause,
 			});
+		}
+	}
+
+	static decodeArkAddress(address: string): ArkAddress {
+		try {
+			return ArkAddress.decode(address);
+		} catch (cause) {
+			throw new Error("Failed to decode Ark address:", { cause });
 		}
 	}
 }
