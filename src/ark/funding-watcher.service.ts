@@ -121,7 +121,6 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 			const vtxos = await this.arkService.getSpendableVtxoForContract(
 				entry.arkAddress,
 			);
-			this.logger.debug(vtxos);
 			const newFunds: VirtualCoin[] = [];
 			for (const vtxo of vtxos) {
 				// TODO: is txid unique per VirtualCoin?. Can VC become

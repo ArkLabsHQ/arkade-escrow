@@ -1,9 +1,13 @@
 import {
 	Body,
+	ConflictException,
 	Controller,
 	DefaultValuePipe,
 	Delete,
+	ForbiddenException,
 	Get,
+	Logger,
+	NotFoundException,
 	Param,
 	ParseIntPipe,
 	Post,
@@ -11,7 +15,6 @@ import {
 	UseGuards,
 } from "@nestjs/common";
 import {
-	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiBody,
 	ApiConflictResponse,
@@ -45,11 +48,10 @@ import {
 } from "./dto/create-escrow-request.dto";
 import { EscrowRequestsService } from "./escrow-requests.service";
 import { User } from "../../users/user.entity";
-import { EscrowsService } from "../escrows.service";
 import { OrderbookItemDto } from "./dto/orderbook.dto";
 import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
-import { CreateEscrowContractOutDto } from "../contracts/dto/create-escrow-contract.dto";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
+import { EscrowsContractsService } from "../contracts/escrows-contracts.service";
 
 @ApiTags("Escrow Requests")
 @ApiExtraModels(
@@ -60,9 +62,11 @@ import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 )
 @Controller("api/v1/escrows/requests")
 export class EscrowRequestsController {
+	private readonly logger = new Logger(EscrowRequestsController.name);
+
 	constructor(
 		private readonly requestsService: EscrowRequestsService,
-		private readonly orchestrator: EscrowsService,
+		private readonly contractsService: EscrowsContractsService,
 	) {}
 
 	@Get("orderbook")
@@ -148,46 +152,6 @@ export class EscrowRequestsController {
 		return paginatedEnvelope(items, { total, nextCursor });
 	}
 
-	@Post(":externalId/accept")
-	@UseGuards(AuthGuard)
-	@ApiBearerAuth()
-	@ApiOperation({
-		summary: "Accept a public escrow request and create a contract",
-	})
-	@ApiParam({ name: "externalId", description: "Public request external id" })
-	@ApiCreatedResponse({
-		description: "Contract created",
-		schema: getSchemaPathForDto(CreateEscrowRequestOutDto),
-	})
-	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
-	@ApiForbiddenResponse({ description: "Not allowed to accept this request" })
-	@ApiNotFoundResponse({ description: "Escrow request not found" })
-	@ApiConflictResponse({ description: "Request already accepted or canceled" })
-	@ApiBadRequestResponse({ description: "Cannot accept private requests" })
-	async accept(
-		@Param("externalId") externalId: string,
-		@UserFromJwt() user: User,
-	): Promise<ApiEnvelope<CreateEscrowContractOutDto>> {
-		// TODO: move to contracts endpoints
-		const acceptorPubkey: string = user.publicKey;
-		const c = await this.orchestrator.createContractFromPublicRequest(
-			externalId,
-			acceptorPubkey,
-		);
-		const dto: CreateEscrowContractOutDto = {
-			externalId: c.externalId,
-			requestId: c.request.externalId,
-			sender: c.senderPubkey,
-			receiver: c.receiverPubkey,
-			amount: c.amount,
-			arkAddress: c.arkAddress,
-			status: "created",
-			createdAt: c.createdAt.getTime(),
-			updatedAt: c.updatedAt.getTime(),
-		};
-		return envelope(dto);
-	}
-
 	@Get(":externalId")
 	@ApiBearerAuth()
 	@ApiOkResponse({
@@ -233,7 +197,21 @@ export class EscrowRequestsController {
 		@Param("externalId") externalId: string,
 		@UserFromJwt() user: User,
 	): Promise<ApiEnvelope<void>> {
-		await this.orchestrator.cancelRequest(externalId, user.publicKey);
+		const request = await this.requestsService.findOneByExternalId(externalId);
+		if (!request) throw new NotFoundException("Escrow request not found");
+		if (request.status !== "open")
+			throw new ConflictException(`Request is ${request.status}`);
+		if (request.creatorPubkey !== user.publicKey)
+			throw new ForbiddenException("Only the request creator can cancel");
+		const contract = await this.contractsService.findByRequestId(externalId);
+		if (contract) {
+			throw new ConflictException("Cannot cancel a request with a contract");
+		} else {
+			this.logger.warn(
+				`Cancelling request ${externalId} already accepted, but not found in contracts.`,
+			);
+		}
+		await this.requestsService.cancel(externalId);
 		return envelope();
 	}
 }

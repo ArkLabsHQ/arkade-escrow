@@ -18,8 +18,10 @@ import { EscrowRequest } from "../requests/escrow-request.entity";
 import { EscrowContract } from "./escrow-contract.entity";
 import {
 	CONTRACT_CREATED_ID,
+	CONTRACT_DRAFTED_ID,
 	CONTRACT_FUNDED_ID,
 	ContractCreated,
+	ContractDrafted,
 	ContractFunded,
 } from "../../common/contract-address.event";
 import { randomUUID } from "node:crypto";
@@ -39,12 +41,40 @@ import {
 	ContractExecution,
 	ExecutionTransaction,
 } from "./contract-execution.entity";
-import { VirtualCoin } from "@arkade-os/sdk";
+import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
 import { GetExecutionsByContractDto } from "./dto/get-executions-by-contract";
+import {
+	Contract,
+	Receiver,
+	Sender,
+	toContract,
+	toReceiver,
+	toSender,
+} from "../../common/Contract.types";
+import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
+
+type DraftContractInput =
+	| {
+			initiator: "sender";
+			senderAddress: ArkAddress;
+			senderPubkey: string;
+			receiverPubkey: string;
+			amount: number;
+			requestId: string;
+	  }
+	| {
+			initiator: "receiver";
+			senderPubkey: string;
+			receiverPubkey: string;
+			receiverAddress: ArkAddress;
+			amount: number;
+			requestId: string;
+	  };
 
 @Injectable()
 export class EscrowsContractsService {
 	private readonly logger = new Logger(EscrowsContractsService.name);
+	private readonly arbitratorPublicKey: string;
 
 	constructor(
 		private readonly configService: ConfigService,
@@ -54,7 +84,14 @@ export class EscrowsContractsService {
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		private readonly arkService: ArkService,
 		private readonly events: EventEmitter2,
-	) {}
+	) {
+		const arbitratorPubKey =
+			this.configService.get<string>("ARBITRATOR_PUB_KEY");
+		if (!arbitratorPubKey) {
+			throw new Error("ARBITRATOR_PUB_KEY is not set");
+		}
+		this.arbitratorPublicKey = arbitratorPubKey;
+	}
 
 	async onModuleInit() {
 		const qb = this.contractRepository.createQueryBuilder("r").where(
@@ -62,68 +99,152 @@ export class EscrowsContractsService {
 				w.where("r.status in ('created','funded')");
 			}),
 		);
-		const contractsWaitingForFunding = await qb.getMany();
+		const contractsWaitingForFunding = await qb
+			.where({ status: "created" })
+			.andWhere("r.arkAddress IS NOT NULL")
+			.andWhere("r.status in ('created','funded')")
+			.getMany();
 		setTimeout(() => {
 			contractsWaitingForFunding.forEach((entity) => {
 				this.events.emit(CONTRACT_CREATED_ID, {
 					eventId: randomUUID(),
 					contractId: entity.externalId,
-					arkAddress: ArkService.decodeArkAddress(entity.arkAddress),
+					// biome-ignore lint/style/noNonNullAssertion: the query filter ensures this is not null
+					arkAddress: ArkService.decodeArkAddress(entity.arkAddress!),
 					createdAt: new Date().toISOString(),
 				} satisfies ContractCreated);
 			});
 		}, 5000);
 	}
 
-	async createContractForRequest(input: {
-		requestExternalId: string;
-		senderPubKey: string;
-		receiverPubKey: string;
-		amount: number;
-	}) {
-		const arbitratorPubKey = this.configService.get("ARBITRATOR_PUB_KEY");
-		if (!arbitratorPubKey) {
-			throw new Error("ARBITRATOR_PUB_KEY is not set");
-		}
-		if (input.senderPubKey === arbitratorPubKey) {
+	async createDraftContract(
+		input: DraftContractInput,
+	): Promise<DraftEscrowContractOutDto> {
+		if (input.senderPubkey === this.arbitratorPublicKey) {
 			throw new Error("Cannot create a contract with the arbitrator as sender");
 		}
-		if (input.receiverPubKey === arbitratorPubKey) {
+		if (input.receiverPubkey === this.arbitratorPublicKey) {
 			throw new Error(
 				"Cannot create a contract with the arbitrator as receiver",
 			);
 		}
-		const arkAddress = this.arkService.createArkAddressForContract({
-			receiver: {
-				pubKey: input.receiverPubKey,
-			},
-			sender: {
-				pubKey: input.senderPubKey,
-			},
-			arbitrator: {
-				pubKey: arbitratorPubKey,
-			},
-		});
-
 		const entity = this.contractRepository.create({
 			externalId: nanoid(16),
-			request: { externalId: input.requestExternalId } as Pick<
+			request: { externalId: input.requestId } as Pick<
 				EscrowRequest,
 				"externalId"
 			>,
-			status: "created",
-			senderPubkey: input.senderPubKey,
-			receiverPubkey: input.receiverPubKey,
+			status: "draft",
+			senderPubkey: input.senderPubkey,
+			senderAddress:
+				input.initiator === "sender" ? input.senderAddress.encode() : undefined,
+			receiverPubkey: input.receiverPubkey,
+			receiverAddress:
+				input.initiator === "receiver"
+					? input.receiverAddress.encode()
+					: undefined,
 			amount: input.amount ?? 0,
-			arkAddress: arkAddress.encode(),
 		});
-		this.events.emit(CONTRACT_CREATED_ID, {
+		this.events.emit(CONTRACT_DRAFTED_ID, {
 			eventId: randomUUID(),
 			contractId: entity.externalId,
+			senderPubkey: input.senderPubkey,
+			receiverPubkey: input.receiverPubkey,
+			createdAt: new Date().toISOString(),
+		} satisfies ContractDrafted);
+		const persisted = await this.contractRepository.save(entity);
+		return {
+			externalId: persisted.externalId,
+			requestId: persisted.request.externalId,
+			senderPublicKey: persisted.senderPubkey,
+			senderAddress: persisted.senderAddress,
+			receiverPublicKey: persisted.receiverPubkey,
+			receiverAddress: persisted.receiverAddress,
+			amount: persisted.amount,
+			status: persisted.status,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
+	}
+
+	async createContractFromDraft(
+		externalId: string,
+		acceptorPubkey: string,
+		acceptorAddress: string,
+	): Promise<GetEscrowContractDto> {
+		const draft = await this.contractRepository.findOne({
+			where: { externalId },
+		});
+		if (!draft) {
+			throw new NotFoundException(`Contract ${externalId} not found`);
+		}
+		if (draft.status !== "draft") {
+			throw new UnprocessableEntityException(
+				`Contract ${externalId} is not in draft status`,
+			);
+		}
+		if (acceptorPubkey === this.arbitratorPublicKey) {
+			throw new ForbiddenException(
+				"Cannot create a contract with the arbitrator as sender",
+			);
+		}
+		const acceptorIsSender = draft.senderPubkey === acceptorPubkey;
+		if ((acceptorIsSender && !draft.receiverAddress) || !draft.senderAddress) {
+			throw new ConflictException("Contract is missing an address");
+		}
+
+		this.logger.debug(
+			`Creating contract from draft ${draft.externalId} with acceptor ${acceptorPubkey}`,
+		);
+
+		const sender = acceptorIsSender
+			? toSender(acceptorPubkey, acceptorAddress)
+			: toSender(draft.senderPubkey, draft.senderAddress);
+		// biome-ignore lint/style/noNonNullAssertion: checked above
+		const receiver = acceptorIsSender
+			? toReceiver(draft.senderPubkey, draft.senderAddress)
+			: toReceiver(acceptorPubkey, acceptorAddress);
+
+		const arkAddress = this.arkService.createArkAddressForContract(
+			toContract(sender, receiver, this.arbitratorPublicKey),
+		);
+
+		await this.contractRepository.update(
+			{ externalId: draft.externalId },
+			{
+				status: "created",
+				senderAddress: sender.address.encode(),
+				receiverAddress: receiver.address.encode(),
+				arkAddress: arkAddress.encode(),
+			},
+		);
+
+		this.events.emit(CONTRACT_CREATED_ID, {
+			eventId: randomUUID(),
+			contractId: draft.externalId,
 			arkAddress,
 			createdAt: new Date().toISOString(),
 		} satisfies ContractCreated);
-		return await this.contractRepository.save(entity);
+
+		const persisted = await this.contractRepository.findOne({
+			where: { externalId: draft.externalId },
+		});
+		if (!persisted) {
+			throw new InternalServerErrorException("Contract not found after update");
+		}
+		return {
+			externalId: persisted.externalId,
+			requestId: persisted.request.externalId,
+			senderPublicKey: persisted.senderPubkey,
+			senderAddress: persisted.senderAddress,
+			receiverPublicKey: persisted.receiverPubkey,
+			receiverAddress: persisted.receiverAddress,
+			amount: persisted.amount,
+			arkAddress: persisted.arkAddress,
+			status: persisted.status,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
 	}
 
 	async cancelContract(contractId: string): Promise<void> {
@@ -197,8 +318,10 @@ export class EscrowsContractsService {
 		const items: GetEscrowContractDto[] = rows.map((r) => ({
 			externalId: r.externalId,
 			requestId: r.request.externalId,
-			sender: r.senderPubkey,
-			receiver: r.receiverPubkey,
+			senderPublicKey: r.senderPubkey,
+			senderAddress: r.senderAddress,
+			receiverPublicKey: r.receiverPubkey,
+			receiverAddress: r.receiverAddress,
 			amount: r.amount,
 			arkAddress: r.arkAddress,
 			status: r.status,
@@ -242,6 +365,15 @@ export class EscrowsContractsService {
 		initiatorPubKey: string,
 	) {
 		if (
+			contract.status === "draft" ||
+			contract.senderAddress === "undefined" ||
+			contract.receiverAddress === "undefined"
+		) {
+			throw new UnprocessableEntityException(
+				"Contract is still in draft or addresses are not set",
+			);
+		}
+		if (
 			contract.status !== "funded" ||
 			!contract.virtualCoins ||
 			contract.virtualCoins.length === 0
@@ -260,23 +392,13 @@ export class EscrowsContractsService {
 		this.logger.debug(
 			`Contract ${contract.externalId} direct settlement using vtxo ${vtxo.txid} value ${vtxo.value}`,
 		);
-		const arbitratorPubKey =
-			this.configService.get<string>("ARBITRATOR_PUB_KEY") ?? "";
 		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
-				{
-					receiver: {
-						pubKey: contract.receiverPubkey,
-						address: contract.receiverAddress,
-					},
-					sender: {
-						pubKey: contract.senderPubkey,
-						address: contract.senderAddress,
-					},
-					arbitrator: {
-						pubKey: arbitratorPubKey,
-					},
-				},
+				toContract(
+					toSender(contract.senderPubkey, contract.senderAddress!),
+					toReceiver(contract.receiverPubkey, contract.receiverAddress!),
+					this.arbitratorPublicKey,
+				),
 				"direct-settle",
 				vtxo,
 			);
@@ -373,8 +495,10 @@ export class EscrowsContractsService {
 		return {
 			externalId: contract.externalId,
 			requestId: contract.request.externalId,
-			sender: contract.senderPubkey,
-			receiver: contract.receiverPubkey,
+			senderPublicKey: contract.senderPubkey,
+			senderAddress: contract.senderAddress,
+			receiverPublicKey: contract.receiverPubkey,
+			receiverAddress: contract.receiverAddress,
 			amount: contract.amount,
 			arkAddress: contract.arkAddress,
 			status: contract.status,

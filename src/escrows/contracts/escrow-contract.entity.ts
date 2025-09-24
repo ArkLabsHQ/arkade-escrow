@@ -13,7 +13,9 @@ import { EscrowRequest } from "../requests/escrow-request.entity";
 import { VirtualCoin } from "@arkade-os/sdk";
 
 export const CONTRACT_STATUS = [
-	// first status
+	// first status, missing addresses
+	"draft",
+	// all addresses are set, but no unspent VTXO
 	"created",
 	// at least one unspent VTXO is present for the ARK address
 	"funded",
@@ -55,21 +57,21 @@ export class EscrowContract {
 	senderPubkey!: string;
 
 	@Column({ type: "text", nullable: true })
-	senderAddress!: string;
+	senderAddress?: string;
 
 	@Index()
 	@Column({ type: "text" })
 	receiverPubkey!: string;
 
 	@Column({ type: "text", nullable: true })
-	receiverAddress!: string;
+	receiverAddress?: string;
 
 	@Column({ type: "integer" })
 	amount!: number;
 
 	@Index()
-	@Column({ type: "text" })
-	arkAddress!: string;
+	@Column({ type: "text", nullable: true })
+	arkAddress?: string;
 
 	@Column({ type: "text" })
 	status!: ContractStatus;

@@ -7,7 +7,6 @@ import { EscrowRequest } from "./requests/escrow-request.entity";
 import { EscrowContract } from "./contracts/escrow-contract.entity";
 import { AuthModule } from "../auth/auth.module";
 import { User } from "../users/user.entity";
-import { EscrowsService } from "./escrows.service";
 import { EscrowRequestsService } from "./requests/escrow-requests.service";
 import { EscrowRequestsController } from "./requests/escrow-requests.controller";
 import { ArkModule } from "../ark/ark.module";
@@ -24,8 +23,8 @@ import { ContractExecution } from "./contracts/contract-execution.entity";
 		AuthModule,
 		ArkModule,
 	],
-	providers: [EscrowsService, EscrowsContractsService, EscrowRequestsService],
+	providers: [EscrowsContractsService, EscrowRequestsService],
 	controllers: [EscrowsContractsController, EscrowRequestsController],
-	exports: [EscrowsContractsService, EscrowRequestsService, EscrowsService],
+	exports: [EscrowsContractsService, EscrowRequestsService],
 })
 export class EscrowsModule {}

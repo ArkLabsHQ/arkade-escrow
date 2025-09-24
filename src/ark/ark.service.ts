@@ -16,17 +16,8 @@ import { hex } from "@scure/base";
 import { TransactionOutput } from "@scure/btc-signer/psbt";
 
 import { ARK_PROVIDER } from "./ark.constants";
+import { Contract } from "../common/Contract.types";
 
-export type EscrowContract = {
-	receiver: { pubKey: string };
-	sender: { pubKey: string };
-	arbitrator: { pubKey: string };
-};
-export type EscrowContractWithAddress = {
-	receiver: { pubKey: string; address: string };
-	sender: { pubKey: string; address: string };
-	arbitrator: { pubKey: string };
-};
 export type Action = "release" | "refund" | "direct-settle";
 export type EscrowTransaction = {
 	arkTx: Transaction;
@@ -60,7 +51,7 @@ export class ArkService {
 		// TODO: anything to clean up on Ark side?
 	}
 
-	createArkAddressForContract(contract: EscrowContract): ArkAddress {
+	createArkAddressForContract(contract: Contract): ArkAddress {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
@@ -82,7 +73,6 @@ export class ArkService {
 			script,
 			this.indexerProvider,
 		);
-		this.logger.debug(vtxos);
 		return vtxos.filter(
 			(_) =>
 				// spentBy can be an empty string
@@ -91,7 +81,7 @@ export class ArkService {
 	}
 
 	async createEscrowTransaction(
-		contract: EscrowContractWithAddress,
+		contract: Contract,
 		action: Action,
 		vtxo: VirtualCoin,
 	): Promise<EscrowTransaction> {
@@ -178,15 +168,12 @@ export class ArkService {
 		return nextVtxos;
 	}
 
-	static restoreScript(
-		contract: EscrowContract,
-		arkInfo: ArkInfo,
-	): VEscrow.Script {
+	static restoreScript(contract: Contract, arkInfo: ArkInfo): VEscrow.Script {
 		return new VEscrow.Script({
 			unilateralDelay: ArkService.getUnilateralDelay(arkInfo),
-			receiver: hex.decode(contract.receiver.pubKey),
-			sender: hex.decode(contract.sender.pubKey),
-			arbitrator: hex.decode(contract.arbitrator.pubKey),
+			receiver: hex.decode(contract.receiver.publicKey),
+			sender: hex.decode(contract.sender.publicKey),
+			arbitrator: hex.decode(contract.arbitrator.publicKey),
 			server: hex.decode(ArkService.getServerKey(arkInfo)),
 		});
 	}
@@ -246,7 +233,7 @@ export class ArkService {
 
 	static createOutputsForAction(
 		action: Action,
-		contract: EscrowContractWithAddress,
+		contract: Contract,
 		amount: number,
 	): TransactionOutput[] {
 		switch (action) {
@@ -269,15 +256,9 @@ export class ArkService {
 				];
 
 			case "direct-settle": {
-				// Split 50/50 between sender and receiver
-				const halfAmount = Math.floor(amount / 2);
 				return [
 					{
-						amount: BigInt(halfAmount),
-						script: ArkService.addressToScript(contract.sender.address),
-					},
-					{
-						amount: BigInt(amount - halfAmount), // Remaining amount to avoid rounding issues
+						amount: BigInt(amount),
 						script: ArkService.addressToScript(contract.receiver.address),
 					},
 				];
@@ -288,24 +269,8 @@ export class ArkService {
 		}
 	}
 
-	static addressToScript(address: string): Uint8Array {
-		try {
-			// Decode the Ark address to get the script
-			const arkAddress = ArkAddress.decode(address);
-			return arkAddress.pkScript;
-		} catch (cause) {
-			// Fallback: if it's already a hex string, try to decode it
-			if (address.length % 2 === 0) {
-				try {
-					return hex.decode(address);
-				} catch (hexError) {
-					throw new Error("Failed to hex decode address:", { cause: hexError });
-				}
-			}
-			throw new Error(`Cannot convert address to script: ${address}`, {
-				cause,
-			});
-		}
+	static addressToScript(address: ArkAddress): Uint8Array {
+		return address.pkScript;
 	}
 
 	static decodeArkAddress(address: string): ArkAddress {

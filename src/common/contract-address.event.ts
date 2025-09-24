@@ -2,6 +2,15 @@ import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
 
 export type ContractId = string;
 
+export const CONTRACT_DRAFTED_ID = "contract.drafted";
+export type ContractDrafted = {
+	eventId: string;
+	contractId: ContractId;
+	senderPubkey: string;
+	receiverPubkey: string;
+	createdAt: string; // ISO timestamp
+};
+
 export const CONTRACT_CREATED_ID = "contract.created";
 export type ContractCreated = {
 	eventId: string;

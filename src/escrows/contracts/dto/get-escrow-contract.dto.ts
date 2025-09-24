@@ -15,10 +15,16 @@ export class GetEscrowContractDto {
 	requestId!: string;
 
 	@ApiProperty({ description: "Sender public key" })
-	sender!: string;
+	senderPublicKey!: string;
+
+	@ApiProperty({ description: "Sender ARK address", nullable: true })
+	senderAddress?: string;
 
 	@ApiProperty({ description: "Receiver public key" })
-	receiver!: string;
+	receiverPublicKey!: string;
+
+	@ApiProperty({ description: "Receiver ARK address", nullable: true })
+	receiverAddress?: string;
 
 	@ApiProperty({
 		minimum: 0,
@@ -28,8 +34,8 @@ export class GetEscrowContractDto {
 	@Min(0)
 	amount!: number;
 
-	@ApiProperty({ description: "ARK address of the contract" })
-	arkAddress!: string;
+	@ApiProperty({ description: "ARK address of the contract", nullable: true })
+	arkAddress?: string;
 
 	@ApiProperty({
 		enum: CONTRACT_STATUS,

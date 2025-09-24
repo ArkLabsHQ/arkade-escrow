@@ -1,9 +1,12 @@
 import {
+	BadRequestException,
 	Body,
+	ConflictException,
 	Controller,
 	DefaultValuePipe,
 	ForbiddenException,
 	Get,
+	Logger,
 	NotFoundException,
 	Param,
 	ParseIntPipe,
@@ -13,8 +16,11 @@ import {
 	UseGuards,
 } from "@nestjs/common";
 import {
+	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiBody,
+	ApiConflictResponse,
+	ApiCreatedResponse,
 	ApiForbiddenResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
@@ -45,11 +51,24 @@ import {
 	ExecuteEscrowContractInDto,
 } from "./dto/execute-escrow-contract.dto";
 import { GetExecutionsByContractDto } from "./dto/get-executions-by-contract";
+import { CreateEscrowRequestOutDto } from "../requests/dto/create-escrow-request.dto";
+import { EscrowRequestsService } from "../requests/escrow-requests.service";
+import { toReceiver, toSender } from "../../common/Contract.types";
+import {
+	CreateEscrowContractInDto,
+	DraftEscrowContractOutDto,
+} from "./dto/create-escrow-contract.dto";
+import { EnterEscrowContractInDto } from "./dto/enter-escrow-contract.dto";
 
 @ApiTags("Escrow Contracts")
 @Controller("api/v1/escrows/contracts")
 export class EscrowsContractsController {
-	constructor(private readonly service: EscrowsContractsService) {}
+	private readonly logger = new Logger(EscrowsContractsController.name);
+
+	constructor(
+		private readonly service: EscrowsContractsService,
+		private readonly requestsService: EscrowRequestsService,
+	) {}
 
 	@Get("")
 	@ApiBearerAuth()
@@ -85,7 +104,75 @@ export class EscrowsContractsController {
 		return paginatedEnvelope(items, { total, nextCursor });
 	}
 
-	@Post(":externaId/execute")
+	@Post("")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({
+		summary: "Create a contract from a public Escrow request",
+	})
+	@ApiBody({ type: CreateEscrowContractInDto })
+	@ApiCreatedResponse({
+		description: "Contract created",
+		schema: getSchemaPathForDto(DraftEscrowContractOutDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({
+		description: "Not allowed to create a contract from this request",
+	})
+	@ApiNotFoundResponse({ description: "Escrow request not found" })
+	@ApiConflictResponse({ description: "Request canceled" })
+	async create(
+		@Body() dto: CreateEscrowContractInDto,
+		@UserFromJwt() user: User,
+	): Promise<ApiEnvelope<DraftEscrowContractOutDto>> {
+		this.logger.log("Accepting contract from request", dto.requestId);
+		const request = await this.requestsService.findOneByExternalId(
+			dto.requestId,
+		);
+		if (!request) throw new NotFoundException("Escrow request not found");
+		if (!request.public)
+			throw new BadRequestException(
+				"Only public requests can be accepted right now",
+			);
+		if (request.status !== "open")
+			throw new ConflictException(`Request is ${request.status}`);
+		if (request.creatorPubkey === user.publicKey)
+			throw new ForbiddenException("Cannot accept your own request.");
+		if ((request.amount ?? 0) <= 0) {
+			throw new BadRequestException("Cannot accept a request with 0 amount");
+		}
+
+		switch (request.side) {
+			case "sender": {
+				const receiver = toReceiver(user.publicKey, dto.arkAddress);
+				const contract = await this.service.createDraftContract({
+					initiator: "receiver",
+					senderPubkey: request.creatorPubkey,
+					receiverPubkey: receiver.publicKey,
+					receiverAddress: receiver.address,
+					amount: request.amount ?? 0,
+					requestId: request.externalId,
+				});
+				return envelope(contract);
+			}
+			case "receiver": {
+				const sender = toSender(user.publicKey, dto.arkAddress);
+				const contract = await this.service.createDraftContract({
+					initiator: "sender",
+					senderPubkey: sender.publicKey,
+					senderAddress: sender.address,
+					receiverPubkey: request.creatorPubkey,
+					amount: request.amount ?? 0,
+					requestId: request.externalId,
+				});
+				return envelope(contract);
+			}
+			default:
+				throw new ConflictException(`Invalid request side ${request.side}`);
+		}
+	}
+
+	@Post(":externalId/execute")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Create an execution transations for the contract" })
@@ -130,6 +217,32 @@ export class EscrowsContractsController {
 		const contract = await this.service.getOneByExternalId(
 			externalId,
 			user.publicKey,
+		);
+		return envelope(contract);
+	}
+
+	@Patch(":externalId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Enter a draft contract by externalId" })
+	@ApiParam({ name: "externalId", description: "Contract external id" })
+	@ApiBody({ type: EnterEscrowContractInDto })
+	@ApiOkResponse({
+		description: "Contract created",
+		schema: getSchemaPathForDto(GetEscrowContractDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow contract not found" })
+	async enterContract(
+		@Body() dto: EnterEscrowContractInDto,
+		@UserFromJwt() user: User,
+		@Param("externalId") externalId: string,
+	): Promise<ApiEnvelope<GetEscrowContractDto>> {
+		const contract = await this.service.createContractFromDraft(
+			externalId,
+			user.publicKey,
+			dto.arkAddress,
 		);
 		return envelope(contract);
 	}
