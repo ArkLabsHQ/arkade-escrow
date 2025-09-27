@@ -123,10 +123,10 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 			);
 			const newFunds: VirtualCoin[] = [];
 			for (const vtxo of vtxos) {
-				// TODO: is txid unique per VirtualCoin?. Can VC become
-				if (!entry.lastKnownVtxoIds.has(vtxo.txid)) {
+				const outpoint = `${vtxo.txid}:${vtxo.vout}`;
+				if (!entry.lastKnownVtxoIds.has(outpoint)) {
 					newFunds.push(vtxo);
-					entry.lastKnownVtxoIds.add(vtxo.txid);
+					entry.lastKnownVtxoIds.add(outpoint);
 				}
 			}
 

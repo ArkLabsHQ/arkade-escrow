@@ -269,4 +269,67 @@ export class EscrowsContractsController {
 		);
 		return paginatedEnvelope(executions, { total: executions.length });
 	}
+
+	@Get(":externalId/executions/:executionId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Retrieve contract execution by ID" })
+	@ApiParam({
+		name: "externalId",
+		description: "Contract exectution external id",
+	})
+	@ApiOkResponse({
+		description: "Contract execution",
+		schema: getSchemaPathForDto(GetExecutionsByContractDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow execution not found" })
+	async getExecutionById(
+		@UserFromJwt() user: User,
+		@Param("externalId") externalId: string,
+		@Param("executionId") executionId: string,
+	): Promise<ApiEnvelope<GetExecutionsByContractDto>> {
+		// TODO: dedicated query
+		const executions = await this.service.getAllExecutionsByContractId(
+			externalId,
+			user.publicKey,
+		);
+		const result = executions.find((e) => e.externalId === executionId);
+		if (!result) throw new NotFoundException("Escrow execution not found");
+		return envelope(result);
+	}
+
+	@Patch(":externalId/executions/:executionId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Sign contract execution" })
+	@ApiParam({
+		name: "externalId",
+		description: "Contract external id",
+	})
+	@ApiParam({
+		name: "executionId",
+		description: "Contract execution external id",
+	})
+	@ApiOkResponse({
+		description: "Contract execution",
+		schema: getSchemaPathForDto(GetExecutionsByContractDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow execution not found" })
+	async signContractExecution(
+		@UserFromJwt() user: User,
+		@Param("externalId") externalId: string,
+		@Param("executionId") executionId: string,
+	): Promise<ApiEnvelope<GetExecutionsByContractDto>> {
+		const executions = await this.service.getAllExecutionsByContractId(
+			externalId,
+			user.publicKey,
+		);
+		const result = executions.find((e) => e.externalId === executionId);
+		if (!result) throw new NotFoundException("Escrow execution not found");
+		return envelope(result);
+	}
 }
