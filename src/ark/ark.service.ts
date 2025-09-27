@@ -12,13 +12,20 @@ import {
 	Transaction,
 	VirtualCoin,
 } from "@arkade-os/sdk";
-import { hex } from "@scure/base";
+import { base64, hex } from "@scure/base";
 import { TransactionOutput } from "@scure/btc-signer/psbt";
 
 import { ARK_PROVIDER } from "./ark.constants";
 import { Contract } from "../common/Contract.types";
 
 export type Action = "release" | "refund" | "direct-settle";
+export type EscrowTransactionForAction = {
+	action: "direct-settle";
+	receiverAddress: ArkAddress;
+	receiverPublicKey: string;
+	senderPublicKey: string;
+	arbitratorPublicKey: string;
+};
 export type EscrowTransaction = {
 	arkTx: Transaction;
 	checkpoints: Transaction[];
@@ -81,17 +88,24 @@ export class ArkService {
 	}
 
 	async createEscrowTransaction(
-		contract: Contract,
-		action: Action,
+		transactionInput: EscrowTransactionForAction,
 		vtxo: VirtualCoin,
 	): Promise<EscrowTransaction> {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
-		const script = ArkService.restoreScript(contract, this.arkInfo);
-		const spendingPath = ArkService.getSpendingPathForAction(script, action);
+		const script = ArkService.restoreScript(
+			{
+				...transactionInput,
+			},
+			this.arkInfo,
+		);
+		const spendingPath = ArkService.getSpendingPathForAction(
+			script,
+			transactionInput.action,
+		);
 		if (spendingPath === null) {
-			throw new Error(`Invalid action: ${action}`);
+			throw new Error(`Invalid action: ${transactionInput.action}`);
 		}
 
 		// Create server unroll script for checkpoint transactions
@@ -103,6 +117,11 @@ export class ArkService {
 			timelock: unilateralDelay,
 		});
 
+		const outputs = ArkService.createOutputsForAction(
+			transactionInput,
+			vtxo.value,
+		);
+
 		// Create input from the contract VTXO
 		const input = {
 			txid: vtxo.txid,
@@ -113,11 +132,6 @@ export class ArkService {
 			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
 		};
 
-		const outputs = ArkService.createOutputsForAction(
-			action,
-			contract,
-			vtxo.value,
-		);
 		this.logger.log(
 			"Building offchain tx with input:",
 			input.txid,
@@ -125,32 +139,54 @@ export class ArkService {
 			outputs.length,
 		);
 		// Build the offchain transaction
-		const result = buildOffchainTx([input], outputs, serverUnrollScript);
-
-		this.logger.debug("buildOffchainTx result:", result);
-
-		// TODO: this part seems to be debugging the SDK
-		if (!result || typeof result !== "object") {
-			throw new Error("buildOffchainTx returned invalid result");
-		}
-
-		const { arkTx, checkpoints } = result;
+		const { arkTx, checkpoints } = buildOffchainTx(
+			[input],
+			outputs,
+			serverUnrollScript,
+		);
 
 		if (!arkTx || !checkpoints) {
 			throw new Error("buildOffchainTx missing arkTx or checkpoints");
 		}
-		// TODO: end
 
 		const requiredSigners = ArkService.getRequiredSignersForAction(
 			script,
-			action,
+			transactionInput.action,
 		);
 
 		if (!requiredSigners) {
-			throw new Error(`Required signers not found for action ${action}`);
+			throw new Error(`Required signers not found for action ${input}`);
 		}
 
 		return { arkTx, checkpoints, requiredSigners: requiredSigners };
+	}
+
+	async executeEscrowTransaction(transaction: EscrowTransaction) {
+		if (this.arkInfo === undefined) {
+			throw new Error("ARK info not loaded");
+		}
+		// The Ark transaction has been signed by each required party when they approved
+		// Now we can submit the fully-signed transaction
+		const arkTxData = transaction.arkTx.toPSBT();
+		const arkTx = Transaction.fromPSBT(arkTxData, { allowUnknown: true });
+
+		// Phase 1: Submit the signed Ark transaction and get checkpoint transactions
+		const checkpointData = transaction.checkpoints.map((_) => _.toPSBT());
+		const { arkTxid } = await this.provider.submitTx(
+			base64.encode(arkTx.toPSBT()),
+			checkpointData.map((c) => base64.encode(c)),
+		);
+
+		this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
+
+		// Phase 2: Use the checkpoint transactions signed by each required party
+		// (each user signed their checkpoints when they approved)
+		console.log("Using pre-signed checkpoints for finalization...");
+		const finalCheckpoints = checkpointData.map((c) => base64.encode(c));
+
+		// Finalize the transaction
+		await this.provider.finalizeTx(arkTxid, finalCheckpoints);
+		console.log(`Successfully finalized tx with ID: ${arkTxid}`);
 	}
 
 	static async getVtxosForScript(
@@ -171,9 +207,9 @@ export class ArkService {
 	static restoreScript(contract: Contract, arkInfo: ArkInfo): VEscrow.Script {
 		return new VEscrow.Script({
 			unilateralDelay: ArkService.getUnilateralDelay(arkInfo),
-			receiver: hex.decode(contract.receiver.publicKey),
-			sender: hex.decode(contract.sender.publicKey),
-			arbitrator: hex.decode(contract.arbitrator.publicKey),
+			receiver: hex.decode(contract.receiverPublicKey),
+			sender: hex.decode(contract.senderPublicKey),
+			arbitrator: hex.decode(contract.arbitratorPublicKey),
 			server: hex.decode(ArkService.getServerKey(arkInfo)),
 		});
 	}
@@ -232,40 +268,23 @@ export class ArkService {
 	}
 
 	static createOutputsForAction(
-		action: Action,
-		contract: Contract,
+		transactionInput: EscrowTransactionForAction,
 		amount: number,
 	): TransactionOutput[] {
-		switch (action) {
-			case "release":
-				// Send all funds to receiver
-				return [
-					{
-						amount: BigInt(amount),
-						script: ArkService.addressToScript(contract.receiver.address),
-					},
-				];
-
-			case "refund":
-				// Send all funds to sender
-				return [
-					{
-						amount: BigInt(amount),
-						script: ArkService.addressToScript(contract.sender.address),
-					},
-				];
-
+		switch (transactionInput.action) {
 			case "direct-settle": {
 				return [
 					{
 						amount: BigInt(amount),
-						script: ArkService.addressToScript(contract.receiver.address),
+						script: ArkService.addressToScript(
+							transactionInput.receiverAddress,
+						),
 					},
 				];
 			}
 
 			default:
-				throw new Error(`Unknown action: ${action}`);
+				throw new Error(`Unknown action: ${transactionInput.action}`);
 		}
 	}
 

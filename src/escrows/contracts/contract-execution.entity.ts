@@ -13,6 +13,7 @@ import { EscrowContract } from "./escrow-contract.entity";
 export const EXECUTION_STATUS = [
 	"pending-initiator-signature",
 	"pending-counterparty-signature",
+	"pending-server-confirmation",
 	"executed",
 
 	// voided
@@ -27,8 +28,8 @@ export type ExecutionTransaction = {
 		vout: number;
 		value: number;
 	};
-	arkTx: number[]; // The Ark transaction as PSBT
-	checkpoints: number[][]; // Checkpoint transactions as PSBTs
+	arkTx: string; // The Ark transaction as PSBT
+	checkpoints: string[]; // Checkpoint transactions as PSBTs
 	requiredSignersPubKeys: string[];
 	approvedByPubKeys: string[]; // List of pubkeys who have approved
 	rejectedByPubKeys: string[]; // List of pubkeys who have rejected
@@ -55,7 +56,7 @@ export class ContractExecution {
 	@Column({ type: "text" })
 	initiatedByPubKey!: string;
 
-	@Column({ type: "text", default: "created" })
+	@Column({ type: "text" })
 	status!: ExecutionStatus;
 
 	@Column({ type: "text", nullable: true })

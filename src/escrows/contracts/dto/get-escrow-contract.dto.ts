@@ -2,10 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNumber, Min } from "class-validator";
 import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
 import { VirtualCoin } from "@arkade-os/sdk";
-import {
-	ContractExecution,
-	ExecutionTransaction,
-} from "../contract-execution.entity";
+import { ContractExecution } from "../contract-execution.entity";
 
 export class GetEscrowContractDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
@@ -17,14 +14,8 @@ export class GetEscrowContractDto {
 	@ApiProperty({ description: "Sender public key" })
 	senderPublicKey!: string;
 
-	@ApiProperty({ description: "Sender ARK address", nullable: true })
-	senderAddress?: string;
-
 	@ApiProperty({ description: "Receiver public key" })
 	receiverPublicKey!: string;
-
-	@ApiProperty({ description: "Receiver ARK address", nullable: true })
-	receiverAddress?: string;
 
 	@ApiProperty({
 		minimum: 0,

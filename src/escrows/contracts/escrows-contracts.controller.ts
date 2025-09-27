@@ -50,15 +50,13 @@ import {
 	ExecuteEscrowContractOutDto,
 	ExecuteEscrowContractInDto,
 } from "./dto/execute-escrow-contract.dto";
-import { GetExecutionsByContractDto } from "./dto/get-executions-by-contract";
-import { CreateEscrowRequestOutDto } from "../requests/dto/create-escrow-request.dto";
 import { EscrowRequestsService } from "../requests/escrow-requests.service";
-import { toReceiver, toSender } from "../../common/Contract.types";
 import {
 	CreateEscrowContractInDto,
 	DraftEscrowContractOutDto,
 } from "./dto/create-escrow-contract.dto";
-import { EnterEscrowContractInDto } from "./dto/enter-escrow-contract.dto";
+import { SignExecutionInDto } from "./dto/sign-execution.dto";
+import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 
 @ApiTags("Escrow Contracts")
 @Controller("api/v1/escrows/contracts")
@@ -144,23 +142,19 @@ export class EscrowsContractsController {
 
 		switch (request.side) {
 			case "sender": {
-				const receiver = toReceiver(user.publicKey, dto.arkAddress);
 				const contract = await this.service.createDraftContract({
 					initiator: "receiver",
 					senderPubkey: request.creatorPubkey,
-					receiverPubkey: receiver.publicKey,
-					receiverAddress: receiver.address,
+					receiverPubkey: user.publicKey,
 					amount: request.amount ?? 0,
 					requestId: request.externalId,
 				});
 				return envelope(contract);
 			}
 			case "receiver": {
-				const sender = toSender(user.publicKey, dto.arkAddress);
 				const contract = await this.service.createDraftContract({
 					initiator: "sender",
-					senderPubkey: sender.publicKey,
-					senderAddress: sender.address,
+					senderPubkey: user.publicKey,
 					receiverPubkey: request.creatorPubkey,
 					amount: request.amount ?? 0,
 					requestId: request.externalId,
@@ -175,7 +169,10 @@ export class EscrowsContractsController {
 	@Post(":externalId/execute")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
-	@ApiOperation({ summary: "Create an execution transations for the contract" })
+	@ApiOperation({
+		summary:
+			"Create a direct settlement execution transaction for the contract",
+	})
 	@ApiParam({ name: "externalId", description: "Contract external id" })
 	@ApiBody({ type: ExecuteEscrowContractInDto })
 	@ApiOkResponse({
@@ -183,16 +180,18 @@ export class EscrowsContractsController {
 		schema: getSchemaPathForDto(ExecuteEscrowContractOutDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
-	@ApiForbiddenResponse({ description: "Not allowed to modify this contract" })
+	@ApiForbiddenResponse({
+		description: "Not allowed to execute direct settlement for this contract",
+	})
 	@ApiNotFoundResponse({ description: "Escrow contract not found" })
 	async initiateSpendingPath(
 		@Body() dto: ExecuteEscrowContractInDto,
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
 	): Promise<ApiEnvelope<ExecuteEscrowContractOutDto>> {
-		const ce = await this.service.createContractExecution(
+		const ce = await this.service.createDirectSettlementExecution(
 			externalId,
-			dto.action,
+			dto.arkAddress,
 			user.publicKey,
 		);
 		return envelope(ce);
@@ -221,12 +220,11 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
-	@Patch(":externalId")
+	@Post(":externalId/accept")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Enter a draft contract by externalId" })
 	@ApiParam({ name: "externalId", description: "Contract external id" })
-	@ApiBody({ type: EnterEscrowContractInDto })
 	@ApiOkResponse({
 		description: "Contract created",
 		schema: getSchemaPathForDto(GetEscrowContractDto),
@@ -235,14 +233,12 @@ export class EscrowsContractsController {
 	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
 	@ApiNotFoundResponse({ description: "Escrow contract not found" })
 	async enterContract(
-		@Body() dto: EnterEscrowContractInDto,
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
 	): Promise<ApiEnvelope<GetEscrowContractDto>> {
-		const contract = await this.service.createContractFromDraft(
+		const contract = await this.service.acceptDraftContract(
 			externalId,
 			user.publicKey,
-			dto.arkAddress,
 		);
 		return envelope(contract);
 	}
@@ -254,7 +250,7 @@ export class EscrowsContractsController {
 	@ApiParam({ name: "externalId", description: "Contract external id" })
 	@ApiOkResponse({
 		description: "Execution transations initiated",
-		schema: getSchemaPathForPaginatedDto(GetExecutionsByContractDto),
+		schema: getSchemaPathForPaginatedDto(GetExecutionByContractDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
@@ -262,7 +258,7 @@ export class EscrowsContractsController {
 	async getExecutionsForContract(
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
-	): Promise<ApiPaginatedEnvelope<GetExecutionsByContractDto[]>> {
+	): Promise<ApiPaginatedEnvelope<GetExecutionByContractDto[]>> {
 		const executions = await this.service.getAllExecutionsByContractId(
 			externalId,
 			user.publicKey,
@@ -280,7 +276,7 @@ export class EscrowsContractsController {
 	})
 	@ApiOkResponse({
 		description: "Contract execution",
-		schema: getSchemaPathForDto(GetExecutionsByContractDto),
+		schema: getSchemaPathForDto(GetExecutionByContractDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
@@ -289,7 +285,7 @@ export class EscrowsContractsController {
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
 		@Param("executionId") executionId: string,
-	): Promise<ApiEnvelope<GetExecutionsByContractDto>> {
+	): Promise<ApiEnvelope<GetExecutionByContractDto>> {
 		// TODO: dedicated query
 		const executions = await this.service.getAllExecutionsByContractId(
 			externalId,
@@ -304,6 +300,7 @@ export class EscrowsContractsController {
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Sign contract execution" })
+	@ApiBody({ type: SignExecutionInDto })
 	@ApiParam({
 		name: "externalId",
 		description: "Contract external id",
@@ -314,7 +311,7 @@ export class EscrowsContractsController {
 	})
 	@ApiOkResponse({
 		description: "Contract execution",
-		schema: getSchemaPathForDto(GetExecutionsByContractDto),
+		schema: getSchemaPathForDto(GetExecutionByContractDto),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
@@ -323,13 +320,15 @@ export class EscrowsContractsController {
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
 		@Param("executionId") executionId: string,
-	): Promise<ApiEnvelope<GetExecutionsByContractDto>> {
-		const executions = await this.service.getAllExecutionsByContractId(
+		@Body() dto: SignExecutionInDto,
+	): Promise<ApiEnvelope<GetExecutionByContractDto>> {
+		const execution = await this.service.signContractExecution(
 			externalId,
+			executionId,
 			user.publicKey,
+			dto,
 		);
-		const result = executions.find((e) => e.externalId === executionId);
-		if (!result) throw new NotFoundException("Escrow execution not found");
-		return envelope(result);
+
+		return envelope(execution);
 	}
 }

@@ -35,42 +35,22 @@ import {
 	cursorToString,
 	emptyCursor,
 } from "../../common/dto/envelopes";
-import {
-	ContractAction,
-	ExecuteEscrowContractOutDto,
-} from "./dto/execute-escrow-contract.dto";
+import { ExecuteEscrowContractOutDto } from "./dto/execute-escrow-contract.dto";
 import {
 	ContractExecution,
 	ExecutionTransaction,
 } from "./contract-execution.entity";
-import { GetExecutionsByContractDto } from "./dto/get-executions-by-contract";
-import {
-	Contract,
-	Receiver,
-	Sender,
-	toContract,
-	toReceiver,
-	toSender,
-} from "../../common/Contract.types";
+import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
+
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 
-type DraftContractInput =
-	| {
-			initiator: "sender";
-			senderAddress: ArkAddress;
-			senderPubkey: string;
-			receiverPubkey: string;
-			amount: number;
-			requestId: string;
-	  }
-	| {
-			initiator: "receiver";
-			senderPubkey: string;
-			receiverPubkey: string;
-			receiverAddress: ArkAddress;
-			amount: number;
-			requestId: string;
-	  };
+type DraftContractInput = {
+	initiator: "sender" | "receiver";
+	senderPubkey: string;
+	receiverPubkey: string;
+	amount: number;
+	requestId: string;
+};
 
 @Injectable()
 export class EscrowsContractsService {
@@ -101,18 +81,17 @@ export class EscrowsContractsService {
 			}),
 		);
 		const contractsWaitingForFunding = await qb
-			.where({ status: "created" })
+			.where("r.status in ('created','funded')")
 			.andWhere("r.arkAddress IS NOT NULL")
-			.andWhere("r.status in ('created','funded')")
 			.getMany();
 		setTimeout(() => {
 			contractsWaitingForFunding.forEach((entity) => {
 				this.events.emit(CONTRACT_CREATED_ID, {
 					eventId: randomUUID(),
 					contractId: entity.externalId,
-					// biome-ignore lint/style/noNonNullAssertion: the query filter ensures this is not null
-					arkAddress: ArkService.decodeArkAddress(entity.arkAddress!),
-					createdAt: new Date().toISOString(),
+					// biome-ignore lint/style/noNonNullAssertion: checked in the query
+					arkAddress: ArkAddress.decode(entity.arkAddress!),
+					createdAt: entity.createdAt.toISOString(),
 				} satisfies ContractCreated);
 			});
 		}, 5000);
@@ -137,13 +116,7 @@ export class EscrowsContractsService {
 			>,
 			status: "draft",
 			senderPubkey: input.senderPubkey,
-			senderAddress:
-				input.initiator === "sender" ? input.senderAddress.encode() : undefined,
 			receiverPubkey: input.receiverPubkey,
-			receiverAddress:
-				input.initiator === "receiver"
-					? input.receiverAddress.encode()
-					: undefined,
 			amount: input.amount ?? 0,
 		});
 		this.events.emit(CONTRACT_DRAFTED_ID, {
@@ -158,9 +131,7 @@ export class EscrowsContractsService {
 			externalId: persisted.externalId,
 			requestId: persisted.request.externalId,
 			senderPublicKey: persisted.senderPubkey,
-			senderAddress: persisted.senderAddress,
 			receiverPublicKey: persisted.receiverPubkey,
-			receiverAddress: persisted.receiverAddress,
 			amount: persisted.amount,
 			status: persisted.status,
 			createdAt: persisted.createdAt.getTime(),
@@ -168,10 +139,9 @@ export class EscrowsContractsService {
 		};
 	}
 
-	async createContractFromDraft(
+	async acceptDraftContract(
 		externalId: string,
 		acceptorPubkey: string,
-		acceptorAddress: string,
 	): Promise<GetEscrowContractDto> {
 		const draft = await this.contractRepository.findOne({
 			where: { externalId },
@@ -189,33 +159,29 @@ export class EscrowsContractsService {
 				"Cannot create a contract with the arbitrator as sender",
 			);
 		}
-		const acceptorIsSender = draft.senderPubkey === acceptorPubkey;
-		if ((acceptorIsSender && !draft.receiverAddress) || !draft.senderAddress) {
-			throw new ConflictException("Contract is missing an address");
+		if (
+			acceptorPubkey !== draft.senderPubkey ||
+			acceptorPubkey !== draft.receiverPubkey
+		) {
+			throw new ForbiddenException(
+				"Only the sender or receiver can accept the contract",
+			);
 		}
 
 		this.logger.debug(
 			`Creating contract from draft ${draft.externalId} with acceptor ${acceptorPubkey}`,
 		);
 
-		const sender = acceptorIsSender
-			? toSender(acceptorPubkey, acceptorAddress)
-			: toSender(draft.senderPubkey, draft.senderAddress);
-		// biome-ignore lint/style/noNonNullAssertion: checked above
-		const receiver = acceptorIsSender
-			? toReceiver(draft.senderPubkey, draft.senderAddress)
-			: toReceiver(acceptorPubkey, acceptorAddress);
-
-		const arkAddress = this.arkService.createArkAddressForContract(
-			toContract(sender, receiver, this.arbitratorPublicKey),
-		);
+		const arkAddress = this.arkService.createArkAddressForContract({
+			senderPublicKey: draft.senderPubkey,
+			receiverPublicKey: draft.receiverPubkey,
+			arbitratorPublicKey: this.arbitratorPublicKey,
+		});
 
 		await this.contractRepository.update(
 			{ externalId: draft.externalId },
 			{
 				status: "created",
-				senderAddress: sender.address.encode(),
-				receiverAddress: receiver.address.encode(),
 				arkAddress: arkAddress.encode(),
 			},
 		);
@@ -237,9 +203,7 @@ export class EscrowsContractsService {
 			externalId: persisted.externalId,
 			requestId: persisted.request.externalId,
 			senderPublicKey: persisted.senderPubkey,
-			senderAddress: persisted.senderAddress,
 			receiverPublicKey: persisted.receiverPubkey,
-			receiverAddress: persisted.receiverAddress,
 			amount: persisted.amount,
 			arkAddress: persisted.arkAddress,
 			status: persisted.status,
@@ -320,11 +284,8 @@ export class EscrowsContractsService {
 			externalId: r.externalId,
 			requestId: r.request.externalId,
 			senderPublicKey: r.senderPubkey,
-			senderAddress: r.senderAddress,
 			receiverPublicKey: r.receiverPubkey,
-			receiverAddress: r.receiverAddress,
 			amount: r.amount,
-			arkAddress: r.arkAddress,
 			status: r.status,
 			balance: r.virtualCoins?.reduce((a, _) => a + _.value, 0) ?? 0,
 			createdAt: r.createdAt.getTime(),
@@ -338,11 +299,11 @@ export class EscrowsContractsService {
 		contractId: string,
 		executionId: string,
 		signerPubKey: string,
-		siggnature: {
-			arkTx: Uint8Array<ArrayBufferLike>;
-			checkpoints: Uint8Array<ArrayBufferLike>[];
+		signature: {
+			arkTx: string;
+			checkpoints: string[];
 		},
-	): Promise<ContractExecution> {
+	): Promise<GetExecutionByContractDto> {
 		const contract = await this.contractRepository.findOne({
 			where: { externalId: contractId },
 		});
@@ -359,6 +320,32 @@ export class EscrowsContractsService {
 				`Contract ${contractId} is not funded`,
 			);
 		}
+		if (!execution.transaction.requiredSignersPubKeys.includes(signerPubKey)) {
+			throw new ConflictException("Signer is not a required signer");
+		}
+		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
+			throw new ConflictException("Signer has already approved");
+		}
+		if (execution.transaction.rejectedByPubKeys.includes(signerPubKey)) {
+			throw new ConflictException("Signer has already rejected");
+		}
+
+		// Verify the signed PSBTs actually match the original tx skeleton
+		// and include a signature by signerPubKey
+		this.verifyExecutionSignature(execution, signerPubKey, {
+			arkTx: hex.decode(signature.arkTx),
+			checkpoints: signature.checkpoints.map(hex.decode),
+		});
+
+		const updatedExcutionTx: ExecutionTransaction = {
+			...execution.transaction,
+			arkTx: signature.arkTx,
+			checkpoints: signature.checkpoints,
+			approvedByPubKeys: [signerPubKey],
+		};
+
+		let nextExecutionStatus = execution.status;
+
 		switch (execution.status) {
 			case "pending-initiator-signature": {
 				if (execution.initiatedByPubKey !== signerPubKey) {
@@ -366,56 +353,8 @@ export class EscrowsContractsService {
 						`Execution must be signed by initiator first`,
 					);
 				}
-				if (
-					!execution.transaction.requiredSignersPubKeys.includes(signerPubKey)
-				) {
-					throw new ConflictException("Signer is not a required signer");
-				}
-				if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
-					throw new ConflictException("Signer has already approved");
-				}
-				if (execution.transaction.rejectedByPubKeys.includes(signerPubKey)) {
-					throw new ConflictException("Signer has already rejected");
-				}
-
-				// Verify the signed PSBTs actually match the original tx skeleton and include a signature by signerPubKey
-				this.verifyExecutionSignature(execution, signerPubKey, {
-					arkTx: new Uint8Array(siggnature.arkTx as Uint8Array),
-					checkpoints: siggnature.checkpoints.map(
-						(c) => new Uint8Array(c as Uint8Array),
-					),
-				});
-
-				const updatedExcutionTx: ExecutionTransaction = {
-					...execution.transaction,
-					arkTx: Array.from(siggnature.arkTx),
-					checkpoints: siggnature.checkpoints.map((_) => Array.from(_)),
-					approvedByPubKeys: [signerPubKey],
-				};
-
-				await this.contractExecutionRepository.update(
-					{
-						externalId: contract.externalId,
-						contract: { externalId: contractId },
-					},
-					{
-						status: "pending-counterparty-signature",
-						transaction: updatedExcutionTx,
-					},
-				);
-
-				const persisted = await this.contractExecutionRepository.findOne({
-					where: {
-						externalId: executionId,
-						contract: { externalId: contractId },
-					},
-				});
-				if (!persisted) {
-					throw new InternalServerErrorException(
-						"Execution not found after update",
-					);
-				}
-				return persisted;
+				nextExecutionStatus = "pending-counterparty-signature";
+				break;
 			}
 			case "pending-counterparty-signature": {
 				if (execution.initiatedByPubKey === signerPubKey) {
@@ -423,62 +362,8 @@ export class EscrowsContractsService {
 						`Execution must be signed by counterparty`,
 					);
 				}
-				if (
-					!execution.transaction.requiredSignersPubKeys.includes(signerPubKey)
-				) {
-					throw new ConflictException("Signer is not a required signer");
-				}
-				if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
-					throw new ConflictException("Signer has already approved");
-				}
-				if (execution.transaction.rejectedByPubKeys.includes(signerPubKey)) {
-					throw new ConflictException("Signer has already rejected");
-				}
-
-				// Verify the signed PSBTs actually match the original tx skeleton and include a signature by signerPubKey
-				this.verifyExecutionSignature(execution, signerPubKey, {
-					arkTx: new Uint8Array(siggnature.arkTx as Uint8Array),
-					checkpoints: siggnature.checkpoints.map(
-						(c) => new Uint8Array(c as Uint8Array),
-					),
-				});
-
-				const updatedExcutionTx: ExecutionTransaction = {
-					...execution.transaction,
-					arkTx: Array.from(siggnature.arkTx),
-					checkpoints: siggnature.checkpoints.map((_) => Array.from(_)),
-					approvedByPubKeys: [
-						...execution.transaction.approvedByPubKeys,
-						signerPubKey,
-					],
-				};
-
-				// TODO:  send to ARK network
-
-				await this.contractExecutionRepository.update(
-					{
-						externalId: contract.externalId,
-						contract: { externalId: contractId },
-					},
-					{
-						// TODO: probaly some "pending server confirmation"?
-						status: "executed",
-						transaction: updatedExcutionTx,
-					},
-				);
-
-				const persisted = await this.contractExecutionRepository.findOne({
-					where: {
-						externalId: executionId,
-						contract: { externalId: contractId },
-					},
-				});
-				if (!persisted) {
-					throw new InternalServerErrorException(
-						"Execution not found after update",
-					);
-				}
-				return persisted;
+				nextExecutionStatus = "pending-server-confirmation";
+				break;
 			}
 			default: {
 				throw new UnprocessableEntityException(
@@ -486,11 +371,41 @@ export class EscrowsContractsService {
 				);
 			}
 		}
+
+		// TODO:  send to ARK network
+
+		await this.contractExecutionRepository.update(
+			{
+				externalId: contract.externalId,
+				contract: { externalId: contractId },
+			},
+			{
+				status: nextExecutionStatus,
+				transaction: updatedExcutionTx,
+			},
+		);
+
+		const persisted = await this.contractExecutionRepository.findOne({
+			where: {
+				externalId: executionId,
+				contract: { externalId: contractId },
+			},
+		});
+		if (!persisted) {
+			throw new InternalServerErrorException(
+				"Execution not found after update",
+			);
+		}
+		return {
+			...persisted,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
 	}
 
-	async createContractExecution(
+	async createDirectSettlementExecution(
 		externalId: string,
-		action: ContractAction,
+		initiatorArkAddress: string,
 		initiatorPubKey: string,
 	): Promise<ExecuteEscrowContractOutDto> {
 		const contract = await this.contractRepository.findOne({
@@ -499,31 +414,7 @@ export class EscrowsContractsService {
 		if (!contract) {
 			throw new NotFoundException(`Contract ${externalId} not found`);
 		}
-		if (action === "direct-settle") {
-			const contractExecution = await this.executeDirectSettlement(
-				contract,
-				initiatorPubKey,
-			);
-			return {
-				externalId: contractExecution.externalId,
-				contractId: contractExecution.contract.externalId,
-				arkTx: contractExecution.transaction.arkTx,
-				checkpoints: contractExecution.transaction.checkpoints,
-				vtxo: contractExecution.transaction.vtxo,
-			};
-		}
-		throw new NotImplementedException(`Action ${action} not implemented`);
-	}
-
-	private async executeDirectSettlement(
-		contract: EscrowContract,
-		initiatorPubKey: string,
-	) {
-		if (
-			contract.status === "draft" ||
-			contract.senderAddress === "undefined" ||
-			contract.receiverAddress === "undefined"
-		) {
+		if (contract.status === "draft") {
 			throw new UnprocessableEntityException(
 				"Contract is still in draft or addresses are not set",
 			);
@@ -535,26 +426,25 @@ export class EscrowsContractsService {
 		) {
 			throw new UnprocessableEntityException("Contract  is not funded");
 		}
-		if (
-			contract.senderPubkey !== initiatorPubKey &&
-			contract.receiverPubkey !== initiatorPubKey
-		) {
-			throw new ForbiddenException(
-				"Only the sender or receiver can execute this action",
-			);
+		if (contract.receiverPubkey !== initiatorPubKey) {
+			throw new ForbiddenException("Only the receiver can execute this action");
 		}
 		const vtxo = contract.virtualCoins[0];
+		if (!vtxo) {
+			throw new UnprocessableEntityException("no vtxo found");
+		}
 		this.logger.debug(
 			`Contract ${contract.externalId} direct settlement using vtxo ${vtxo.txid} value ${vtxo.value}`,
 		);
 		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
-				toContract(
-					toSender(contract.senderPubkey, contract.senderAddress!),
-					toReceiver(contract.receiverPubkey, contract.receiverAddress!),
-					this.arbitratorPublicKey,
-				),
-				"direct-settle",
+				{
+					action: "direct-settle",
+					receiverAddress: ArkAddress.decode(initiatorArkAddress),
+					receiverPublicKey: initiatorPubKey,
+					senderPublicKey: contract.senderPubkey,
+					arbitratorPublicKey: this.arbitratorPublicKey,
+				},
 				vtxo,
 			);
 
@@ -572,9 +462,9 @@ export class EscrowsContractsService {
 						vout: vtxo.vout,
 						value: vtxo.value,
 					},
-					arkTx: Array.from(escrowTransaction.arkTx.toPSBT()),
+					arkTx: hex.encode(escrowTransaction.arkTx.toPSBT()),
 					checkpoints: escrowTransaction.checkpoints.map((_) =>
-						Array.from(_.toPSBT()),
+						hex.encode(_.toPSBT()),
 					),
 					requiredSignersPubKeys: escrowTransaction.requiredSigners,
 					approvedByPubKeys: [],
@@ -582,7 +472,13 @@ export class EscrowsContractsService {
 				},
 			});
 			const persisted = await this.contractExecutionRepository.save(entity);
-			return persisted;
+			return {
+				externalId: persisted.externalId,
+				contractId: persisted.contract.externalId,
+				arkTx: persisted.transaction.arkTx,
+				checkpoints: persisted.transaction.checkpoints,
+				vtxo: persisted.transaction.vtxo,
+			};
 		} catch (e) {
 			this.logger.error("Failed to create escrow transaction", e);
 			throw new InternalServerErrorException(
@@ -651,9 +547,7 @@ export class EscrowsContractsService {
 			externalId: contract.externalId,
 			requestId: contract.request.externalId,
 			senderPublicKey: contract.senderPubkey,
-			senderAddress: contract.senderAddress,
 			receiverPublicKey: contract.receiverPubkey,
-			receiverAddress: contract.receiverAddress,
 			amount: contract.amount,
 			arkAddress: contract.arkAddress,
 			status: contract.status,
@@ -668,7 +562,7 @@ export class EscrowsContractsService {
 	async getAllExecutionsByContractId(
 		contractId: string,
 		pubKey: string,
-	): Promise<GetExecutionsByContractDto[]> {
+	): Promise<GetExecutionByContractDto[]> {
 		const contract = await this.contractRepository.findOne({
 			where: { externalId: contractId },
 		});

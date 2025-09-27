@@ -1,18 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEnum } from "class-validator";
 
 export const ACTION_TYPE = ["direct-settle", "release", "refund"] as const;
 export type ContractAction = (typeof ACTION_TYPE)[number];
 
 export class ExecuteEscrowContractInDto {
-	@ApiProperty({
-		enum: ACTION_TYPE,
-		description: "The spending path to use",
-	})
-	@IsEnum(ACTION_TYPE, {
-		message: `action must be one of: ${ACTION_TYPE.join(", ")}`,
-	})
-	action!: ContractAction;
+	@ApiProperty({ type: "string" })
+	arkAddress!: string;
 }
 
 export class ExecuteEscrowContractOutDto {
@@ -25,10 +18,10 @@ export class ExecuteEscrowContractOutDto {
 	@ApiProperty({
 		description: "Ark transaction for this execution, to be signed",
 	})
-	arkTx!: number[];
+	arkTx!: string;
 
 	@ApiProperty({ description: "Checkpoints for this execution, to be signed" })
-	checkpoints!: number[][];
+	checkpoints!: string[];
 
 	@ApiProperty({ description: "VTXO for this execution" })
 	vtxo!: {

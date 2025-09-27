@@ -5,7 +5,7 @@ import {
 	ExecutionTransaction,
 } from "../contract-execution.entity";
 
-export class GetExecutionsByContractDto {
+export class GetExecutionByContractDto {
 	@ApiProperty({ description: "Unique identifier" })
 	externalId!: string;
 

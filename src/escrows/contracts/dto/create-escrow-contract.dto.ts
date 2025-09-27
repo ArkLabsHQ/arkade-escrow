@@ -7,11 +7,6 @@ export class CreateEscrowContractInDto {
 	@IsString()
 	@IsNotEmpty()
 	requestId!: string;
-
-	@ApiProperty({ description: "The Ark address to use for this contract" })
-	@IsString()
-	@IsNotEmpty()
-	arkAddress!: string;
 }
 
 export class CreateEscrowContractOutDto {
