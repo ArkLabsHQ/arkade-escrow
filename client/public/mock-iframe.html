@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mock Escrow Iframe</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; padding: 16px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+      button { padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer; }
+      code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .log { white-space: pre-wrap; background: #0b1020; color: #d1e3ff; padding: 12px; border-radius: 8px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Mock Escrow Iframe</h1>
+    <p>This page simulates the child app. It talks to the parent via <code>postMessage</code>.</p>
+
+    <div class="card">
+      <h2>RPC</h2>
+      <div class="row">
+        <button id="btn-pubkey">xOnlyPublicKey()</button>
+        <button id="btn-sign">sign()</button>
+        <button id="btn-session">signerSession()</button>
+        <button id="btn-signin">signin()</button>
+        <button id="btn-signout">signout()</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resize Tester</h2>
+      <div class="row">
+        <button data-h="300">Height 300px</button>
+        <button data-h="600">Height 600px</button>
+        <button data-h="900">Height 900px</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div id="log" class="log"></div>
+    </div>
+
+    <script>
+      const logEl = document.getElementById('log');
+      function log(...args) {
+        const line = args.map(a => typeof a === 'string' ? a : JSON.stringify(a, null, 2)).join(' ');
+        logEl.textContent = line + '\n' + logEl.textContent;
+      }
+
+      function uuid() {
+        return (crypto.randomUUID?.() ?? `id_${Date.now()}_${Math.random()}`);
+      }
+
+      const parentOrigin = "*"; // for demo; set a strict origin in production
+      window.parent?.postMessage({ kind: "ARKADE_CHILD_READY" }, parentOrigin);
+
+      // Auto-resize using ResizeObserver
+      const ro = new ResizeObserver(() => {
+        const h = document.documentElement.scrollHeight;
+        window.parent?.postMessage({ kind: "ARKADE_UI_RESIZE", height: h }, parentOrigin);
+      });
+      ro.observe(document.documentElement);
+
+      const pending = new Map();
+
+      window.addEventListener("message", (evt) => {
+        const msg = evt.data;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.kind === 'ARKADE_RPC_RESPONSE') {
+          const cb = pending.get(msg.id);
+          if (cb) { cb(msg); pending.delete(msg.id); }
+          log('<= RPC_RESPONSE', msg);
+        }
+      });
+
+      function rpc(method, params) {
+        return new Promise((resolve, reject) => {
+          const id = uuid();
+          const req = { kind: 'ARKADE_RPC_REQUEST', id, method, params };
+          pending.set(id, (resp) => {
+            if (resp.ok) resolve(resp.result);
+            else reject(resp.error);
+          });
+          log('=> RPC_REQUEST', req);
+          window.parent?.postMessage(req, parentOrigin);
+        });
+      }
+
+      // Buttons
+      document.getElementById('btn-pubkey').onclick = async () => {
+        try {
+          const res = await rpc('xOnlyPublicKey');
+          log('PUBKEY RESULT', res);
+        } catch (e) { log('ERROR', e); }
+      };
+      document.getElementById('btn-sign').onclick = async () => {
+        try {
+          const res = await rpc('sign', { tx: { foo: 'bar' }, inputIndexes: [0,1] });
+          log('SIGN RESULT', res);
+        } catch (e) { log('ERROR', e); }
+      };
+      document.getElementById('btn-session').onclick = async () => {
+        try {
+          const res = await rpc('signerSession');
+          log('SESSION RESULT', res);
+        } catch (e) { log('ERROR', e); }
+      };
+      document.getElementById('btn-signin').onclick = async () => {
+        try {
+          const res = await rpc('signin', { challenge: 'abc123' });
+          log('SIGNIN RESULT', res);
+        } catch (e) { log('ERROR', e); }
+      };
+      document.getElementById('btn-signout').onclick = async () => {
+        try {
+          const res = await rpc('signout');
+          log('SIGNOUT RESULT', res);
+        } catch (e) { log('ERROR', e); }
+      };
+
+      // Resize buttons
+      document.querySelectorAll('[data-h]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const h = Number(btn.getAttribute('data-h'));
+          const filler = document.createElement('div');
+          filler.style.height = h + 'px';
+          filler.style.background = '#f3f4f6';
+          filler.style.marginTop = '8px';
+          filler.style.borderRadius = '8px';
+          document.body.appendChild(filler);
+          // Trigger observer
+          setTimeout(() => {
+            window.parent?.postMessage({ kind: 'ARKADE_UI_RESIZE', height: document.documentElement.scrollHeight }, parentOrigin);
+          }, 0);
+        });
+      });
+    </script>
+  </body>
+</html>
