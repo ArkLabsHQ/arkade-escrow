@@ -16,9 +16,9 @@ import { base64, hex } from "@scure/base";
 import { TransactionOutput } from "@scure/btc-signer/psbt";
 
 import { ARK_PROVIDER } from "./ark.constants";
-import { Contract } from "../common/Contract.types";
+import { Contract } from "../common/Contract.type";
+import { ActionType } from "../common/Action.type";
 
-export type Action = "release" | "refund" | "direct-settle";
 export type EscrowTransactionForAction = {
 	action: "direct-settle";
 	receiverAddress: ArkAddress;
@@ -127,8 +127,8 @@ export class ArkService {
 			txid: vtxo.txid,
 			vout: vtxo.vout, // index
 			value: vtxo.value,
-			script: script.pkScript,
-			tapTree: script.encode(),
+			script: script.pkScript, // hash of all spending conditions
+			tapTree: script.encode(), // all spending conditions
 			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
 		};
 
@@ -231,13 +231,17 @@ export class ArkService {
 
 	static getSpendingPathForAction(
 		escrowScript: VEscrow.Script,
-		action: Action,
+		action: ActionType,
 	): TapLeafScript | null {
 		switch (action) {
-			case "release":
-				return escrowScript.release();
-			case "refund":
-				return escrowScript.refund();
+			case "dispute":
+				// TODO: determine the side of the dispute
+				// 	return escrowScript.receiverDispute();
+				// case "refund":
+				// 	return escrowScript.senderDispute();
+				throw new Error("Dispute not implemented");
+
+			// this is the consensual settlement
 			case "direct-settle":
 				return escrowScript.direct();
 			default:
@@ -247,16 +251,16 @@ export class ArkService {
 
 	static getRequiredSignersForAction(
 		escrowScript: VEscrow.Script,
-		action: Action,
+		action: ActionType,
 	): Signers[] | undefined {
 		const spendingPaths = escrowScript.getSpendingPaths();
 		switch (action) {
-			case "release":
-				return spendingPaths.find((_) => _.name === "release")?.signers;
-
-			case "refund":
-				// Send all funds to sender
-				return spendingPaths.find((_) => _.name === "refund")?.signers;
+			// case "release":
+			// 	return spendingPaths.find((_) => _.name === "release")?.signers;
+			//
+			// case "refund":
+			// 	// Send all funds to sender
+			// 	return spendingPaths.find((_) => _.name === "refund")?.signers;
 
 			case "direct-settle": {
 				return spendingPaths.find((_) => _.name === "direct")?.signers;

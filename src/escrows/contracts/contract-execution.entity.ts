@@ -9,6 +9,10 @@ import {
 	UpdateDateColumn,
 } from "typeorm";
 import { EscrowContract } from "./escrow-contract.entity";
+import { Signers } from "../../ark/escrow";
+import { PublicKey } from "../../common/PublicKey";
+
+import { ACTION_TYPE, ActionType } from "../../common/Action.type";
 
 export const EXECUTION_STATUS = [
 	"pending-initiator-signature",
@@ -30,9 +34,9 @@ export type ExecutionTransaction = {
 	};
 	arkTx: string; // The Ark transaction as PSBT
 	checkpoints: string[]; // Checkpoint transactions as PSBTs
-	requiredSignersPubKeys: string[];
-	approvedByPubKeys: string[]; // List of pubkeys who have approved
-	rejectedByPubKeys: string[]; // List of pubkeys who have rejected
+	requiredSigners: Signers[];
+	approvedByPubKeys: PublicKey[]; // List of pubkeys who have approved
+	rejectedByPubKeys: PublicKey[]; // List of pubkeys who have rejected
 };
 
 @Entity("contract_executions")
@@ -55,6 +59,9 @@ export class ContractExecution {
 	@Index()
 	@Column({ type: "text" })
 	initiatedByPubKey!: string;
+
+	@Column({ type: "text", enum: ACTION_TYPE })
+	action!: ActionType;
 
 	@Column({ type: "text" })
 	status!: ExecutionStatus;

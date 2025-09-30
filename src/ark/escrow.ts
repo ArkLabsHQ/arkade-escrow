@@ -73,11 +73,11 @@ export namespace VEscrow {
 	 * - Unilateral (with timelock): unilateralRelease, unilateralRefund, unilateralDirect
 	 */
 	export class Script extends VtxoScript {
-		readonly releaseScript: string;
-		readonly refundScript: string;
+		readonly receiverDisputeScript: string;
+		readonly senderDisputeScript: string;
 		readonly directScript: string;
-		readonly unilateralReleaseScript: string;
-		readonly unilateralRefundScript: string;
+		readonly receiverDisputeUnilateralScript: string;
+		readonly senderDisputeUnilateralScript: string;
 		readonly unilateralDirectScript: string;
 
 		constructor(readonly options: Options) {
@@ -126,11 +126,13 @@ export namespace VEscrow {
 			]);
 
 			// Store hex-encoded scripts for easy access
-			this.releaseScript = hex.encode(releaseScript);
-			this.refundScript = hex.encode(refundScript);
+			this.receiverDisputeScript = hex.encode(releaseScript);
+			this.senderDisputeScript = hex.encode(refundScript);
 			this.directScript = hex.encode(directScript);
-			this.unilateralReleaseScript = hex.encode(unilateralReleaseScript);
-			this.unilateralRefundScript = hex.encode(unilateralRefundScript);
+			this.receiverDisputeUnilateralScript = hex.encode(
+				unilateralReleaseScript,
+			);
+			this.senderDisputeUnilateralScript = hex.encode(unilateralRefundScript);
 			this.unilateralDirectScript = hex.encode(unilateralDirectScript);
 		}
 
@@ -138,16 +140,16 @@ export namespace VEscrow {
 		 * Get the tap leaf script for collaborative release path
 		 * (receiver + arbitrator + server)
 		 */
-		release(): TapLeafScript {
-			return this.findLeaf(this.releaseScript);
+		receiverDispute(): TapLeafScript {
+			return this.findLeaf(this.receiverDisputeScript);
 		}
 
 		/**
 		 * Get the tap leaf script for collaborative refund path
 		 * (sender + arbitrator + server)
 		 */
-		refund(): TapLeafScript {
-			return this.findLeaf(this.refundScript);
+		senderDispute(): TapLeafScript {
+			return this.findLeaf(this.senderDisputeScript);
 		}
 
 		/**
@@ -162,16 +164,16 @@ export namespace VEscrow {
 		 * Get the tap leaf script for unilateral release path
 		 * (receiver + arbitrator after timelock)
 		 */
-		unilateralRelease(): TapLeafScript {
-			return this.findLeaf(this.unilateralReleaseScript);
+		receiverDisputeUnilateral(): TapLeafScript {
+			return this.findLeaf(this.receiverDisputeUnilateralScript);
 		}
 
 		/**
 		 * Get the tap leaf script for unilateral refund path
 		 * (sender + arbitrator after timelock)
 		 */
-		unilateralRefund(): TapLeafScript {
-			return this.findLeaf(this.unilateralRefundScript);
+		senderDisputeUniteral(): TapLeafScript {
+			return this.findLeaf(this.senderDisputeUnilateralScript);
 		}
 
 		/**
@@ -194,17 +196,17 @@ export namespace VEscrow {
 		}> {
 			return [
 				{
-					name: "release",
+					name: "receiverDispute", // receiver dispute
 					type: "collaborative",
 					description: "Release funds to receiver (goods delivered)",
-					script: this.releaseScript,
+					script: this.receiverDisputeScript,
 					signers: ["receiver", "arbitrator", "server"],
 				},
 				{
-					name: "refund",
+					name: "senderDispute", // sender dispute
 					type: "collaborative",
 					description: "Refund funds to sender (dispute resolved)",
-					script: this.refundScript,
+					script: this.senderDisputeScript,
 					signers: ["sender", "arbitrator", "server"],
 				},
 				{
@@ -215,17 +217,17 @@ export namespace VEscrow {
 					signers: ["sender", "receiver", "server"],
 				},
 				{
-					name: "unilateralRelease",
+					name: "receiverDisputeUnilateral",
 					type: "unilateral",
 					description: "Release funds after timelock",
-					script: this.unilateralReleaseScript,
+					script: this.receiverDisputeUnilateralScript,
 					signers: ["receiver", "arbitrator"],
 				},
 				{
-					name: "unilateralRefund",
+					name: "senderDisputeUnilateral",
 					type: "unilateral",
 					description: "Refund funds after timelock",
-					script: this.unilateralRefundScript,
+					script: this.senderDisputeUnilateralScript,
 					signers: ["sender", "arbitrator"],
 				},
 				{

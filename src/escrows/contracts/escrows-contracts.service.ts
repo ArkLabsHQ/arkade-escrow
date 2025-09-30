@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
 import { Transaction } from "@scure/btc-signer";
-import { hex } from "@scure/base";
+import { base64, hex } from "@scure/base";
 
 import { ArkService, EscrowTransaction } from "../../ark/ark.service";
 import { EscrowRequest } from "../requests/escrow-request.entity";
@@ -43,6 +43,7 @@ import {
 import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
+import { PublicKey } from "../../common/PublicKey";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -149,24 +150,24 @@ export class EscrowsContractsService {
 		if (!draft) {
 			throw new NotFoundException(`Contract ${externalId} not found`);
 		}
-		if (draft.status !== "draft") {
-			throw new UnprocessableEntityException(
-				`Contract ${externalId} is not in draft status`,
-			);
-		}
+		// if (draft.status !== "draft" || draft.status !== "funded") {
+		// 	throw new UnprocessableEntityException(
+		// 		`Contract ${externalId} is not in draft status`,
+		// 	);
+		// }
 		if (acceptorPubkey === this.arbitratorPublicKey) {
 			throw new ForbiddenException(
 				"Cannot create a contract with the arbitrator as sender",
 			);
 		}
-		if (
-			acceptorPubkey !== draft.senderPubkey ||
-			acceptorPubkey !== draft.receiverPubkey
-		) {
-			throw new ForbiddenException(
-				"Only the sender or receiver can accept the contract",
-			);
-		}
+		// if (
+		// 	acceptorPubkey !== draft.senderPubkey ||
+		// 	acceptorPubkey !== draft.receiverPubkey
+		// ) {
+		// 	throw new ForbiddenException(
+		// 		"Only the sender or receiver can accept the contract",
+		// 	);
+		// }
 
 		this.logger.debug(
 			`Creating contract from draft ${draft.externalId} with acceptor ${acceptorPubkey}`,
@@ -298,7 +299,7 @@ export class EscrowsContractsService {
 	async signContractExecution(
 		contractId: string,
 		executionId: string,
-		signerPubKey: string,
+		signerPubKey: PublicKey,
 		signature: {
 			arkTx: string;
 			checkpoints: string[];
@@ -320,14 +321,26 @@ export class EscrowsContractsService {
 				`Contract ${contractId} is not funded`,
 			);
 		}
-		if (!execution.transaction.requiredSignersPubKeys.includes(signerPubKey)) {
-			throw new ConflictException("Signer is not a required signer");
-		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
-			throw new ConflictException("Signer has already approved");
+			throw new ConflictException("Signer has already signed");
 		}
 		if (execution.transaction.rejectedByPubKeys.includes(signerPubKey)) {
 			throw new ConflictException("Signer has already rejected");
+		}
+		const requiredPubkeys = execution.transaction.requiredSigners.flatMap(
+			(s) => {
+				switch (s) {
+					case "sender":
+						return [contract.senderPubkey];
+					case "receiver":
+						return [contract.receiverPubkey];
+					default:
+						return [];
+				}
+			},
+		);
+		if (!requiredPubkeys.includes(signerPubKey)) {
+			throw new ConflictException("Signer is not a required signer");
 		}
 
 		// Verify the signed PSBTs actually match the original tx skeleton
@@ -372,8 +385,6 @@ export class EscrowsContractsService {
 			}
 		}
 
-		// TODO:  send to ARK network
-
 		await this.contractExecutionRepository.update(
 			{
 				externalId: contract.externalId,
@@ -382,6 +393,25 @@ export class EscrowsContractsService {
 			{
 				status: nextExecutionStatus,
 				transaction: updatedExcutionTx,
+			},
+		);
+
+		// TODO: this may be async
+		await this.arkService.executeEscrowTransaction({
+			arkTx: Transaction.fromPSBT(hex.decode(updatedExcutionTx.arkTx)),
+			checkpoints: updatedExcutionTx.checkpoints.map((c) =>
+				Transaction.fromPSBT(hex.decode(c)),
+			),
+			requiredSigners: execution.transaction.requiredSigners,
+		});
+
+		await this.contractExecutionRepository.update(
+			{
+				externalId: contract.externalId,
+				contract: { externalId: contractId },
+			},
+			{
+				status: "executed",
 			},
 		);
 
@@ -449,6 +479,7 @@ export class EscrowsContractsService {
 			);
 
 			const entity = this.contractExecutionRepository.create({
+				action: "direct-settle",
 				externalId: nanoid(16),
 				contract: { externalId: contract.externalId } as Pick<
 					EscrowContract,
@@ -462,11 +493,11 @@ export class EscrowsContractsService {
 						vout: vtxo.vout,
 						value: vtxo.value,
 					},
-					arkTx: hex.encode(escrowTransaction.arkTx.toPSBT()),
+					arkTx: base64.encode(escrowTransaction.arkTx.toPSBT()),
 					checkpoints: escrowTransaction.checkpoints.map((_) =>
-						hex.encode(_.toPSBT()),
+						base64.encode(_.toPSBT()),
 					),
-					requiredSignersPubKeys: escrowTransaction.requiredSigners,
+					requiredSigners: escrowTransaction.requiredSigners,
 					approvedByPubKeys: [],
 					rejectedByPubKeys: [],
 				},
@@ -596,12 +627,10 @@ export class EscrowsContractsService {
 		signed: { arkTx: Uint8Array; checkpoints: Uint8Array[] },
 	) {
 		try {
-			// signer must be one of the required signers for this execution
-			if (
-				!execution.transaction.requiredSignersPubKeys.includes(signerPubKey)
-			) {
-				throw new ConflictException("Signer is not a required signer");
-			}
+			// // TODO: signer must be one of the required signers for this execution
+			// if (!execution.transaction.requiredSigners.includes(signerPubKey)) {
+			// 	throw new ConflictException("Signer is not a required signer");
+			// }
 
 			// Parse unsigned/signed arkTx
 			const unsignedArkTx = Transaction.fromPSBT(
@@ -665,14 +694,17 @@ export class EscrowsContractsService {
 	 */
 	private txHasAnySignature(tx: Transaction): boolean {
 		try {
-			const inputs = (tx as any).getInputs?.() ?? (tx as any).inputs ?? [];
-			for (const inp of inputs) {
+			for (let i = 0; i < tx.inputsLength; i += 1) {
+				const input = tx.getInput(i);
 				// Common encodings for signed/finalized inputs
-				const witness: Uint8Array[] | undefined = (inp as any).witness;
-				const finalScriptSig: Uint8Array | undefined = (inp as any).scriptSig;
+				// TODO:
+				//  schnorr.verify(finalSignature, msg, aggregatePublicKey);
+
+				// test from here
+				const witness: Uint8Array[] | undefined = (input as any).witness;
+				const finalScriptSig: Uint8Array | undefined = (input as any).scriptSig;
 				// Some implementations expose `finalScriptWitness` or similar
-				const finalScriptWitness: Uint8Array[] | undefined = (inp as any)
-					.finalScriptWitness;
+				const finalScriptWitness = input.finalScriptWitness;
 
 				if (Array.isArray(witness) && witness.length > 0) return true;
 				if (Array.isArray(finalScriptWitness) && finalScriptWitness.length > 0)

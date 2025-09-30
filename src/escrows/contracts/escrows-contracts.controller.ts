@@ -6,6 +6,7 @@ import {
 	DefaultValuePipe,
 	ForbiddenException,
 	Get,
+	HttpCode,
 	Logger,
 	NotFoundException,
 	Param,
@@ -189,6 +190,7 @@ export class EscrowsContractsController {
 		@UserFromJwt() user: User,
 		@Param("externalId") externalId: string,
 	): Promise<ApiEnvelope<ExecuteEscrowContractOutDto>> {
+		console.log("Initiating spending path for contract", externalId);
 		const ce = await this.service.createDirectSettlementExecution(
 			externalId,
 			dto.arkAddress,
@@ -226,9 +228,10 @@ export class EscrowsContractsController {
 	@ApiOperation({ summary: "Enter a draft contract by externalId" })
 	@ApiParam({ name: "externalId", description: "Contract external id" })
 	@ApiOkResponse({
-		description: "Contract created",
+		description: "Contract accepted",
 		schema: getSchemaPathForDto(GetEscrowContractDto),
 	})
+	@HttpCode(200)
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
 	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
 	@ApiNotFoundResponse({ description: "Escrow contract not found" })

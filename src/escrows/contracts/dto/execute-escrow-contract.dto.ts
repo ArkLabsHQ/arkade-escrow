@@ -1,10 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
-
-export const ACTION_TYPE = ["direct-settle", "release", "refund"] as const;
-export type ContractAction = (typeof ACTION_TYPE)[number];
+import { IsString } from "class-validator";
 
 export class ExecuteEscrowContractInDto {
 	@ApiProperty({ type: "string" })
+	@IsString()
 	arkAddress!: string;
 }
 

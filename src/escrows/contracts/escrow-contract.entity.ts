@@ -67,7 +67,7 @@ export class EscrowContract {
 	@Column({ type: "text", nullable: true })
 	arkAddress?: string;
 
-	@Column({ type: "text" })
+	@Column({ type: "text", enum: CONTRACT_STATUS })
 	status!: ContractStatus;
 
 	@Column({ type: "text", nullable: true })
