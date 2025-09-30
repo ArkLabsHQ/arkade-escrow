@@ -82,8 +82,8 @@ export class AuthService {
 		} catch (cause) {
 			throw new InternalServerErrorException("Corrupted challenge", { cause });
 		}
-		if (payload?.origin !== origin || payload?.type !== "signup") {
-			throw new UnauthorizedException("Invalid challenge domain");
+		if (payload?.origin !== origin || payload?.scope !== "signup") {
+			throw new UnauthorizedException("Invalid challenge scope or origin");
 		}
 
 		const hashHex = hashSignupPayload(payload);

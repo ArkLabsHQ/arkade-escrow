@@ -39,7 +39,15 @@ export class AuthController {
 		schema: {
 			type: "object",
 			properties: {
-				challenge: { type: "object" },
+				challenge: {
+					type: "object",
+					properties: {
+						scope: { type: "string" },
+						nonce: { type: "string" },
+						issuedAt: { type: "string" },
+						origin: { type: "string" },
+					},
+				},
 				challengeId: { type: "string" },
 				hashToSignHex: { type: "string" },
 				expiresAt: { type: "string", format: "date-time" },

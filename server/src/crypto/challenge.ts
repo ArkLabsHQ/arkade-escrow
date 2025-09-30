@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2";
 import { randomBytes } from "node:crypto";
 
 export type ChallengePayload = {
-	type: "signup";
+	scope: "signup";
 	nonce: string;
 	issuedAt: string;
 	origin: string;
@@ -17,7 +17,12 @@ export function createSignupChallenge(origin: string): {
 	const issuedAt = new Date().toISOString();
 	const id = randomBytes(8).toString("hex");
 
-	const payload: ChallengePayload = { type: "signup", nonce, issuedAt, origin };
+	const payload: ChallengePayload = {
+		scope: "signup",
+		nonce,
+		issuedAt,
+		origin,
+	};
 	const msg = `ARK-ESCROW signup\nnonce:${nonce}\nissuedAt:${issuedAt}\norigin:${origin}`;
 	const hash = sha256(new TextEncoder().encode(msg));
 	const hashHex = Buffer.from(hash).toString("hex");
