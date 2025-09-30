@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import AppDataSource from "../src/data-source";
+import AppDataSource from ".//data-source";
 
 async function main() {
 	await AppDataSource.initialize();

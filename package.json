@@ -12,12 +12,12 @@
 		"---------------------------- Production build ---------------------------------------------": "",
 		"build": "nest build",
 		"---------------------------- Static checks ------------------------------------------------": "",
-		"lint": "biome lint src",
+		"lint": "biome lint server/src",
 		"typecheck": "tsc --noEmit",
-		"fmt": "biome format src",
+		"fmt": "biome format server/src",
 		"---------------------------- Utils --------------------------------------------------------": "",
-		"fmt:fix": "biome format --write src",
-		"lint:fix": "biome lint --write --unsafe src",
+		"fmt:fix": "biome format --write server/src",
+		"lint:fix": "biome lint --write --unsafe server/src",
 		"ci:check": "biome ci"
 	},
 	"dependencies": {
