@@ -90,7 +90,93 @@ export const api = createApi({
 				}
 			},
 		}),
+
+		createFromRequest: builder.mutation<
+			ApiEnvelope<ContractDto>,
+			{ requestId: string }
+		>({
+			// POST "" — creates a draft contract from an escrow request
+			query: (body) => ({
+				url: "",
+				method: "POST",
+				body,
+			}),
+			async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+				try {
+					const { data: created } = await queryFulfilled;
+					// Merge the newly created contract into the accumulated list cache
+					dispatch(
+						api.util.updateQueryData("fetchNextPage", {}, (draft) => {
+							const list = draft.data ?? [];
+							const exists = list.some(
+								(c) => c.externalId === created.data.externalId,
+							);
+							if (!exists) {
+								draft.data = [created.data, ...list];
+								draft.meta = {
+									...(draft.meta ?? { total: 0 }),
+									total: (draft.meta?.total ?? list.length) + 1,
+								};
+							}
+						}),
+					);
+				} catch {
+					// Swallow errors; component can handle via result.error
+				}
+			},
+		}),
+		acceptContract: builder.mutation<
+			ApiEnvelope<ContractDto>,
+			{ externalId: string }
+		>({
+			// POST ":externalId/accept" — accepts a draft contract
+			query: ({ externalId }) => ({
+				url: `${encodeURIComponent(externalId)}/accept`,
+				method: "POST",
+			}),
+			async onQueryStarted({ externalId }, { dispatch, queryFulfilled }) {
+				// After accepting, upsert the returned contract into the list cache
+				try {
+					const { data: resp } = await queryFulfilled;
+					const accepted = resp.data;
+					dispatch(
+						api.util.updateQueryData("fetchNextPage", {}, (draft) => {
+							const list = draft.data ?? [];
+							const idx = list.findIndex((c) => c.externalId === externalId);
+							if (idx >= 0) {
+								list[idx] = { ...list[idx], ...accepted };
+							} else {
+								draft.data = [accepted, ...list];
+								draft.meta = {
+									...(draft.meta ?? { total: 0 }),
+									total: (draft.meta?.total ?? list.length) + 1,
+								};
+							}
+						}),
+					);
+				} catch {
+					// no-op; let consumer handle error
+				}
+			},
+		}),
+
+		executeContract: builder.mutation<
+			ApiEnvelope<unknown>,
+			{ externalId: string; arkAddress: string }
+		>({
+			// POST ":externalId/execute" — initiates direct settlement execution
+			query: ({ externalId, arkAddress }) => ({
+				url: `${encodeURIComponent(externalId)}/execute`,
+				method: "POST",
+				body: { arkAddress },
+			}),
+		}),
 	}),
 });
 
-export const { useFetchNextPageQuery } = api;
+export const {
+	useFetchNextPageQuery,
+	useCreateFromRequestMutation,
+	useAcceptContractMutation,
+	useExecuteContractMutation,
+} = api;

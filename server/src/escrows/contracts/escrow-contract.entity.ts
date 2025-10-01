@@ -19,6 +19,8 @@ export const CONTRACT_STATUS = [
 	"created",
 	// at least one unspent VTXO is present for the ARK address
 	"funded",
+	// execution created
+	"pending-execution",
 	// all unspent VTXO have been spent
 	"completed",
 

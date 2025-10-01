@@ -5,7 +5,11 @@ import { useFetchNextPageQuery } from "./api";
 import ButtonIcon from "../components/ButtonIcon";
 import { IconUserOff } from "@tabler/icons-react";
 import AccountBadge from "../components/AccountBadge";
-import { shortKey } from "../helpers";
+import { printMyPubKey, shortKey } from "../helpers";
+import { useCreateFromRequestMutation } from "../contracts/api";
+import { selectXPublicKey } from "../account/api";
+import { useAppSelector } from "../hooks";
+import { useMessageBridge } from "../components/MessageProvider";
 
 export default function Orderbook() {
 	const [cursor, setCursor] = useState<string | undefined>(undefined);
@@ -14,6 +18,13 @@ export default function Orderbook() {
 	const { data, isLoading, isFetching, error, refetch } = useFetchNextPageQuery(
 		{ cursor, limit },
 	);
+
+	const [
+		createContract,
+		{ isError: isContractCreationError, isLoading: isContractCreationLoading },
+	] = useCreateFromRequestMutation();
+
+	const { xPublicKey } = useMessageBridge();
 
 	const items = data?.data ?? [];
 	const total = data?.meta.total ?? 0;
@@ -212,7 +223,7 @@ export default function Orderbook() {
 													{fmtDateTime(it.createdAt)}
 												</div>
 												<div className="mt-1 text-xs text-slate-500">
-													By {shortKey(it.creatorPublicKey)}
+													By {printMyPubKey(xPublicKey, it.creatorPublicKey)}
 												</div>
 											</div>
 										</div>
@@ -232,6 +243,22 @@ export default function Orderbook() {
 													{it.side}
 												</span>
 											</div>
+
+											<button
+												type="button"
+												className="mt-4 h-8 w-full rounded-full bg-slate-200 animate-pulse"
+												onClick={() =>
+													createContract({ requestId: it.externalId })
+														.then((a) => {
+															console.log("Contract created successfully", a);
+														})
+														.catch((e) => {
+															console.error("Failed to create contract", e);
+														})
+												}
+											>
+												CREATE
+											</button>
 										</div>
 									</div>
 								</li>

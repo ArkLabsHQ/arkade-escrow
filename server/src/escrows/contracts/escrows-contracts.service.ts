@@ -396,7 +396,6 @@ export class EscrowsContractsService {
 			},
 		);
 
-		// TODO: this may be async
 		await this.arkService.executeEscrowTransaction({
 			arkTx: Transaction.fromPSBT(hex.decode(updatedExcutionTx.arkTx)),
 			checkpoints: updatedExcutionTx.checkpoints.map((c) =>
@@ -412,6 +411,13 @@ export class EscrowsContractsService {
 			},
 			{
 				status: "executed",
+			},
+		);
+
+		await this.contractRepository.update(
+			{ externalId: contract.externalId },
+			{
+				status: "completed",
 			},
 		);
 
@@ -503,6 +509,12 @@ export class EscrowsContractsService {
 				},
 			});
 			const persisted = await this.contractExecutionRepository.save(entity);
+			await this.contractRepository.update(
+				{ externalId: contract.externalId },
+				{
+					status: "pending-execution",
+				},
+			);
 			return {
 				externalId: persisted.externalId,
 				contractId: persisted.contract.externalId,

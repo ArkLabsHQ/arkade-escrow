@@ -4,6 +4,8 @@ import {
 	Entity,
 	Index,
 	JoinColumn,
+	ManyToOne,
+	OneToMany,
 	OneToOne,
 	PrimaryGeneratedColumn,
 	UpdateDateColumn,
@@ -49,7 +51,7 @@ export class ContractExecution {
 	externalId!: string;
 
 	@Index()
-	@OneToOne(() => EscrowContract, { eager: true })
+	@ManyToOne(() => EscrowContract, { eager: true })
 	@JoinColumn({
 		name: "contractExternalId",
 		referencedColumnName: "externalId",

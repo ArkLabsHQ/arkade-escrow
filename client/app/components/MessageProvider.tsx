@@ -14,6 +14,7 @@ import { nanoid } from "nanoid";
 type MessageBridgeContextValue = {
 	signChallenge: (challenge: string) => Promise<string>;
 	xPublicKey: string | null;
+	walletAddress: string | null;
 };
 
 const MessageBridgeContext = createContext<
@@ -33,6 +34,7 @@ export function MessageProvider({
 	);
 	const [isAlive, seIsAlive] = useState(false);
 	const [xPublicKey, setXPublicKey] = useState<string | null>(null);
+	const [walletAddress, setWalletAddress] = useState<string | null>(null);
 	const [signedChallenge, setSignedChallenge] = useState<string | null>(null);
 	const [hostOrigin, setHostOrigin] = useState<string | null>(null);
 	const handleMessage = useMemo(() => makeMessageHandler({}), []);
@@ -84,6 +86,13 @@ export function MessageProvider({
 									);
 									setSignedChallenge(resultContent.signedChallenge);
 									break;
+								case "arkWalletAddress":
+									console.log(
+										"[escrow] ark wallet address",
+										resultContent.arkWalletAddress,
+									);
+									setWalletAddress(resultContent.arkWalletAddress);
+									break;
 							}
 							break;
 						case "ARKADE_KEEP_ALIVE": {
@@ -95,7 +104,17 @@ export function MessageProvider({
 									{
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
-										method: "get-x-publick-key",
+										method: "get-x-public-key",
+									},
+									event.origin,
+								);
+							}
+							if (!walletAddress) {
+								childWindowRef.current?.postMessage(
+									{
+										kind: "ARKADE_RPC_REQUEST",
+										id: nanoid(8),
+										method: "get-ark-wallet-address",
 									},
 									event.origin,
 								);
@@ -120,7 +139,7 @@ export function MessageProvider({
 				return;
 			}
 		},
-		[handleMessage, allowed, isAlive, hostOrigin, xPublicKey],
+		[handleMessage, allowed, isAlive, hostOrigin, xPublicKey, walletAddress],
 	);
 
 	useEffect(() => {
@@ -149,6 +168,7 @@ export function MessageProvider({
 		<MessageBridgeContext.Provider
 			value={{
 				xPublicKey,
+				walletAddress,
 				signChallenge: async (challenge: string) => {
 					if (!hostOrigin) return Promise.reject("app not ready");
 

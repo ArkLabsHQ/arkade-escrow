@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useFetchNextPageQuery } from "./api";
-import { shortKey } from "../helpers";
+import {
+	useAcceptContractMutation,
+	useCreateFromRequestMutation,
+	useExecuteContractMutation,
+	useFetchNextPageQuery,
+} from "./api";
+import { printMyPubKey, shortKey } from "../helpers";
 import Header from "../components/Header";
+import { useAppSelector } from "../hooks";
+import { selectXPublicKey } from "../account/api";
+import { useMessageBridge } from "../components/MessageProvider";
 
 export default function Contracts() {
 	return (
@@ -21,6 +29,20 @@ function ContractsView() {
 	const { data, isLoading, isFetching, error, refetch } = useFetchNextPageQuery(
 		{ cursor, limit },
 	);
+	const { xPublicKey, walletAddress } = useMessageBridge();
+
+	const [
+		acceptContract,
+		{ isError: isContractCreationError, isLoading: isContractCreationLoading },
+	] = useAcceptContractMutation();
+
+	const [
+		executeContract,
+		{
+			isError: isContractExecutionError,
+			isLoading: isContractExecutionLoading,
+		},
+	] = useExecuteContractMutation();
 
 	const items = data?.data ?? [];
 	const total = data?.meta.total ?? 0;
@@ -165,10 +187,11 @@ function ContractsView() {
 													{fmtDateTime(it.createdAt)}
 												</div>
 												<div className="mt-1 text-xs text-slate-500">
-													Sender {shortKey(it.senderPublicKey)}
+													Sender {printMyPubKey(xPublicKey, it.senderPublicKey)}
 												</div>
 												<div className="mt-1 text-xs text-slate-500">
-													Receiver {shortKey(it.receiverPublicKey)}
+													Receiver{" "}
+													{printMyPubKey(xPublicKey, it.receiverPublicKey)}
 												</div>
 												{it.arkAddress && (
 													<div className="mt-1 text-[11px] text-slate-500">
@@ -185,6 +208,43 @@ function ContractsView() {
 											<div className="mt-1 text-[11px] text-slate-500">
 												Updated {fmtDateTime(it.updatedAt)}
 											</div>
+											{it.status === "draft" && (
+												<button
+													type="button"
+													className="mt-4 h-8 w-full rounded-full bg-slate-200 animate-pulse"
+													onClick={() =>
+														acceptContract({ externalId: it.externalId })
+															.then((a) => {
+																console.log("Contract created successfully", a);
+															})
+															.catch((e) => {
+																console.error("Failed to create contract", e);
+															})
+													}
+												>
+													ACCEPT
+												</button>
+											)}
+											{it.status === "funded" && walletAddress && (
+												<button
+													type="button"
+													className="mt-4 h-8 w-full rounded-full bg-slate-200 animate-pulse"
+													onClick={() =>
+														executeContract({
+															externalId: it.externalId,
+															arkAddress: walletAddress,
+														})
+															.then((a) => {
+																console.log("exec success", a);
+															})
+															.catch((e) => {
+																console.error("Failed to execute contract", e);
+															})
+													}
+												>
+													EXECUTE
+												</button>
+											)}
 										</div>
 									</div>
 								</li>
