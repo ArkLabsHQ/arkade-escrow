@@ -1,6 +1,7 @@
-import { Bytes } from "@scure/btc-signer/utils";
+import { Bytes, hash160 } from "@scure/btc-signer/utils";
 import { hex } from "@scure/base";
-import { VtxoScript, TapLeafScript } from "@arkade-os/sdk";
+import { Script as ScriptClass } from "@scure/btc-signer";
+import { VtxoScript, TapLeafScript, ConditionMultisigTapscript } from "@arkade-os/sdk";
 import {
 	MultisigTapscript,
 	CSVMultisigTapscript,
@@ -28,6 +29,8 @@ export namespace VEscrow {
 		server: Bytes;
 		/** Unilateral delay for unilateral paths */
 		unilateralDelay: RelativeTimelock;
+		/** Nonce to make addresses unique per escrow */
+		nonce?: Bytes;
 	};
 
 	/**
@@ -63,7 +66,16 @@ export namespace VEscrow {
 		if (keySet.size !== 4) {
 			throw new Error("All parties must have unique public keys");
 		}
+
+		if (options.nonce && options.nonce.length < 32) {
+			throw new Error(
+				`Invalid nonce length: expected 32 or more, got ${options.nonce?.length}`,
+			);
+		}
+
+
 	}
+	
 
 	/**
 	 * Virtual Escrow Contract Script implementation
@@ -79,11 +91,12 @@ export namespace VEscrow {
 		readonly receiverDisputeUnilateralScript: string;
 		readonly senderDisputeUnilateralScript: string;
 		readonly unilateralDirectScript: string;
+		readonly ghostScript?: string;
 
 		constructor(readonly options: Options) {
 			validateOptions(options);
 
-			const { sender, receiver, arbitrator, server, unilateralDelay } = options;
+			const { sender, receiver, arbitrator, server, unilateralDelay, nonce } = options;
 
 			// Collaborative spending paths (with server)
 			const releaseScript = MultisigTapscript.encode({
@@ -95,9 +108,11 @@ export namespace VEscrow {
 			}).script;
 
 			// the happy path - transaction occurred as expected
-			const directScript = MultisigTapscript.encode({
-				pubkeys: [sender, receiver, server],
-			}).script;
+			const directScript = 
+				MultisigTapscript.encode({
+					pubkeys: [sender, receiver, server],
+				}).script;
+	
 
 			// Unilateral spending paths (with timelock)
 			const unilateralReleaseScript = CSVMultisigTapscript.encode({
@@ -115,6 +130,13 @@ export namespace VEscrow {
 				timelock: unilateralDelay,
 			}).script;
 
+			const ghostScript = nonce ?
+				ConditionMultisigTapscript.encode({
+					pubkeys: [sender, receiver, arbitrator, server],
+					conditionScript: ScriptClass.encode(["HASH160", hash160(nonce), "EQUAL"]),
+				}).script :
+				undefined;
+
 			// Initialize the VtxoScript with all spending paths
 			super([
 				releaseScript,
@@ -123,6 +145,7 @@ export namespace VEscrow {
 				unilateralReleaseScript,
 				unilateralRefundScript,
 				unilateralDirectScript,
+				...ghostScript ? [ghostScript] : [],
 			]);
 
 			// Store hex-encoded scripts for easy access
@@ -134,6 +157,7 @@ export namespace VEscrow {
 			);
 			this.senderDisputeUnilateralScript = hex.encode(unilateralRefundScript);
 			this.unilateralDirectScript = hex.encode(unilateralDirectScript);
+			this.ghostScript = ghostScript ? hex.encode(ghostScript) : undefined;
 		}
 
 		/**
