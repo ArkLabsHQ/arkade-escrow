@@ -12,6 +12,8 @@ import Header from "../components/Header";
 import { useAppSelector } from "../hooks";
 import { selectXPublicKey } from "../account/api";
 import { useMessageBridge } from "../components/MessageProvider";
+import { router } from "next/client";
+import { useRouter } from "next/navigation";
 
 export default function Contracts() {
 	return (
@@ -23,6 +25,7 @@ export default function Contracts() {
 }
 
 function ContractsView() {
+	const router = useRouter();
 	const [cursor, setCursor] = useState<string | undefined>(undefined);
 	const limit = 20;
 
@@ -171,6 +174,7 @@ function ContractsView() {
 								<li
 									key={it.externalId}
 									className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm shadow-slate-100/50 transition hover:shadow-md"
+									onClick={() => router.push(`contracts/${it.externalId}`)}
 								>
 									<div className="flex items-start justify-between gap-3">
 										<div className="flex items-center gap-3">

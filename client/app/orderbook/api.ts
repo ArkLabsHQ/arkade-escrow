@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { attachAuthHeader } from "../account/api";
 
 export type ApiPaginatedMeta = {
 	nextCursor?: string;
@@ -24,10 +25,36 @@ export type OrderbookItemDto = {
 	createdAt: number;
 };
 
+export type CreateEscrowRequestOutDto = OrderbookItemDto & {
+	externalId: string;
+	shareUrl: string;
+};
+
+export type CreateEscrowRequestInDto = {
+	side: "receiver" | "sender";
+	amount: number;
+	description: string;
+	public: boolean;
+};
+
+export type GetEscrowRequestDto = {
+	externalId: string;
+	side: "receiver" | "sender";
+	creatorPublicKey: string;
+	amount?: number;
+	description: string;
+	public: boolean;
+	status: "open" | "cancelled";
+	createdAt: number;
+};
+
 export const api = createApi({
 	reducerPath: "orderbookApi",
 	baseQuery: fetchBaseQuery({
 		baseUrl: "http://localhost:3002/api/v1/escrows/requests",
+		prepareHeaders: (headers, { getState }) => {
+			return attachAuthHeader(headers, getState());
+		},
 	}),
 	endpoints: (builder) => ({
 		fetchNextPage: builder.query<
@@ -79,7 +106,30 @@ export const api = createApi({
 				}
 			},
 		}),
+		createRequest: builder.mutation<
+			CreateEscrowRequestOutDto,
+			CreateEscrowRequestInDto
+		>({
+			query: (body) => ({
+				url: "",
+				method: "POST",
+				body,
+			}),
+			transformResponse: (response: ApiEnvelope<CreateEscrowRequestOutDto>) =>
+				response.data,
+		}),
+		getRequestById: builder.query<GetEscrowRequestDto, string>({
+			query: (externalId) => ({
+				url: `${externalId}`,
+			}),
+			transformResponse: (response: ApiEnvelope<GetEscrowRequestDto>) =>
+				response.data,
+		}),
 	}),
 });
 
-export const { useFetchNextPageQuery } = api;
+export const {
+	useFetchNextPageQuery,
+	useCreateRequestMutation,
+	useGetRequestByIdQuery,
+} = api;

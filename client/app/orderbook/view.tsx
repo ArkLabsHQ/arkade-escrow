@@ -10,8 +10,10 @@ import { useCreateFromRequestMutation } from "../contracts/api";
 import { selectXPublicKey } from "../account/api";
 import { useAppSelector } from "../hooks";
 import { useMessageBridge } from "../components/MessageProvider";
+import { useRouter } from "next/navigation";
 
 export default function Orderbook() {
+	const router = useRouter();
 	const [cursor, setCursor] = useState<string | undefined>(undefined);
 	const limit = 20;
 
@@ -290,6 +292,13 @@ export default function Orderbook() {
 							className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
 						>
 							Refresh
+						</button>
+						<button
+							type="button"
+							onClick={() => router.push("/orderbook/new-request")}
+							className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+						>
+							New Request
 						</button>
 					</div>
 				</div>

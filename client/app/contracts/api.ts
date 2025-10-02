@@ -15,6 +15,19 @@ export type ApiEnvelope<T> = {
 	data: T;
 };
 
+export type Transaction = {
+	vtxo: {
+		txid: string;
+		vout: number;
+		value: number;
+	};
+	arkTx: string; // The Ark transaction as PSBT
+	checkpoints: string[]; // Checkpoint transactions as PSBTs
+	requiredSigners: "sender" | "receiver" | "server" | "arbitrator"[];
+	approvedByPubKeys: string[]; // List of pubkeys who have approved
+	rejectedByPubKeys: string[]; // List of pubkeys who have rejected
+};
+
 export type ContractDto = {
 	externalId: string;
 	requestId: string;
@@ -28,7 +41,25 @@ export type ContractDto = {
 	updatedAt: number;
 	// Optional properties present on the DTO (not strictly needed for list)
 	virtualCoins?: unknown[];
-	lastExecution?: unknown;
+	lastExecution?: {
+		id: number;
+		externalId: string;
+		contractExternalId: string;
+		initiatedByPubKey: string;
+		action: "dispute" | "direct-settle";
+		status:
+			| "pending-initiator-signature"
+			| "pending-counterparty-signature"
+			| "pending-server-confirmation"
+			| "executed"
+			| "canceled-by-initiator"
+			| "rejected-by-counterparty";
+		rejectionReason: string;
+		cancelationReason: string;
+		transaction: Transaction;
+		createdAt: number;
+		updatedAt: number;
+	};
 };
 
 export const api = createApi({
@@ -89,6 +120,14 @@ export const api = createApi({
 					// no-op
 				}
 			},
+		}),
+
+		// getOne — GET ":externalId" — retrieves a single contract by ID
+		getContractById: builder.query<ContractDto, string>({
+			query: (externalId) => ({
+				url: `${encodeURIComponent(externalId)}`,
+			}),
+			transformResponse: (response: ApiEnvelope<ContractDto>) => response.data,
 		}),
 
 		createFromRequest: builder.mutation<
@@ -171,6 +210,22 @@ export const api = createApi({
 				body: { arkAddress },
 			}),
 		}),
+
+		signContractExecution: builder.mutation<
+			void,
+			{
+				contractId: string;
+				executionId: string;
+				arkTx: string;
+				checkpoints: string[];
+			}
+		>({
+			query: ({ contractId, executionId, arkTx, checkpoints }) => ({
+				url: `${encodeURIComponent(contractId)}/executions/${encodeURIComponent(executionId)}`,
+				method: "PATCH",
+				body: { arkTx, checkpoints },
+			}),
+		}),
 	}),
 });
 
@@ -179,4 +234,6 @@ export const {
 	useCreateFromRequestMutation,
 	useAcceptContractMutation,
 	useExecuteContractMutation,
+	useGetContractByIdQuery,
+	useSignContractExecutionMutation,
 } = api;

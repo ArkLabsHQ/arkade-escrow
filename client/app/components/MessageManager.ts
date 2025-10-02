@@ -33,14 +33,39 @@ type RpcArkWalletAddressResponse = {
 	};
 };
 
+type RpcArkSignTransactionRequest = {
+	method: "sign-transaction";
+	payload: {
+		// Base64
+		tx: string;
+		// Base64
+		checkpoints: string[];
+	};
+};
+type RpcArkSignTransactionResponse = {
+	method: "sign-transaction";
+	payload: {
+		// Base64
+		tx: string;
+		// Base64
+		checkpoints: string[];
+	};
+};
+
 type RpcRequest = {
 	kind: "ARKADE_RPC_REQUEST";
 	id: string;
-} & (RpcXPublicKeyRequest | RpcLoginRequest | RpcArkWalletAddressRequest);
+} & (
+	| RpcXPublicKeyRequest
+	| RpcLoginRequest
+	| RpcArkWalletAddressRequest
+	| RpcArkSignTransactionRequest
+);
 type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcLoginResponse
 	| RpcXPublicKeyResponse
 	| RpcArkWalletAddressResponse
+	| RpcArkSignTransactionResponse
 );
 
 type InboundMessage = RpcResponse | KeepAlive;
@@ -50,6 +75,10 @@ type DataMessage = { kind: "DATA" } & (
 	| { topic: "xOnlyPublicKey"; xOnlyPublicKey: string }
 	| { topic: "signedChallenge"; signedChallenge: string }
 	| { topic: "arkWalletAddress"; arkWalletAddress: string }
+	| {
+			topic: "signedTransaction";
+			signedTransaction: { tx: string; checkpoints: string[] };
+	  }
 );
 
 type Props = {};
@@ -112,6 +141,15 @@ export default function makeMessageHandler(props: Props) {
 								kind: "DATA",
 								topic: "signedChallenge",
 								signedChallenge: payload.signedChallenge,
+							},
+						};
+					case "sign-transaction":
+						return {
+							tag: "success",
+							result: {
+								kind: "DATA",
+								topic: "signedTransaction",
+								signedTransaction: payload,
 							},
 						};
 					default:
