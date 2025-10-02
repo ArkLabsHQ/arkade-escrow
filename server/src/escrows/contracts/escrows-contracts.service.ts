@@ -350,11 +350,15 @@ export class EscrowsContractsService {
 		// 	checkpoints: signature.checkpoints.map(base64.decode),
 		// });
 
+		const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
 		let nextExecutionStatus = execution.status;
 
 		switch (execution.status) {
 			case "pending-initiator-signature": {
-				if (execution.initiatedByPubKey !== signerPubKey) {
+				this.logger.debug(
+					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
+				);
+				if (!signerIsInitiator) {
 					throw new ForbiddenException(
 						`Execution must be signed by initiator first`,
 					);
@@ -363,7 +367,10 @@ export class EscrowsContractsService {
 				break;
 			}
 			case "pending-counterparty-signature": {
-				if (execution.initiatedByPubKey === signerPubKey) {
+				this.logger.debug(
+					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
+				);
+				if (signerIsInitiator) {
 					throw new ForbiddenException(
 						`Execution must be signed by counterparty`,
 					);
@@ -391,7 +398,7 @@ export class EscrowsContractsService {
 
 		await this.contractExecutionRepository.update(
 			{
-				externalId: contract.externalId,
+				externalId: executionId,
 				contract: { externalId: contractId },
 			},
 			{
