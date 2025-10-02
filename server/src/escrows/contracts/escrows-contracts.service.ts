@@ -177,6 +177,7 @@ export class EscrowsContractsService {
 			senderPublicKey: draft.senderPubkey,
 			receiverPublicKey: draft.receiverPubkey,
 			arbitratorPublicKey: this.arbitratorPublicKey,
+			contractNonce: `${draft.externalId}${draft.request.externalId}`,
 		});
 
 		await this.contractRepository.update(
@@ -497,6 +498,7 @@ export class EscrowsContractsService {
 					receiverPublicKey: initiatorPubKey,
 					senderPublicKey: contract.senderPubkey,
 					arbitratorPublicKey: this.arbitratorPublicKey,
+					contractNonce: `${contract.externalId}${contract.request.externalId}`,
 				},
 				vtxo,
 			);
