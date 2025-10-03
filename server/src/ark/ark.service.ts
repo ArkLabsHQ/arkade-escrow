@@ -25,6 +25,7 @@ export type EscrowTransactionForAction = {
 	receiverPublicKey: string;
 	senderPublicKey: string;
 	arbitratorPublicKey: string;
+	contractNonce: string;
 };
 export type EscrowTransaction = {
 	arkTx: Transaction;
@@ -211,6 +212,7 @@ export class ArkService {
 			sender: hex.decode(contract.senderPublicKey),
 			arbitrator: hex.decode(contract.arbitratorPublicKey),
 			server: hex.decode(ArkService.getServerKey(arkInfo)),
+			// nonce: new TextEncoder().encode(contract.contractNonce),
 		});
 	}
 

@@ -14,22 +14,58 @@ type RpcLoginResponse = {
 };
 
 type RpcXPublicKeyRequest = {
-	method: "get-x-publick-key";
+	method: "get-x-public-key";
 };
 type RpcXPublicKeyResponse = {
-	method: "get-x-publick-key";
+	method: "get-x-public-key";
 	payload: {
 		xOnlyPublicKey: string | null;
+	};
+};
+
+type RpcArkWalletAddressRequest = {
+	method: "get-ark-wallet-address";
+};
+type RpcArkWalletAddressResponse = {
+	method: "get-ark-wallet-address";
+	payload: {
+		arkAddress: string | null;
+	};
+};
+
+type RpcArkSignTransactionRequest = {
+	method: "sign-transaction";
+	payload: {
+		// Base64
+		tx: string;
+		// Base64
+		checkpoints: string[];
+	};
+};
+type RpcArkSignTransactionResponse = {
+	method: "sign-transaction";
+	payload: {
+		// Base64
+		tx: string;
+		// Base64
+		checkpoints: string[];
 	};
 };
 
 type RpcRequest = {
 	kind: "ARKADE_RPC_REQUEST";
 	id: string;
-} & (RpcXPublicKeyRequest | RpcLoginRequest);
+} & (
+	| RpcXPublicKeyRequest
+	| RpcLoginRequest
+	| RpcArkWalletAddressRequest
+	| RpcArkSignTransactionRequest
+);
 type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcLoginResponse
 	| RpcXPublicKeyResponse
+	| RpcArkWalletAddressResponse
+	| RpcArkSignTransactionResponse
 );
 
 type InboundMessage = RpcResponse | KeepAlive;
@@ -38,6 +74,11 @@ type OutboundMessage = KeepAlive | RpcRequest;
 type DataMessage = { kind: "DATA" } & (
 	| { topic: "xOnlyPublicKey"; xOnlyPublicKey: string }
 	| { topic: "signedChallenge"; signedChallenge: string }
+	| { topic: "arkWalletAddress"; arkWalletAddress: string }
+	| {
+			topic: "signedTransaction";
+			signedTransaction: { tx: string; checkpoints: string[] };
+	  }
 );
 
 type Props = {};
@@ -61,7 +102,7 @@ export default function makeMessageHandler(props: Props) {
 				const { id, kind, method, payload } = message;
 				console.log("[escrow] RPC response", { id, kind, method, payload });
 				switch (method) {
-					case "get-x-publick-key":
+					case "get-x-public-key":
 						if (payload.xOnlyPublicKey === null) {
 							return {
 								tag: "failure",
@@ -77,6 +118,22 @@ export default function makeMessageHandler(props: Props) {
 							},
 						};
 
+					case "get-ark-wallet-address":
+						if (payload.arkAddress === null) {
+							return {
+								tag: "failure",
+								error: new Error(`${message.kind}/${method} returned null`),
+							};
+						}
+						return {
+							tag: "success",
+							result: {
+								kind: "DATA",
+								topic: "arkWalletAddress",
+								arkWalletAddress: payload.arkAddress,
+							},
+						};
+
 					case "sign-login-challenge":
 						return {
 							tag: "success",
@@ -84,6 +141,15 @@ export default function makeMessageHandler(props: Props) {
 								kind: "DATA",
 								topic: "signedChallenge",
 								signedChallenge: payload.signedChallenge,
+							},
+						};
+					case "sign-transaction":
+						return {
+							tag: "success",
+							result: {
+								kind: "DATA",
+								topic: "signedTransaction",
+								signedTransaction: payload,
 							},
 						};
 					default:

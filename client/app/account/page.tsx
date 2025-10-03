@@ -3,22 +3,26 @@
 import Header from "../components/Header";
 import { useEffect, useMemo, useState } from "react";
 import {
+	AUTH_FIXED_CACHE_KEY,
 	useCreateSignupChallengeMutation,
 	useVerifySignupChallengeMutation,
 } from "./api";
 import { shortKey } from "../helpers";
 import { useMessageBridge } from "../components/MessageProvider";
+import { useRouter } from "next/navigation";
 
 export default function Account() {
+	const router = useRouter();
+
 	const [createSignupChallenge, { isError, isLoading }] =
 		useCreateSignupChallengeMutation({
-			fixedCacheKey: "create-signup-challenge",
+			fixedCacheKey: "createSignupChallenge",
 		});
 	const [
 		verifySignupChallenge,
 		{ isError: isVerificationError, isLoading: isVerificationLoading },
 	] = useVerifySignupChallengeMutation({
-		fixedCacheKey: "verify-signup-challenge",
+		fixedCacheKey: AUTH_FIXED_CACHE_KEY,
 	});
 	const { signChallenge, xPublicKey } = useMessageBridge();
 
@@ -176,12 +180,32 @@ export default function Account() {
 						</div>
 					</div>
 
-					{/* Hint card */}
-					<div className="mt-3 rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-600">
-						- Sign in triggers the signup challenge request and logs the
-						response to the console.
-						<br />- Public key is shortened and clickable to copy.
-						<br />- Sign out is a placeholder.
+					{/* Navigation actions (Revolut-like stacked buttons) */}
+					<div className="mt-3 space-y-2">
+						<button
+							type="button"
+							onClick={() => router.push("/contracts")}
+							className="w-full rounded-2xl border border-slate-100 bg-white px-4 py-3 text-slate-900 shadow-sm transition hover:bg-slate-50 hover:shadow active:scale-[0.99] flex items-center justify-between"
+						>
+							<span className="text-sm font-medium">My Contracts</span>
+							<span className="text-slate-400">→</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => router.push("/requests")}
+							className="w-full rounded-2xl border border-slate-100 bg-white px-4 py-3 text-slate-900 shadow-sm transition hover:bg-slate-50 hover:shadow active:scale-[0.99] flex items-center justify-between"
+						>
+							<span className="text-sm font-medium">My Requests</span>
+							<span className="text-slate-400">→</span>
+						</button>
+						<button
+							type="button"
+							onClick={() => router.push("/executions")}
+							className="w-full rounded-2xl border border-slate-100 bg-white px-4 py-3 text-slate-900 shadow-sm transition hover:bg-slate-50 hover:shadow active:scale-[0.99] flex items-center justify-between"
+						>
+							<span className="text-sm font-medium">Pending Executions</span>
+							<span className="text-slate-400">→</span>
+						</button>
 					</div>
 				</div>
 			</div>

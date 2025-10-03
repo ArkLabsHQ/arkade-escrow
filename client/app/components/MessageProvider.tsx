@@ -10,10 +10,15 @@ import React, {
 } from "react";
 import makeMessageHandler from "./MessageManager";
 import { nanoid } from "nanoid";
+import { Transaction } from "../contracts/api";
 
 type MessageBridgeContextValue = {
 	signChallenge: (challenge: string) => Promise<string>;
 	xPublicKey: string | null;
+	walletAddress: string | null;
+	signTransaction: (
+		transaction: Transaction,
+	) => Promise<{ tx: string; checkpoints: string[] }>;
 };
 
 const MessageBridgeContext = createContext<
@@ -33,14 +38,33 @@ export function MessageProvider({
 	);
 	const [isAlive, seIsAlive] = useState(false);
 	const [xPublicKey, setXPublicKey] = useState<string | null>(null);
-	const [signedChallenge, setSignedChallenge] = useState<string | null>(null);
+	const [walletAddress, setWalletAddress] = useState<string | null>(null);
 	const [hostOrigin, setHostOrigin] = useState<string | null>(null);
 	const handleMessage = useMemo(() => makeMessageHandler({}), []);
 	const childWindowRef = useRef<Window | null>(null);
+
 	// Store pending promise handlers to avoid stale closures
-	const pendingResolveRef = useRef<((value: string) => void) | null>(null);
-	const pendingRejectRef = useRef<((reason?: unknown) => void) | null>(null);
-	const timeoutRef = useRef<number | null>(null);
+	const [signedChallenge, setSignedChallenge] = useState<string | null>(null);
+	const pendingChallengeResolveRef = useRef<((value: string) => void) | null>(
+		null,
+	);
+	const pendingChallengeRejectRef = useRef<((reason?: unknown) => void) | null>(
+		null,
+	);
+	const timeoutChallengeRef = useRef<number | null>(null);
+
+	// Store pending promise handlers to avoid stale closures
+	const [signedSignature, setSignedSignature] = useState<{
+		tx: string;
+		checkpoints: string[];
+	} | null>(null);
+	const pendingSignatureResolveRef = useRef<
+		((value: { tx: string; checkpoints: string[] }) => void) | null
+	>(null);
+	const pendingSignatureRejectRef = useRef<((reason?: unknown) => void) | null>(
+		null,
+	);
+	const timeoutSignatureRef = useRef<number | null>(null);
 
 	const onMessage = useCallback(
 		async (event: MessageEvent) => {
@@ -84,6 +108,19 @@ export function MessageProvider({
 									);
 									setSignedChallenge(resultContent.signedChallenge);
 									break;
+								case "arkWalletAddress":
+									console.log(
+										"[escrow] ark wallet address",
+										resultContent.arkWalletAddress,
+									);
+									setWalletAddress(resultContent.arkWalletAddress);
+									break;
+								case "signedTransaction":
+									console.log(
+										"[escrow] signed transaction",
+										resultContent.signedTransaction,
+									);
+									setSignedSignature(resultContent.signedTransaction);
 							}
 							break;
 						case "ARKADE_KEEP_ALIVE": {
@@ -95,12 +132,22 @@ export function MessageProvider({
 									{
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
-										method: "get-x-publick-key",
+										method: "get-x-public-key",
 									},
 									event.origin,
 								);
 							}
-							console.log("[escrow] answer k.a.", result.result, event.origin);
+							if (!walletAddress) {
+								childWindowRef.current?.postMessage(
+									{
+										kind: "ARKADE_RPC_REQUEST",
+										id: nanoid(8),
+										method: "get-ark-wallet-address",
+									},
+									event.origin,
+								);
+							}
+							// console.log("[escrow] answer k.a.", result.result, event.origin);
 							setTimeout(
 								() =>
 									childWindowRef.current?.postMessage(
@@ -120,7 +167,7 @@ export function MessageProvider({
 				return;
 			}
 		},
-		[handleMessage, allowed, isAlive, hostOrigin, xPublicKey],
+		[handleMessage, allowed, isAlive, hostOrigin, xPublicKey, walletAddress],
 	);
 
 	useEffect(() => {
@@ -134,31 +181,46 @@ export function MessageProvider({
 	// Resolve pending signChallenge promise when signedChallenge state updates
 	useEffect(() => {
 		if (!signedChallenge) return;
-		if (pendingResolveRef.current) {
-			pendingResolveRef.current(signedChallenge);
+		if (pendingChallengeResolveRef.current) {
+			pendingChallengeResolveRef.current(signedChallenge);
 		}
-		if (timeoutRef.current) {
-			clearTimeout(timeoutRef.current);
-			timeoutRef.current = null;
+		if (timeoutChallengeRef.current) {
+			clearTimeout(timeoutChallengeRef.current);
+			timeoutChallengeRef.current = null;
 		}
-		pendingResolveRef.current = null;
-		pendingRejectRef.current = null;
+		pendingChallengeResolveRef.current = null;
+		pendingChallengeRejectRef.current = null;
 	}, [signedChallenge]);
+
+	// Resolve pending signSignature promise when signedSignature state updates
+	useEffect(() => {
+		if (!signedSignature) return;
+		if (pendingSignatureResolveRef.current) {
+			pendingSignatureResolveRef.current(signedSignature);
+		}
+		if (timeoutSignatureRef.current) {
+			clearTimeout(timeoutSignatureRef.current);
+			timeoutSignatureRef.current = null;
+		}
+		pendingSignatureResolveRef.current = null;
+		pendingSignatureRejectRef.current = null;
+	}, [signedSignature]);
 
 	return (
 		<MessageBridgeContext.Provider
 			value={{
 				xPublicKey,
+				walletAddress,
 				signChallenge: async (challenge: string) => {
 					if (!hostOrigin) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
-					if (timeoutRef.current) {
-						clearTimeout(timeoutRef.current);
-						timeoutRef.current = null;
+					if (timeoutChallengeRef.current) {
+						clearTimeout(timeoutChallengeRef.current);
+						timeoutChallengeRef.current = null;
 					}
-					pendingResolveRef.current = null;
-					pendingRejectRef.current = null;
+					pendingChallengeResolveRef.current = null;
+					pendingChallengeRejectRef.current = null;
 
 					setSignedChallenge(null);
 					childWindowRef.current?.postMessage(
@@ -172,16 +234,55 @@ export function MessageProvider({
 					);
 
 					return new Promise<string>((resolve, reject) => {
-						pendingResolveRef.current = resolve;
-						pendingRejectRef.current = reject;
+						pendingChallengeResolveRef.current = resolve;
+						pendingChallengeRejectRef.current = reject;
 
-						timeoutRef.current = window.setTimeout(() => {
-							pendingResolveRef.current = null;
-							pendingRejectRef.current = null;
-							timeoutRef.current = null;
+						timeoutChallengeRef.current = window.setTimeout(() => {
+							pendingChallengeResolveRef.current = null;
+							pendingChallengeRejectRef.current = null;
+							timeoutChallengeRef.current = null;
 							reject("timeout");
 						}, 10000);
 					});
+				},
+				signTransaction: (transaction: Transaction) => {
+					if (!hostOrigin) return Promise.reject("app not ready");
+
+					// Reset any previous pending promise
+					if (timeoutSignatureRef.current) {
+						clearTimeout(timeoutSignatureRef.current);
+						timeoutSignatureRef.current = null;
+					}
+					pendingSignatureResolveRef.current = null;
+					pendingSignatureRejectRef.current = null;
+
+					setSignedSignature(null);
+					childWindowRef.current?.postMessage(
+						{
+							kind: "ARKADE_RPC_REQUEST",
+							id: nanoid(8),
+							method: "sign-transaction",
+							payload: {
+								tx: transaction.arkTx,
+								checkpoints: transaction.checkpoints,
+							},
+						},
+						hostOrigin,
+					);
+
+					return new Promise<{ tx: string; checkpoints: string[] }>(
+						(resolve, reject) => {
+							pendingSignatureResolveRef.current = resolve;
+							pendingSignatureRejectRef.current = reject;
+
+							timeoutSignatureRef.current = window.setTimeout(() => {
+								pendingSignatureResolveRef.current = null;
+								pendingSignatureRejectRef.current = null;
+								timeoutSignatureRef.current = null;
+								reject("timeout");
+							}, 10000);
+						},
+					);
 				},
 			}}
 		>

@@ -66,14 +66,24 @@ export const selectAccessToken = (state: unknown): string | undefined => {
 	// This relies on verifySignupChallenge being called with { fixedCacheKey: AUTH_FIXED_CACHE_KEY }
 	// so all services can read the token from one stable cache entry.
 	const sel = api.endpoints.verifySignupChallenge?.select(AUTH_FIXED_CACHE_KEY);
-	// @ts-expect-error: sel can be undefined before endpoint is created; guard below.
-	const res = typeof sel === "function" ? sel(state) : undefined;
+	console.log("selectAccessToken", state);
+	const res = typeof sel === "function" ? sel(state as any) : undefined;
 	return res?.data?.accessToken;
+};
+
+export const selectXPublicKey = (state: unknown): string | undefined => {
+	// This relies on verifySignupChallenge being called with { fixedCacheKey: AUTH_FIXED_CACHE_KEY }
+	// so all services can read the token from one stable cache entry.
+	const sel = api.endpoints.verifySignupChallenge?.select(AUTH_FIXED_CACHE_KEY);
+	console.log("selectAccessToken", state);
+	const res = typeof sel === "function" ? sel(state as any) : undefined;
+	return res?.data?.publicKey;
 };
 
 // optional: reusable helper to attach Authorization header (can be imported by other APIs)
 export const attachAuthHeader = (headers: Headers, state: unknown) => {
 	const token = selectAccessToken(state);
+	console.log("attachAuthHeader", token);
 	if (token) headers.set("Authorization", `Bearer ${token}`);
 	return headers;
 };

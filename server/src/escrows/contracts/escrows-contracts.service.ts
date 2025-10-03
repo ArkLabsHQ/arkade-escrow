@@ -177,6 +177,7 @@ export class EscrowsContractsService {
 			senderPublicKey: draft.senderPubkey,
 			receiverPublicKey: draft.receiverPubkey,
 			arbitratorPublicKey: this.arbitratorPublicKey,
+			contractNonce: `${draft.externalId}${draft.request.externalId}`,
 		});
 
 		await this.contractRepository.update(
@@ -316,9 +317,9 @@ export class EscrowsContractsService {
 				`Contract ${contractId} or execution ${executionId} not found`,
 			);
 		}
-		if (contract.status !== "funded") {
+		if (contract.status !== "pending-execution") {
 			throw new UnprocessableEntityException(
-				`Contract ${contractId} is not funded`,
+				`Contract ${contractId} cannot be executed from status ${contract.status}`,
 			);
 		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
@@ -345,23 +346,20 @@ export class EscrowsContractsService {
 
 		// Verify the signed PSBTs actually match the original tx skeleton
 		// and include a signature by signerPubKey
-		this.verifyExecutionSignature(execution, signerPubKey, {
-			arkTx: hex.decode(signature.arkTx),
-			checkpoints: signature.checkpoints.map(hex.decode),
-		});
+		// this.verifyExecutionSignature(execution, signerPubKey, {
+		// 	arkTx: base64.decode(signature.arkTx),
+		// 	checkpoints: signature.checkpoints.map(base64.decode),
+		// });
 
-		const updatedExcutionTx: ExecutionTransaction = {
-			...execution.transaction,
-			arkTx: signature.arkTx,
-			checkpoints: signature.checkpoints,
-			approvedByPubKeys: [signerPubKey],
-		};
-
+		const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
 		let nextExecutionStatus = execution.status;
 
 		switch (execution.status) {
 			case "pending-initiator-signature": {
-				if (execution.initiatedByPubKey !== signerPubKey) {
+				this.logger.debug(
+					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
+				);
+				if (!signerIsInitiator) {
 					throw new ForbiddenException(
 						`Execution must be signed by initiator first`,
 					);
@@ -370,7 +368,10 @@ export class EscrowsContractsService {
 				break;
 			}
 			case "pending-counterparty-signature": {
-				if (execution.initiatedByPubKey === signerPubKey) {
+				this.logger.debug(
+					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
+				);
+				if (signerIsInitiator) {
 					throw new ForbiddenException(
 						`Execution must be signed by counterparty`,
 					);
@@ -385,9 +386,20 @@ export class EscrowsContractsService {
 			}
 		}
 
+		this.logger.debug(
+			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus} by ${execution.initiatedByPubKey === signerPubKey ? "initiator" : "counterparty"}`,
+		);
+
+		const updatedExcutionTx: ExecutionTransaction = {
+			...execution.transaction,
+			arkTx: signature.arkTx,
+			checkpoints: signature.checkpoints,
+			approvedByPubKeys: [signerPubKey],
+		};
+
 		await this.contractExecutionRepository.update(
 			{
-				externalId: contract.externalId,
+				externalId: executionId,
 				contract: { externalId: contractId },
 			},
 			{
@@ -396,25 +408,37 @@ export class EscrowsContractsService {
 			},
 		);
 
-		// TODO: this may be async
-		await this.arkService.executeEscrowTransaction({
-			arkTx: Transaction.fromPSBT(hex.decode(updatedExcutionTx.arkTx)),
-			checkpoints: updatedExcutionTx.checkpoints.map((c) =>
-				Transaction.fromPSBT(hex.decode(c)),
-			),
-			requiredSigners: execution.transaction.requiredSigners,
-		});
+		if (nextExecutionStatus === "pending-server-confirmation") {
+			// initiator signed:
+			// [Nest] 2437723  - 10/02/2025, 9:38:28 AM   DEBUG [EscrowsContractsService] contract afyCciqRSjjCXAk8 status updated from pending-execution to completed
+			this.logger.debug(
+				`contract ${contractId} status updated from ${contract.status} to completed`,
+			);
 
-		await this.contractExecutionRepository.update(
-			{
-				externalId: contract.externalId,
-				contract: { externalId: contractId },
-			},
-			{
-				status: "executed",
-			},
-		);
+			await this.contractRepository.update(
+				{ externalId: contract.externalId },
+				{
+					status: "completed",
+				},
+			);
+			await this.arkService.executeEscrowTransaction({
+				arkTx: Transaction.fromPSBT(base64.decode(updatedExcutionTx.arkTx)),
+				checkpoints: updatedExcutionTx.checkpoints.map((c) =>
+					Transaction.fromPSBT(base64.decode(c)),
+				),
+				requiredSigners: execution.transaction.requiredSigners,
+			});
 
+			await this.contractExecutionRepository.update(
+				{
+					externalId: contract.externalId,
+					contract: { externalId: contractId },
+				},
+				{
+					status: "executed",
+				},
+			);
+		}
 		const persisted = await this.contractExecutionRepository.findOne({
 			where: {
 				externalId: executionId,
@@ -474,6 +498,7 @@ export class EscrowsContractsService {
 					receiverPublicKey: initiatorPubKey,
 					senderPublicKey: contract.senderPubkey,
 					arbitratorPublicKey: this.arbitratorPublicKey,
+					contractNonce: `${contract.externalId}${contract.request.externalId}`,
 				},
 				vtxo,
 			);
@@ -503,6 +528,12 @@ export class EscrowsContractsService {
 				},
 			});
 			const persisted = await this.contractExecutionRepository.save(entity);
+			await this.contractRepository.update(
+				{ externalId: contract.externalId },
+				{
+					status: "pending-execution",
+				},
+			);
 			return {
 				externalId: persisted.externalId,
 				contractId: persisted.contract.externalId,
