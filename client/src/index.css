@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 262 30% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 262 30% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 30% 15%;
+
+    --primary: 262 79% 33%;
+    --primary-light: 262 79% 45%;
+    --primary-dark: 262 79% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 262 25% 96%;
+    --secondary-foreground: 262 30% 15%;
+
+    --muted: 262 15% 96%;
+    --muted-foreground: 262 10% 50%;
+
+    --accent: 280 60% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 262 15% 92%;
+    --input: 262 15% 92%;
+    --ring: 262 79% 33%;
+
+    --radius: 0.75rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(262 79% 33%) 0%, hsl(280 60% 45%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(262 25% 99%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-shine: linear-gradient(135deg, hsl(262 79% 33% / 0.05) 0%, hsl(280 60% 55% / 0.05) 100%);
+
+    --shadow-sm: 0 1px 2px 0 hsl(262 30% 15% / 0.05);
+    --shadow: 0 4px 6px -1px hsl(262 30% 15% / 0.1), 0 2px 4px -2px hsl(262 30% 15% / 0.1);
+    --shadow-md: 0 10px 15px -3px hsl(262 30% 15% / 0.1), 0 4px 6px -4px hsl(262 30% 15% / 0.1);
+    --shadow-lg: 0 20px 25px -5px hsl(262 30% 15% / 0.1), 0 8px 10px -6px hsl(262 30% 15% / 0.1);
+    --shadow-glow: 0 0 30px hsl(262 79% 33% / 0.3);
+
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --logo-color: hsl(262 79% 33%);
+  }
+
+  .dark {
+    --background: 262 50% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 262 40% 12%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 262 40% 12%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 262 79% 55%;
+    --primary-light: 262 79% 65%;
+    --primary-dark: 262 79% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 262 30% 18%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 262 30% 20%;
+    --muted-foreground: 262 10% 65%;
+
+    --accent: 280 60% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 262 30% 22%;
+    --input: 262 30% 22%;
+    --ring: 262 79% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(262 79% 45%) 0%, hsl(280 60% 55%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(262 40% 10%) 0%, hsl(262 50% 8%) 100%);
+    --gradient-shine: linear-gradient(135deg, hsl(262 79% 55% / 0.1) 0%, hsl(280 60% 60% / 0.1) 100%);
+
+    --shadow-glow: 0 0 40px hsl(262 79% 55% / 0.4);
+    --logo-color: hsl(262 79% 65%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    font-optical-sizing: auto;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--primary) / 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
+  }
+
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+}
