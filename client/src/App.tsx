@@ -8,7 +8,7 @@ import { Notifications } from "./pages/Notifications";
 import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
 import NotFound from "./pages/NotFound";
-import { MessageProvider } from "./components/MessageBus/MessageProvider";
+import { MessageProvider } from "./components/MessageBus";
 
 const queryClient = new QueryClient();
 
