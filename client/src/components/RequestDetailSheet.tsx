@@ -12,13 +12,14 @@ import { format } from "date-fns";
 import { Separator } from "./ui/separator";
 import { GetEscrowRequestDto } from "@/types/api";
 import { Me } from "@/types/me";
+import { Link } from "react-router-dom";
 
 interface RequestDetailSheetProps {
 	me: Me;
 	request: GetEscrowRequestDto | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onCreateContract: (requestId: string) => void;
+	onCreateContract?: (requestId: string) => void;
 }
 
 export const RequestDetailSheet = ({
@@ -127,6 +128,33 @@ export const RequestDetailSheet = ({
 							<p className="text-sm text-muted-foreground mb-2">Status</p>
 							<Badge variant="outline">{request.status}</Badge>
 						</div>
+
+						<Separator />
+
+						<div>
+							<p className="text-sm text-muted-foreground mb-2">
+								Your contracts
+							</p>
+							{request.contractsCount > 0 ? (
+								<p className="text-base text-foreground leading-relaxed">
+									You have {request.contractsCount}{" "}
+									{request.contractsCount === 1 ? "contract" : "contracts"} for
+									this request
+									<br />
+									Find them in{" "}
+									<Link
+										className="text-base font-medium text-foreground underline hover:text-primary transition-colors"
+										to="/contracts"
+									>
+										My Contracts page
+									</Link>
+								</p>
+							) : (
+								<p className="text-base text-foreground leading-relaxed">
+									You don't have any contract for this request
+								</p>
+							)}
+						</div>
 					</div>
 
 					{/* Actions */}
@@ -138,7 +166,7 @@ export const RequestDetailSheet = ({
 						>
 							Close
 						</Button>
-						{isMine ? (
+						{isMine && (
 							<Button
 								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
 								onClick={() => {
@@ -150,7 +178,8 @@ export const RequestDetailSheet = ({
 							>
 								Cancel Request
 							</Button>
-						) : (
+						)}
+						{!isMine && onCreateContract && (
 							<Button
 								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
 								onClick={() => {

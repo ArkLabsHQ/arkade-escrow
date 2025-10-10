@@ -9,26 +9,29 @@ import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
 import NotFound from "./pages/NotFound";
 import { MessageProvider } from "./components/MessageBus";
+import { SessionProvider } from "@/components/SessionProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
 		<MessageProvider allowedChildOrigins={["http://localhost:3003"]}>
-			<TooltipProvider>
-				<Toaster />
-				<Sonner />
-				<BrowserRouter>
-					<Routes>
-						<Route path="/" element={<Index />} />
-						<Route path="/notifications" element={<Notifications />} />
-						<Route path="/requests" element={<Requests />} />
-						<Route path="/contracts" element={<Contracts />} />
-						{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-						<Route path="*" element={<NotFound />} />
-					</Routes>
-				</BrowserRouter>
-			</TooltipProvider>
+			<SessionProvider>
+				<TooltipProvider>
+					<Toaster />
+					<Sonner />
+					<BrowserRouter>
+						<Routes>
+							<Route path="/" element={<Index />} />
+							<Route path="/notifications" element={<Notifications />} />
+							<Route path="/requests" element={<Requests />} />
+							<Route path="/contracts" element={<Contracts />} />
+							{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+							<Route path="*" element={<NotFound />} />
+						</Routes>
+					</BrowserRouter>
+				</TooltipProvider>
+			</SessionProvider>
 		</MessageProvider>
 	</QueryClientProvider>
 );

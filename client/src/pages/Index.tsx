@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import { Header } from "@/components/Header";
 import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
@@ -12,16 +11,29 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import Config from "@/Config";
 import axios from "axios";
 import { ApiPaginatedEnvelope, GetEscrowRequestDto } from "@/types/api";
-import { Me } from "@/types/me";
+import { useSession } from "@/components/SessionProvider";
 
 const Index = () => {
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
-	const [me, setMe] = useState<Me | null>(null);
-
+	const me = useSession();
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [newRequestOpen, setNewRequestOpen] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
+
+	const createContractFromRequest = useMutation({
+		mutationFn: async (requestId: string) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const res = await axios.post(
+				`${Config.apiBaseUrl}/escrows/contracts`,
+				{ requestId },
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			return res.data;
+		},
+	});
 
 	// create request
 	const createRequest = useMutation({
@@ -49,7 +61,7 @@ const Index = () => {
 		error,
 		isPending,
 	} = useInfiniteQuery({
-		queryKey: ["escrow-requests", limit, refreshKey],
+		queryKey: ["orderbook", limit, refreshKey],
 		initialPageParam: { cursor: undefined as string | undefined, limit },
 		queryFn: async ({ pageParam }) => {
 			const params = {
@@ -103,10 +115,19 @@ const Index = () => {
 	};
 
 	const handleCreateContract = (requestId: string) => {
-		toast.success("Contract created successfully!", {
-			description: "You can now view and manage your contract.",
+		createContractFromRequest.mutate(requestId, {
+			onSuccess: (resp) => {
+				console.log(resp);
+				toast.success("Contract created successfully!", {
+					description: "You can now view and manage your contract.",
+				});
+			},
+			onError: (error) => {
+				toast.error("Failed to create contract", {
+					description: error.message,
+				});
+			},
 		});
-		console.log("Creating contract for request:", requestId);
 	};
 
 	const handleNewRequest = (data: any) => {
@@ -128,10 +149,6 @@ const Index = () => {
 			},
 		});
 	};
-
-	if (me === null) {
-		return <LoadingScreen onLoadComplete={(me) => setMe(me)} />;
-	}
 
 	return (
 		<div className="min-h-screen bg-gradient-subtle">

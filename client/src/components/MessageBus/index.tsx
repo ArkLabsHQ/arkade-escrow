@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import makeMessageHandler from "./MessageManager";
 import { nanoid } from "nanoid";
+import { amd } from "globals";
 
 export type Transaction = {
 	vtxo: {
@@ -19,9 +20,6 @@ export type Transaction = {
 	};
 	arkTx: string; // The Ark transaction as PSBT
 	checkpoints: string[]; // Checkpoint transactions as PSBTs
-	requiredSigners: "sender" | "receiver" | "server" | "arbitrator"[];
-	approvedByPubKeys: string[]; // List of pubkeys who have approved
-	rejectedByPubKeys: string[]; // List of pubkeys who have rejected
 };
 
 type MessageBridgeContextValue = {
@@ -31,6 +29,7 @@ type MessageBridgeContextValue = {
 	signTransaction: (
 		transaction: Transaction,
 	) => Promise<{ tx: string; checkpoints: string[] }>;
+	fundAddress: (address: string, amount: number) => Promise<void>;
 };
 
 const MessageBridgeContext = createContext<
@@ -294,6 +293,19 @@ export function MessageProvider({
 								reject("timeout");
 							}, 10000);
 						},
+					);
+				},
+				fundAddress: async (address: string, amount: number) => {
+					if (!hostOrigin) return Promise.reject("app not ready");
+
+					childWindowRef.current?.postMessage(
+						{
+							kind: "ARKADE_RPC_REQUEST",
+							id: nanoid(8),
+							method: "fund-address",
+							payload: { address, amount },
+						},
+						hostOrigin,
 					);
 				},
 			}}

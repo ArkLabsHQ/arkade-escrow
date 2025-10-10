@@ -52,6 +52,26 @@ type RpcArkSignTransactionResponse = {
 	};
 };
 
+type RpcFundAddressRequest = {
+	method: "fund-address";
+	payload: {
+		// Ark address
+		address: string;
+		// SAT
+		amount: number;
+	};
+};
+type RpcFundAddressResponse = {
+	method: "fund-address";
+	payload: {
+		// Ark address
+		address: string;
+		// SAT
+		requestedAmount: number;
+		fundedAmount: number;
+	};
+};
+
 type RpcRequest = {
 	kind: "ARKADE_RPC_REQUEST";
 	id: string;
@@ -60,12 +80,14 @@ type RpcRequest = {
 	| RpcLoginRequest
 	| RpcArkWalletAddressRequest
 	| RpcArkSignTransactionRequest
+	| RpcFundAddressRequest
 );
 type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcLoginResponse
 	| RpcXPublicKeyResponse
 	| RpcArkWalletAddressResponse
 	| RpcArkSignTransactionResponse
+	| RpcFundAddressResponse
 );
 
 type InboundMessage = RpcResponse | KeepAlive;
