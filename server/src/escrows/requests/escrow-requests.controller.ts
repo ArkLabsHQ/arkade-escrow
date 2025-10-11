@@ -53,7 +53,7 @@ import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 import { EscrowsContractsService } from "../contracts/escrows-contracts.service";
 
-@ApiTags("Escrow Requests")
+@ApiTags("1 - Escrow Requests")
 @ApiExtraModels(
 	ApiEnvelopeShellDto,
 	ApiPaginatedMetaDto,

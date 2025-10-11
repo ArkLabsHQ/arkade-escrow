@@ -21,8 +21,16 @@ export const CONTRACT_STATUS = [
 	"funded",
 	// execution created
 	"pending-execution",
-	// all unspent VTXO have been spent
+	// execution settled, all unspent VTXO have been spent
 	"completed",
+
+	// Cancelation occurs after `created` or 'funded'
+	// TODO:    How do we instruct the server to give the funds back in case of a cancellation?
+	//          Probably the exit delay will guarantee that the funds are returned if the contract is never settled.
+	"canceled-by-creator",
+	"rejected-by-counterparty",
+	// canceled by the arbiter
+	"canceled-by-arbiter",
 
 	// not funded in time
 	"timed-out-funding",
@@ -30,13 +38,6 @@ export const CONTRACT_STATUS = [
 	"timed-out-sender",
 	// receiver didn't sign the spending path
 	"timed-out-receiver",
-
-	// canceled by the sender
-	"canceled-by-sender",
-	// canceled by the receiver
-	"canceled-by-receiver",
-	// canceled by the arbiter
-	"canceled-by-arbiter",
 ] as const;
 export type ContractStatus = (typeof CONTRACT_STATUS)[number];
 

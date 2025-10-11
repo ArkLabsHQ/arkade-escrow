@@ -246,6 +246,41 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
+	@Post(":externalId/reject")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Reject a draft contract by externalId" })
+	@ApiParam({ name: "externalId", description: "Contract external id" })
+	@ApiBody({
+		type: "object",
+		schema: {
+			properties: {
+				reason: { type: "string" },
+			},
+			required: ["reason"],
+		},
+	})
+	@ApiOkResponse({
+		description: "Contract rejected",
+		schema: getSchemaPathForDto(GetEscrowContractDto),
+	})
+	@HttpCode(200)
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow contract not found" })
+	async rejectContract(
+		@UserFromJwt() user: User,
+		@Param("externalId") externalId: string,
+		@Body() dto: { reason: string },
+	): Promise<ApiEnvelope<GetEscrowContractDto>> {
+		const contract = await this.service.rejectDraftContract({
+			externalId,
+			rejectorPubkey: user.publicKey,
+			reason: dto.reason,
+		});
+		return envelope(contract);
+	}
+
 	@Get(":externalId/executions")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()

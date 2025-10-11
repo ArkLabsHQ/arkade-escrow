@@ -24,9 +24,12 @@ import {
 	CONTRACT_CREATED_ID,
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_FUNDED_ID,
+	CONTRACT_VOIDED_ID,
 	ContractCreated,
 	ContractDrafted,
 	ContractFunded,
+	ContractId,
+	ContractVoided,
 } from "../../common/contract-address.event";
 import { GetEscrowContractDto } from "./dto/get-escrow-contract.dto";
 import {
@@ -215,15 +218,83 @@ export class EscrowsContractsService {
 		};
 	}
 
-	async cancelContract(contractId: string): Promise<void> {
-		// TODO: mark cancelled and look up arkAddress, cannot cancel if funded?
-		// this.events.emit(CONTRACT_VOIDED_ID, {
-		// 	eventId: randomUUID(),
-		// 	contractId,
-		// 	arkAddress,
-		// 	reason: "cancelled_by_user",
-		// 	voidedAt: new Date().toISOString(),
-		// } satisfies ContractAddressVoidedEvent);
+	static isContractParty(pubkey: string, contract: EscrowContract): boolean {
+		return (
+			pubkey === contract.senderPubkey || pubkey === contract.receiverPubkey
+		);
+	}
+
+	static isSender(pubkey: string, contract: EscrowContract): boolean {
+		return pubkey === contract.senderPubkey;
+	}
+
+	async rejectDraftContract({
+		externalId,
+		rejectorPubkey,
+		reason,
+	}: {
+		externalId: string;
+		rejectorPubkey: string;
+		reason: string;
+	}): Promise<GetEscrowContractDto> {
+		const draft = await this.contractRepository.findOne({
+			where: { externalId },
+		});
+		if (!draft) {
+			throw new NotFoundException(`Contract ${externalId} not found`);
+		}
+		if (draft.status !== "draft") {
+			throw new UnprocessableEntityException(
+				`Contract ${externalId} is not in draft status`,
+			);
+		}
+		if (!EscrowsContractsService.isContractParty(rejectorPubkey, draft)) {
+			throw new ForbiddenException(
+				"User is neither the sender nor receiver of the contract",
+			);
+		}
+
+		const isCreator = draft.request.creatorPubkey === rejectorPubkey;
+
+		await this.contractRepository.update(
+			{ externalId: draft.externalId },
+			{
+				// the creator of the request is always the counterparty of the contract
+				status: isCreator ? "rejected-by-counterparty" : "canceled-by-creator",
+				cancelationReason: reason,
+			},
+		);
+
+		this.events.emit(CONTRACT_VOIDED_ID, {
+			eventId: randomUUID(),
+			contractId: draft.externalId,
+			// there shouldn't be an arkAddress here
+			arkAddress: draft.arkAddress
+				? ArkAddress.decode(draft.arkAddress)
+				: undefined,
+			reason,
+			voidedAt: new Date().toISOString(),
+		} satisfies ContractVoided);
+
+		const persisted = await this.contractRepository.findOne({
+			where: { externalId: draft.externalId },
+		});
+		if (!persisted) {
+			throw new InternalServerErrorException("Contract not found after update");
+		}
+		return {
+			externalId: persisted.externalId,
+			requestId: persisted.request.externalId,
+			senderPublicKey: persisted.senderPubkey,
+			receiverPublicKey: persisted.receiverPubkey,
+			amount: persisted.amount,
+			side: persisted.request.side,
+			description: persisted.request.description,
+			arkAddress: persisted.arkAddress,
+			status: persisted.status,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
 	}
 
 	/*

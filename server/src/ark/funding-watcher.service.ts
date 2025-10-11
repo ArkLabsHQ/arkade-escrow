@@ -81,8 +81,10 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 
 	@OnEvent(CONTRACT_VOIDED_ID)
 	onContractVoided(evt: ContractVoided) {
-		this.watchMap.delete(evt.arkAddress.encode());
-		this.logger.debug(`Stopped watching ${evt.arkAddress.encode()} (voided)`);
+		if (evt.arkAddress) {
+			this.watchMap.delete(evt.arkAddress.encode());
+			this.logger.debug(`Stopped watching ${evt.arkAddress.encode()} (voided)`);
+		}
 	}
 
 	@OnEvent(CONTRACT_EXECUTED_ID)

@@ -15,6 +15,7 @@ hashes.sha256 = sha256;
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 
+	// biome-ignore lint/correctness/useHookAtTopLevel: backend
 	app.useGlobalPipes(
 		new ValidationPipe({
 			whitelist: true,
@@ -22,6 +23,7 @@ async function bootstrap() {
 			transform: true,
 		}),
 	);
+	// biome-ignore lint/correctness/useHookAtTopLevel: backend
 	app.useGlobalFilters(new HttpExceptionFilter());
 	app.enableCors();
 
@@ -35,7 +37,13 @@ async function bootstrap() {
 		)
 		.build();
 	const doc = SwaggerModule.createDocument(app, config);
-	SwaggerModule.setup("api/v1/docs", app, doc);
+	SwaggerModule.setup("api/v1/docs", app, doc, {
+		swaggerOptions: {
+			tagsSorter: "alpha",
+			operationsSorter: "alpha",
+			persistAuthorization: true,
+		},
+	});
 
 	const port = parseInt(process.env.PORT ?? "3000", 10);
 	await app.listen(port, "0.0.0.0");

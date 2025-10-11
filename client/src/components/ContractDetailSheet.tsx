@@ -170,7 +170,7 @@ export const ContractDetailSheet = ({
 				contractId: contract.externalId,
 				walletAddress,
 				executionId: currentExecution?.externalId,
-				transaction: currentExecution?.transaction,
+				transaction: currentExecution?.transaction ?? null,
 			});
 			// toast.success(messages[currentAction]);
 			onOpenChange(false);
@@ -493,7 +493,7 @@ export const ContractDetailSheet = ({
 										<div className="flex items-center gap-2">
 											<AlertCircle className="h-4 w-4 text-destructive" />
 											<p className="text-sm font-medium text-foreground">
-												Past Settlement Attempts ({dataExecutions.data.length})
+												Past Settlement Attempts ({pastFailedExecutions.length})
 											</p>
 										</div>
 										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />

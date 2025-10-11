@@ -24,7 +24,7 @@ import { RequestChallengeDto } from "./dto/request-challenge.dto";
 import { VerifySignupDto } from "./dto/verify-signup.dto";
 import { ConfigService } from "@nestjs/config";
 
-@ApiTags("Authentication")
+@ApiTags("0 - Authentication")
 @ApiExtraModels(RequestChallengeDto, VerifySignupDto)
 @Controller("api/v1/auth")
 export class AuthController {

@@ -33,7 +33,7 @@ export const CONTRACT_VOIDED_ID = "contract.voided";
 export type ContractVoided = {
 	eventId: string;
 	contractId: ContractId;
-	arkAddress: ArkAddress;
+	arkAddress?: ArkAddress;
 	reason?: string;
 	voidedAt: string;
 };
