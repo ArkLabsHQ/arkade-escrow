@@ -11,6 +11,8 @@ import { EscrowRequestsService } from "./requests/escrow-requests.service";
 import { EscrowRequestsController } from "./requests/escrow-requests.controller";
 import { ArkModule } from "../ark/ark.module";
 import { ContractExecution } from "./contracts/contract-execution.entity";
+import { ContractArbitration } from "./arbitration/contract-arbitration.entity";
+import { ArbitrationService } from "./arbitration/arbitration.service";
 
 @Module({
 	imports: [
@@ -19,11 +21,16 @@ import { ContractExecution } from "./contracts/contract-execution.entity";
 			EscrowRequest,
 			User,
 			ContractExecution,
+			ContractArbitration,
 		]),
 		AuthModule,
 		ArkModule,
 	],
-	providers: [EscrowsContractsService, EscrowRequestsService],
+	providers: [
+		EscrowsContractsService,
+		EscrowRequestsService,
+		ArbitrationService,
+	],
 	controllers: [EscrowsContractsController, EscrowRequestsController],
 	exports: [EscrowsContractsService, EscrowRequestsService],
 })

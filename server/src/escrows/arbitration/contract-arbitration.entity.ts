@@ -1,0 +1,54 @@
+import {
+	Column,
+	CreateDateColumn,
+	Entity,
+	Index,
+	JoinColumn,
+	ManyToOne,
+	PrimaryGeneratedColumn,
+	UpdateDateColumn,
+} from "typeorm";
+import { EscrowContract } from "../contracts/escrow-contract.entity";
+
+export const ARBITRATION_STATUS = ["pending", "closed"] as const;
+export type ArbitrationStatus = (typeof ARBITRATION_STATUS)[number];
+
+export const VERDICT = ["refund", "release"] as const;
+export type Verdict = (typeof VERDICT)[number];
+
+@Entity("contract_arbitrations")
+export class ContractArbitration {
+	@PrimaryGeneratedColumn()
+	id!: number;
+
+	@Index({ unique: true })
+	@Column({ type: "text" })
+	externalId!: string;
+
+	@Index()
+	@ManyToOne(() => EscrowContract, { eager: true })
+	@JoinColumn({
+		name: "contractExternalId",
+		referencedColumnName: "externalId",
+	})
+	contract!: EscrowContract;
+
+	@Index()
+	@Column({ type: "text" })
+	claimant!: string;
+
+	@Column({ type: "text" })
+	reason!: string;
+
+	@Column({ type: "text" })
+	status!: ArbitrationStatus;
+
+	@Column({ type: "text", nullable: true })
+	verdict?: Verdict;
+
+	@CreateDateColumn()
+	createdAt!: Date;
+
+	@UpdateDateColumn()
+	updatedAt!: Date;
+}

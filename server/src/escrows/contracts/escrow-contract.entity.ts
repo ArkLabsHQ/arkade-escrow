@@ -32,12 +32,9 @@ export const CONTRACT_STATUS = [
 	// canceled by the arbiter
 	"canceled-by-arbiter",
 
-	// not funded in time
-	"timed-out-funding",
-	// sender didn't sign the spending path
-	"timed-out-sender",
-	// receiver didn't sign the spending path
-	"timed-out-receiver",
+	"under-arbitration",
+
+	// TODO: should we cover some "timeout" scenarios?"
 ] as const;
 export type ContractStatus = (typeof CONTRACT_STATUS)[number];
 

@@ -19,7 +19,7 @@ import { base64 } from "@scure/base";
 
 import { ArkService } from "../../ark/ark.service";
 import { EscrowRequest } from "../requests/escrow-request.entity";
-import { EscrowContract } from "./escrow-contract.entity";
+import { ContractStatus, EscrowContract } from "./escrow-contract.entity";
 import {
 	CONTRACT_CREATED_ID,
 	CONTRACT_DRAFTED_ID,
@@ -46,6 +46,8 @@ import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
+import { ArbitrationService } from "../arbitration/arbitration.service";
+import { DisputeEscrowContractOutDto } from "./dto/dispute-escrow-contract.dto";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -53,6 +55,10 @@ type DraftContractInput = {
 	receiverPubkey: string;
 	amount: number;
 	requestId: string;
+};
+
+type ContractQueryFilter = {
+	status?: ContractStatus;
 };
 
 @Injectable()
@@ -67,6 +73,7 @@ export class EscrowsContractsService {
 		@InjectRepository(ContractExecution)
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		private readonly arkService: ArkService,
+		private readonly arbitrationService: ArbitrationService,
 		private readonly events: EventEmitter2,
 	) {
 		const arbitratorPubKey =
@@ -237,30 +244,24 @@ export class EscrowsContractsService {
 		rejectorPubkey: string;
 		reason: string;
 	}): Promise<GetEscrowContractDto> {
-		const draft = await this.contractRepository.findOne({
-			where: { externalId },
-		});
+		const draft = await this.getOneForPartyAndStatus(
+			externalId,
+			rejectorPubkey,
+			"draft",
+		);
+
 		if (!draft) {
-			throw new NotFoundException(`Contract ${externalId} not found`);
-		}
-		if (draft.status !== "draft") {
-			throw new UnprocessableEntityException(
-				`Contract ${externalId} is not in draft status`,
-			);
-		}
-		if (!EscrowsContractsService.isContractParty(rejectorPubkey, draft)) {
-			throw new ForbiddenException(
-				"User is neither the sender nor receiver of the contract",
+			throw new NotFoundException(
+				`Contract ${externalId} with status 'draft' not found for ${rejectorPubkey}`,
 			);
 		}
 
-		const isCreator = draft.request.creatorPubkey === rejectorPubkey;
+		const isCreator = this.isContractCreator(rejectorPubkey, draft);
 
 		await this.contractRepository.update(
 			{ externalId: draft.externalId },
 			{
-				// the creator of the request is always the counterparty of the contract
-				status: isCreator ? "rejected-by-counterparty" : "canceled-by-creator",
+				status: isCreator ? "canceled-by-creator" : "rejected-by-counterparty",
 				cancelationReason: reason,
 			},
 		);
@@ -297,12 +298,56 @@ export class EscrowsContractsService {
 		};
 	}
 
+	async disputeContract({
+		externalId,
+		claimant,
+		reason,
+	}: {
+		externalId: string;
+		claimant: string;
+		reason: string;
+	}): Promise<DisputeEscrowContractOutDto> {
+		const contract = await this.getOneForPartyAndStatus(externalId, claimant, [
+			"funded",
+			"pending-execution",
+		]);
+		if (!contract) {
+			throw new NotFoundException(
+				`Contract ${externalId} with status 'funded' or 'pending-execution' not found for ${claimant}`,
+			);
+		}
+
+		const newDispute = await this.arbitrationService.createDispute({
+			contractId: contract.externalId,
+			claimant,
+			reason,
+		});
+
+		await this.contractRepository.update(
+			{ externalId: contract.externalId },
+			{
+				status: "under-arbitration",
+			},
+		);
+
+		return {
+			externalId: newDispute.externalId,
+			contractId: contract.externalId,
+			claimant: newDispute.claimant,
+			reason: newDispute.reason,
+			status: newDispute.status,
+			createdAt: newDispute.createdAt.getTime(),
+			updatedAt: newDispute.updatedAt.getTime(),
+		};
+	}
+
 	/*
 	 * Cursor is base64(`${createdAtMs}:${id}`).
 	 * Returns the current page and the nextCursor (if more items exist), plus total public items.
 	 */
 	async getByUser(
 		pubKey: string,
+		filter: ContractQueryFilter,
 		limit: number,
 		cursor: Cursor = emptyCursor,
 	): Promise<{
@@ -322,6 +367,11 @@ export class EscrowsContractsService {
 		);
 
 		qb.leftJoinAndSelect("r.request", "request");
+
+		// apply status filter if provided
+		if (filter?.status) {
+			qb.andWhere("r.status = :status", { status: filter.status });
+		}
 
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
@@ -345,8 +395,14 @@ export class EscrowsContractsService {
 			.take(take)
 			.getMany();
 
+		// total respecting the same filters (including status if present)
 		const total = await this.contractRepository.count({
-			where: [{ senderPubkey: pubKey }, { receiverPubkey: pubKey }],
+			where: filter?.status
+				? [
+						{ senderPubkey: pubKey, status: filter.status },
+						{ receiverPubkey: pubKey, status: filter.status },
+					]
+				: [{ senderPubkey: pubKey }, { receiverPubkey: pubKey }],
 		});
 
 		let nextCursor: string | undefined;
@@ -382,20 +438,17 @@ export class EscrowsContractsService {
 			checkpoints: string[];
 		},
 	): Promise<GetExecutionByContractDto> {
-		const contract = await this.contractRepository.findOne({
-			where: { externalId: contractId },
-		});
+		const contract = await this.getOneForPartyAndStatus(
+			contractId,
+			signerPubKey,
+			"pending-execution",
+		);
 		const execution = await this.contractExecutionRepository.findOne({
 			where: { externalId: executionId, contract: { externalId: contractId } },
 		});
 		if (!contract || !execution) {
 			throw new NotFoundException(
 				`Contract ${contractId} or execution ${executionId} not found`,
-			);
-		}
-		if (contract.status !== "pending-execution") {
-			throw new UnprocessableEntityException(
-				`Contract ${contractId} cannot be executed from status ${contract.status}`,
 			);
 		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
@@ -538,22 +591,17 @@ export class EscrowsContractsService {
 		initiatorArkAddress: string,
 		initiatorPubKey: string,
 	): Promise<ExecuteEscrowContractOutDto> {
-		const contract = await this.contractRepository.findOne({
-			where: { externalId },
-		});
+		const contract = await this.getOneForPartyAndStatus(
+			externalId,
+			initiatorArkAddress,
+			"funded",
+		);
 		if (!contract) {
-			throw new NotFoundException(`Contract ${externalId} not found`);
-		}
-		if (contract.status === "draft") {
-			throw new UnprocessableEntityException(
-				"Contract is still in draft or addresses are not set",
+			throw new NotFoundException(
+				`Contract ${externalId} with status 'funded' not found for ${initiatorPubKey}`,
 			);
 		}
-		if (
-			contract.status !== "funded" ||
-			!contract.virtualCoins ||
-			contract.virtualCoins.length === 0
-		) {
+		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new UnprocessableEntityException("Contract  is not funded");
 		}
 		if (contract.receiverPubkey !== initiatorPubKey) {
@@ -660,7 +708,9 @@ export class EscrowsContractsService {
 			where: { externalId },
 		});
 		if (contract === null) {
-			throw new NotFoundException("Contract not found");
+			throw new NotFoundException(
+				`Contract ${externalId} not found for ${pubKey}`,
+			);
 		}
 		if (
 			contract?.senderPubkey !== pubKey &&
@@ -685,7 +735,6 @@ export class EscrowsContractsService {
 			description: contract.request.description,
 			cancelationReason: contract.cancelationReason,
 			virtualCoins: contract.virtualCoins,
-			// lastExecution: executions[0],
 			createdAt: contract.createdAt.getTime(),
 			updatedAt: contract.updatedAt.getTime(),
 		};
@@ -695,17 +744,11 @@ export class EscrowsContractsService {
 		contractId: string,
 		pubKey: string,
 	): Promise<GetExecutionByContractDto[]> {
-		const contract = await this.contractRepository.findOne({
-			where: { externalId: contractId },
-		});
+		const contract = await this.getOneForPartyAndStatus(contractId, pubKey);
 		if (contract === null) {
-			throw new NotFoundException("Contract not found");
-		}
-		if (
-			contract?.senderPubkey !== pubKey &&
-			contract?.receiverPubkey !== pubKey
-		) {
-			throw new ForbiddenException("Not allowed to access this contract");
+			throw new NotFoundException(
+				`Contract ${contractId} not found for ${pubKey}`,
+			);
 		}
 		const executions = await this.contractExecutionRepository.find({
 			where: { contract: { externalId: contract.externalId } },
@@ -719,6 +762,28 @@ export class EscrowsContractsService {
 			transaction: e.transaction,
 			createdAt: e.createdAt.getTime(),
 			updatedAt: e.updatedAt.getTime(),
+		}));
+	}
+
+	async getAllDisputesByContractId(
+		contractId: string,
+		pubKey: string,
+	): Promise<DisputeEscrowContractOutDto[]> {
+		const contract = await this.getOneForPartyAndStatus(contractId, pubKey);
+		if (contract === null) {
+			throw new NotFoundException(
+				`Contract ${contractId} not found for ${pubKey}`,
+			);
+		}
+		const disputes = await this.arbitrationService.getByContract(contractId);
+		return disputes.map((d) => ({
+			externalId: d.externalId,
+			contractId: d.contract.externalId,
+			claimant: d.claimant,
+			reason: d.reason,
+			status: d.status,
+			createdAt: d.createdAt.getTime(),
+			updatedAt: d.updatedAt.getTime(),
 		}));
 	}
 
@@ -876,5 +941,39 @@ export class EscrowsContractsService {
 		if (a.length !== b.length) return false;
 		for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
 		return true;
+	}
+
+	private getOneForPartyAndStatus(
+		contractId: string,
+		party: PublicKey,
+		status?: ContractStatus | ContractStatus[],
+	): Promise<EscrowContract | null> {
+		const qb = this.contractRepository
+			.createQueryBuilder("c")
+			.where("c.externalId = :contractId", { contractId })
+			.andWhere(
+				new Brackets((w) => {
+					w.where("c.senderPubkey = :party", { party }).orWhere(
+						"c.receiverPubkey = :party",
+						{ party },
+					);
+				}),
+			);
+
+		if (Array.isArray(status)) {
+			qb.andWhere("c.status IN (:...status)", { status });
+		} else if (typeof status === "string") {
+			qb.andWhere("c.status = :status", { status });
+		}
+
+		return qb.getOne();
+	}
+
+	private isContractCreator(
+		pubkey: PublicKey,
+		contract: EscrowContract,
+	): boolean {
+		// The creator of the request is always the counterparty of the contract
+		return pubkey !== contract.request.creatorPubkey;
 	}
 }
