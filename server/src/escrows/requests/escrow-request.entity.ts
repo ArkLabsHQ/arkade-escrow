@@ -29,8 +29,8 @@ export class EscrowRequest {
 	@Column({ type: "text" })
 	side!: RequestSide;
 
-	@Column({ type: "integer", nullable: true })
-	amount?: number;
+	@Column({ type: "integer" })
+	amount!: number;
 
 	@Column({ type: "text" })
 	description!: string;

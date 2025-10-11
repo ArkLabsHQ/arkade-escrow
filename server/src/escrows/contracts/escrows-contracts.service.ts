@@ -5,20 +5,19 @@ import {
 	InternalServerErrorException,
 	Logger,
 	NotFoundException,
-	NotImplementedException,
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
-import { Brackets, EntityManager, Repository } from "typeorm";
+import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
+import { ArkAddress } from "@arkade-os/sdk";
 import { Transaction } from "@scure/btc-signer";
-import { base64, hex } from "@scure/base";
+import { base64 } from "@scure/base";
 
-import { ArkService, EscrowTransaction } from "../../ark/ark.service";
+import { ArkService } from "../../ark/ark.service";
 import { EscrowRequest } from "../requests/escrow-request.entity";
 import { EscrowContract } from "./escrow-contract.entity";
 import {
@@ -207,6 +206,8 @@ export class EscrowsContractsService {
 			senderPublicKey: persisted.senderPubkey,
 			receiverPublicKey: persisted.receiverPubkey,
 			amount: persisted.amount,
+			side: persisted.request.side,
+			description: persisted.request.description,
 			arkAddress: persisted.arkAddress,
 			status: persisted.status,
 			createdAt: persisted.createdAt.getTime(),
@@ -288,7 +289,11 @@ export class EscrowsContractsService {
 			senderPublicKey: r.senderPubkey,
 			receiverPublicKey: r.receiverPubkey,
 			amount: r.amount,
+			side: r.request.side,
+			description: r.request.description,
 			status: r.status,
+			arkAddress: r.arkAddress,
+			virtualCoins: r.virtualCoins,
 			balance: r.virtualCoins?.reduce((a, _) => a + _.value, 0) ?? 0,
 			createdAt: r.createdAt.getTime(),
 			updatedAt: r.updatedAt.getTime(),
@@ -600,10 +605,10 @@ export class EscrowsContractsService {
 		) {
 			throw new ForbiddenException("Not allowed to access this contract");
 		}
-		const executions = await this.contractExecutionRepository.find({
-			where: { contract: { externalId: contract.externalId } },
-			order: { createdAt: "DESC" },
-		});
+		// const executions = await this.contractExecutionRepository.find({
+		// 	where: { contract: { externalId: contract.externalId } },
+		// 	order: { createdAt: "DESC" },
+		// });
 
 		return {
 			externalId: contract.externalId,
@@ -613,9 +618,11 @@ export class EscrowsContractsService {
 			amount: contract.amount,
 			arkAddress: contract.arkAddress,
 			status: contract.status,
+			side: contract.request.side,
+			description: contract.request.description,
 			cancelationReason: contract.cancelationReason,
 			virtualCoins: contract.virtualCoins,
-			lastExecution: executions[0],
+			// lastExecution: executions[0],
 			createdAt: contract.createdAt.getTime(),
 			updatedAt: contract.updatedAt.getTime(),
 		};

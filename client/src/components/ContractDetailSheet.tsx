@@ -591,7 +591,7 @@ export const ContractDetailSheet = ({
 						{/* Pending-execution and missing signer: Approve + Dispute */}
 						{contract.status === "pending-execution" &&
 							!currentExecution?.transaction.approvedByPubKeys.includes(
-								xPublicKey,
+								xPublicKey ?? "",
 							) && (
 								<Button
 									className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"

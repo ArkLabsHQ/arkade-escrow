@@ -5,7 +5,7 @@
 	"scripts": {
 		"api:start": "nest start",
 		"api:dev": "nest start --watch",
-		"web:dev": "next dev ./client",
+		"web:dev": "next dev client-old",
 		"clean": "rm -rf dist node_modules",
 		"test": "jest",
 		"test:watch": "jest --watch",

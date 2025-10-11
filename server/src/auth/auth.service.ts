@@ -115,8 +115,12 @@ export class AuthService {
 
 		const accessToken = await this.jwt.signAsync({
 			sub: user.id,
-			publicKey: user.publicKey,
 		});
-		return { accessToken, userId: user.id, publicKey: user.publicKey };
+		return {
+			accessToken,
+			expiresAt: 0,
+			userId: user.id,
+			publicKey: user.publicKey,
+		};
 	}
 }

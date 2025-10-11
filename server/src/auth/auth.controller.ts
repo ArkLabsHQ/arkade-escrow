@@ -74,7 +74,9 @@ export class AuthController {
 		schema: {
 			type: "object",
 			properties: {
-				accessToken: { type: "string" },
+				accessToken: { type: "string", description: "JWT" },
+				issuedAt: { type: "number", description: "Unix timestamp" },
+				expiresAt: { type: "number", description: "Unix timestamp" },
 				userId: { type: "string" },
 				publicKey: { type: "string" },
 			},

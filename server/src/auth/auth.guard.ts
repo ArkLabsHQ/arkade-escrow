@@ -40,6 +40,7 @@ export class AuthGuard implements CanActivate {
 			this.logger.error("Invalid token", e);
 			throw new UnauthorizedException("Invalid token");
 		}
+		// TODO: check if JWT has expired
 		const user = await this.users.findOne({ where: { id: payload?.sub } });
 		if (!user || user.pendingChallenge) {
 			throw new UnauthorizedException("User has pending challenge");

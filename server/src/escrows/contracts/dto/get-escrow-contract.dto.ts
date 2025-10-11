@@ -35,6 +35,12 @@ export class GetEscrowContractDto {
 	})
 	status!: ContractStatus;
 
+	@ApiProperty()
+	description!: string;
+
+	@ApiProperty({ enum: ["receiver", "sender"] })
+	side!: "receiver" | "sender";
+
 	@ApiProperty({ description: "Cancellation reason, if any", nullable: true })
 	cancelationReason?: string;
 
@@ -42,12 +48,6 @@ export class GetEscrowContractDto {
 		description: "Unspent VTXO for this contract",
 	})
 	virtualCoins?: VirtualCoin[];
-
-	@ApiProperty({
-		description: "Last execution transaction for thsi contract, if any",
-		nullable: true,
-	})
-	lastExecution?: ContractExecution;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",

@@ -87,13 +87,22 @@ export class EscrowRequestsService {
 			throw new ForbiddenException("Not allowed to view this request");
 		}
 
+		const contractsCount = await this.repo
+			.createQueryBuilder()
+			.select("COUNT(*)", "contractsCount")
+			.from("escrow_contracts", "c")
+			.where("c.requestExternalId = :externalId", { externalId }) // TODO only my pkey
+			.execute();
+
 		return {
 			externalId: found.externalId,
 			side: found.side as "receiver" | "sender",
+			creatorPublicKey: found.creatorPubkey,
 			amount: found.amount ?? undefined,
 			description: found.description,
 			status: found.status,
 			public: found.public,
+			contractsCount,
 			createdAt: found.createdAt.getTime(),
 		};
 	}
@@ -113,12 +122,12 @@ export class EscrowRequestsService {
 	}> {
 		const take = Math.min(limit, 100);
 
-		const qb = this.repo
+		const rowsQb = this.repo
 			.createQueryBuilder("r")
 			.where("r.creatorPubkey = :pubKey", { pubKey });
 
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
-			qb.andWhere(
+			rowsQb.andWhere(
 				new Brackets((w) => {
 					w.where("r.createdAt < :createdBefore", {
 						createdBefore: cursor.createdBefore,
@@ -133,11 +142,22 @@ export class EscrowRequestsService {
 			);
 		}
 
-		const rows = await qb
+		const { entities: rows, raw } = await rowsQb
 			.orderBy("r.createdAt", "DESC")
 			.addOrderBy("r.id", "DESC")
 			.take(take)
-			.getMany();
+			.addSelect(
+				(sub) =>
+					sub
+						.select("COUNT(*)", "contractsCount")
+						.from("escrow_contracts", "c")
+						.where(
+							"(c.requestExternalId = r.externalId) AND (c.senderPubkey = :pubKey OR c.receiverPubkey = :pubKey)",
+						)
+						.setParameters({ pubKey }),
+				"contractsCount",
+			)
+			.getRawAndEntities();
 
 		const total = await this.repo.count({
 			where: { creatorPubkey: pubKey },
@@ -149,13 +169,15 @@ export class EscrowRequestsService {
 			nextCursor = cursorToString(last.createdAt, last.id);
 		}
 
-		const items: GetEscrowRequestDto[] = rows.map((r) => ({
+		const items: GetEscrowRequestDto[] = rows.map((r, i) => ({
 			externalId: r.externalId,
 			side: r.side as "receiver" | "sender",
+			creatorPublicKey: r.creatorPubkey,
 			amount: r.amount ?? undefined,
 			description: r.description,
 			status: r.status,
 			public: r.public,
+			contractsCount: Number(raw[i]?.contractsCount ?? 0),
 			createdAt: r.createdAt.getTime(),
 		}));
 
@@ -172,12 +194,12 @@ export class EscrowRequestsService {
 	}> {
 		const take = Math.min(limit, 100);
 
-		const qb = this.repo
+		const rowsQb = this.repo
 			.createQueryBuilder("r")
 			.where("r.public = :pub", { pub: true });
 
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
-			qb.andWhere(
+			rowsQb.andWhere(
 				new Brackets((w) => {
 					w.where("r.createdAt < :createdBefore", {
 						createdBefore: cursor.createdBefore,
@@ -192,11 +214,19 @@ export class EscrowRequestsService {
 			);
 		}
 
-		const rows = await qb
+		const { entities: rows, raw } = await rowsQb
 			.orderBy("r.createdAt", "DESC")
 			.addOrderBy("r.id", "DESC")
 			.take(take)
-			.getMany();
+			.addSelect(
+				(sub) =>
+					sub
+						.select("COUNT(*)", "contractsCount")
+						.from("escrow_contracts", "c")
+						.where("c.requestExternalId = r.externalId"),
+				"contractsCount",
+			)
+			.getRawAndEntities();
 
 		const total = await this.repo.count({
 			where: { public: true },
@@ -208,13 +238,15 @@ export class EscrowRequestsService {
 			nextCursor = cursorToString(last.createdAt, last.id);
 		}
 
-		const items: OrderbookItemDto[] = rows.map((r) => ({
+		const items: OrderbookItemDto[] = rows.map((r, i) => ({
 			externalId: r.externalId,
 			side: r.side,
 			creatorPublicKey: r.creatorPubkey,
-			amount: r.amount ?? undefined,
+			amount: r.amount ?? 0,
 			description: r.description,
 			status: r.status,
+			public: r.public,
+			contractsCount: Number(raw[i]?.contractsCount ?? 0),
 			createdAt: r.createdAt.getTime(),
 		}));
 
