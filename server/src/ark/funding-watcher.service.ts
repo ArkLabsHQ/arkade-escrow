@@ -162,7 +162,7 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 			);
 			entry.nextCheckAt = Date.now() + entry.errorBackoffMs;
 			this.logger.warn(
-				`Error checking ${entry.arkAddress}: ${(err as Error).message}`,
+				`Error checking ${entry.arkAddress.encode()}: ${(err as Error).message}`,
 			);
 		}
 	}

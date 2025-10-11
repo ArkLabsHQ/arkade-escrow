@@ -581,14 +581,6 @@ export class EscrowsContractsService {
 		);
 	}
 
-	async findByRequestId(requestExternalId: string) {
-		return await this.contractRepository.findOne({
-			where: {
-				request: { externalId: requestExternalId },
-			},
-		});
-	}
-
 	async getOneByExternalId(
 		externalId: string,
 		pubKey: string,

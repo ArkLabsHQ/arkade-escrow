@@ -203,14 +203,6 @@ export class EscrowRequestsController {
 			throw new ConflictException(`Request is ${request.status}`);
 		if (request.creatorPubkey !== user.publicKey)
 			throw new ForbiddenException("Only the request creator can cancel");
-		const contract = await this.contractsService.findByRequestId(externalId);
-		if (contract) {
-			throw new ConflictException("Cannot cancel a request with a contract");
-		} else {
-			this.logger.warn(
-				`Cancelling request ${externalId} already accepted, but not found in contracts.`,
-			);
-		}
 		await this.requestsService.cancel(externalId);
 		return envelope();
 	}
