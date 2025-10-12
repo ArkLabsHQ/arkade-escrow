@@ -1,12 +1,12 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNumber, Min } from "class-validator";
-import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
 import { VirtualCoin } from "@arkade-os/sdk";
-import { ContractExecution } from "../contract-execution.entity";
-import { GetExecutionByContractDto } from "./get-execution-by-contract";
-import { DisputeEscrowContractOutDto } from "./dispute-escrow-contract.dto";
+import {
+	CONTRACT_STATUS,
+	ContractStatus,
+} from "../../escrows/contracts/escrow-contract.entity";
 
-export class GetEscrowContractDto {
+export class GetAdminEscrowContractDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
 	externalId!: string;
 
@@ -62,4 +62,16 @@ export class GetEscrowContractDto {
 		example: 1732690234123,
 	})
 	updatedAt!: number;
+
+	@ApiProperty({
+		description: "Unix epoch in milliseconds",
+		example: 1732690234123,
+	})
+	acceptedAt!: number;
+
+	@ApiProperty({
+		description: "Unix epoch in milliseconds",
+		example: 1732690234123,
+	})
+	canceledAt!: number;
 }

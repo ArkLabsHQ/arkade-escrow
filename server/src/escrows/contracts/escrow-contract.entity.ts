@@ -81,4 +81,10 @@ export class EscrowContract {
 
 	@UpdateDateColumn()
 	updatedAt!: Date;
+
+	@CreateDateColumn()
+	acceptedAt!: Date;
+
+	@UpdateDateColumn()
+	canceledAt!: Date;
 }

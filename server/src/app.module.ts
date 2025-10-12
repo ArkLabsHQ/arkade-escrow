@@ -1,6 +1,5 @@
 import { ConfigModule } from "@nestjs/config";
 import {
-	Logger,
 	MiddlewareConsumer,
 	Module,
 	NestModule,
@@ -14,10 +13,7 @@ import { HealthModule } from "./health.module";
 import { UsersModule } from "./users/users.module";
 import { EscrowsModule } from "./escrows/escrows.module";
 import { RequestLoggingMiddleware } from "./common/middlewares/request-logging.middleware";
-import { User } from "./users/user.entity";
-import { EscrowRequest } from "./escrows/requests/escrow-request.entity";
-import { EscrowContract } from "./escrows/contracts/escrow-contract.entity";
-import { ContractExecution } from "./escrows/contracts/contract-execution.entity";
+import { AdminModule } from "./admin/api/admin.module";
 
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV === "development";
@@ -41,6 +37,7 @@ const isDev = process.env.NODE_ENV === "development";
 		EscrowsModule,
 		UsersModule,
 		HealthModule,
+		AdminModule,
 	],
 })
 export class AppModule implements NestModule {

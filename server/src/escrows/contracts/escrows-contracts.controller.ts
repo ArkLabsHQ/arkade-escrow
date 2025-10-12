@@ -60,14 +60,14 @@ import {
 	CreateEscrowContractInDto,
 	DraftEscrowContractOutDto,
 } from "./dto/create-escrow-contract.dto";
-import { SignExecutionInDto } from "./dto/sign-execution.dto";
 import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 import {
 	DisputeEscrowContractInDto,
 	DisputeEscrowContractOutDto,
 } from "./dto/dispute-escrow-contract.dto";
+import { SignExecutionInDto } from "./dto/sign-execution.dto";
 
-@ApiTags("Escrow Contracts")
+@ApiTags("2 - Escrow Contracts")
 @Controller("api/v1/escrows/contracts")
 export class EscrowsContractsController {
 	private readonly logger = new Logger(EscrowsContractsController.name);
@@ -431,5 +431,41 @@ export class EscrowsContractsController {
 		const result = executions.find((e) => e.externalId === executionId);
 		if (!result) throw new NotFoundException("Escrow execution not found");
 		return envelope(result);
+	}
+
+	@Patch(":externalId/executions/:executionId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Sign contract execution" })
+	@ApiBody({ type: SignExecutionInDto })
+	@ApiParam({
+		name: "externalId",
+		description: "Contract external id",
+	})
+	@ApiParam({
+		name: "executionId",
+		description: "Contract execution external id",
+	})
+	@ApiOkResponse({
+		description: "Contract execution",
+		schema: getSchemaPathForDto(GetExecutionByContractDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow execution not found" })
+	async signContractExecution(
+		@UserFromJwt() user: User,
+		@Param("externalId") externalId: string,
+		@Param("executionId") executionId: string,
+		@Body() dto: SignExecutionInDto,
+	): Promise<ApiEnvelope<GetExecutionByContractDto>> {
+		const execution = await this.service.signContractExecution(
+			externalId,
+			executionId,
+			user.publicKey,
+			dto,
+		);
+
+		return envelope(execution);
 	}
 }
