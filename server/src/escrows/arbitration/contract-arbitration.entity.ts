@@ -10,7 +10,7 @@ import {
 } from "typeorm";
 import { EscrowContract } from "../contracts/escrow-contract.entity";
 
-export const ARBITRATION_STATUS = ["pending", "closed"] as const;
+export const ARBITRATION_STATUS = ["pending", "resolved", "executed"] as const;
 export type ArbitrationStatus = (typeof ARBITRATION_STATUS)[number];
 
 export const VERDICT = ["refund", "release"] as const;
@@ -35,7 +35,11 @@ export class ContractArbitration {
 
 	@Index()
 	@Column({ type: "text" })
-	claimant!: string;
+	claimantPubkey!: string;
+
+	@Index()
+	@Column({ type: "text" })
+	defendantPubkey!: string;
 
 	@Column({ type: "text" })
 	reason!: string;

@@ -113,6 +113,23 @@ const Contracts = () => {
 		},
 	});
 
+	const disputeContract = useMutation({
+		mutationFn: async (input: { contractId: string; reason: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const r = await axios.post(
+				`${Config.apiBaseUrl}/escrows/arbitrations`,
+				{
+					contractId: input.contractId,
+					reason: input.reason,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			console.log(r);
+		},
+	});
+
 	// Fetch contracts with pagination (cursor + limit)
 	const limit = Config.itemsPerPage;
 	const {
@@ -305,7 +322,7 @@ const Contracts = () => {
 				onOpenChange={setSheetOpen}
 				onContractAction={(
 					action: string,
-					{ contractId, walletAddress, executionId, transaction },
+					{ contractId, walletAddress, executionId, transaction, reason },
 				) => {
 					switch (action) {
 						case "accept": {
@@ -363,6 +380,12 @@ const Contracts = () => {
 									onSettled: () => {},
 								},
 							);
+							return;
+						case "dispute":
+							if (!reason) {
+								throw new Error("Reason is required for dispute");
+							}
+							disputeContract.mutate({ contractId, reason }, {});
 							return;
 						default:
 							return Promise.reject(new Error(`Invalid action ${action}`));

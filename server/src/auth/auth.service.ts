@@ -15,7 +15,6 @@ import {
 	createSignupChallenge,
 	hashSignupPayload,
 } from "../crypto/challenge";
-import { normalizeToXOnly } from "../crypto/keys";
 import { User } from "../users/user.entity";
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -30,7 +29,7 @@ export class AuthService {
 	) {}
 
 	async createSignupChallenge(publicKeyRaw: string, origin: string) {
-		const publicKey = normalizeToXOnly(publicKeyRaw);
+		const publicKey = publicKeyRaw; // normalizeToXOnly(publicKeyRaw);
 		const now = new Date();
 
 		let user = await this.users.findOne({ where: { publicKey } });
@@ -58,12 +57,12 @@ export class AuthService {
 	}
 
 	async verifySignup(
-		publicKeyRaw: string,
+		publicKey: string,
 		signatureHex: string,
 		challengeId: string,
 		origin: string,
 	) {
-		const publicKey = normalizeToXOnly(publicKeyRaw);
+		this.logger.debug("verifySignup", { publicKey });
 
 		const user = await this.users.findOne({ where: { publicKey } });
 		if (!user || !user.pendingChallenge || !user.challengeId) {
@@ -106,6 +105,10 @@ export class AuthService {
 		user.challengeExpiresAt = null;
 		user.lastLoginAt = new Date();
 
+		this.logger.debug("User verified", {
+			publicKey,
+			userpubkey: user.publicKey,
+		});
 		try {
 			await this.users.save(user);
 		} catch (e) {

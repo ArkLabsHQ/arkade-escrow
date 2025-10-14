@@ -7,6 +7,7 @@ import { EscrowContract } from "../../escrows/contracts/escrow-contract.entity";
 import { EscrowRequest } from "../../escrows/requests/escrow-request.entity";
 import { User } from "../../users/user.entity";
 import { ContractExecution } from "../../escrows/contracts/contract-execution.entity";
+import { ArkModule } from "../../ark/ark.module";
 
 @Module({
 	imports: [
@@ -17,6 +18,7 @@ import { ContractExecution } from "../../escrows/contracts/contract-execution.en
 			ContractExecution,
 			ContractArbitration,
 		]),
+		ArkModule,
 	],
 	controllers: [AdminController],
 	providers: [AdminService],

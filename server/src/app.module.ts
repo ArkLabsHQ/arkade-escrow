@@ -29,7 +29,7 @@ const isDev = process.env.NODE_ENV === "development";
 				type: "sqlite",
 				database: isTest ? ":memory:" : process.env.SQLITE_DB_PATH,
 				synchronize: true,
-				logging: isDev,
+				// logging: isDev,
 				autoLoadEntities: true,
 			}),
 		}),

@@ -1,7 +1,11 @@
-import { Bytes, hash160 } from "@scure/btc-signer/utils";
+import { Bytes, hash160 } from "@scure/btc-signer/utils.js";
 import { hex } from "@scure/base";
 import { Script as ScriptClass } from "@scure/btc-signer";
-import { VtxoScript, TapLeafScript, ConditionMultisigTapscript } from "@arkade-os/sdk";
+import {
+	VtxoScript,
+	TapLeafScript,
+	ConditionMultisigTapscript,
+} from "@arkade-os/sdk";
 import {
 	MultisigTapscript,
 	CSVMultisigTapscript,
@@ -72,10 +76,7 @@ export namespace VEscrow {
 				`Invalid nonce length: expected 32 or more, got ${options.nonce?.length}`,
 			);
 		}
-
-
 	}
-	
 
 	/**
 	 * Virtual Escrow Contract Script implementation
@@ -85,8 +86,8 @@ export namespace VEscrow {
 	 * - Unilateral (with timelock): unilateralRelease, unilateralRefund, unilateralDirect
 	 */
 	export class Script extends VtxoScript {
-		readonly receiverDisputeScript: string;
-		readonly senderDisputeScript: string;
+		readonly releaseFundsScript: string;
+		readonly returnFundsScript: string;
 		readonly directScript: string;
 		readonly receiverDisputeUnilateralScript: string;
 		readonly senderDisputeUnilateralScript: string;
@@ -96,7 +97,8 @@ export namespace VEscrow {
 		constructor(readonly options: Options) {
 			validateOptions(options);
 
-			const { sender, receiver, arbitrator, server, unilateralDelay, nonce } = options;
+			const { sender, receiver, arbitrator, server, unilateralDelay, nonce } =
+				options;
 
 			// Collaborative spending paths (with server)
 			const releaseScript = MultisigTapscript.encode({
@@ -108,11 +110,9 @@ export namespace VEscrow {
 			}).script;
 
 			// the happy path - transaction occurred as expected
-			const directScript = 
-				MultisigTapscript.encode({
-					pubkeys: [sender, receiver, server],
-				}).script;
-	
+			const directScript = MultisigTapscript.encode({
+				pubkeys: [sender, receiver, server],
+			}).script;
 
 			// Unilateral spending paths (with timelock)
 			const unilateralReleaseScript = CSVMultisigTapscript.encode({
@@ -130,12 +130,16 @@ export namespace VEscrow {
 				timelock: unilateralDelay,
 			}).script;
 
-			const ghostScript = nonce ?
-				ConditionMultisigTapscript.encode({
-					pubkeys: [sender, receiver, arbitrator, server],
-					conditionScript: ScriptClass.encode(["HASH160", hash160(nonce), "EQUAL"]),
-				}).script :
-				undefined;
+			const ghostScript = nonce
+				? ConditionMultisigTapscript.encode({
+						pubkeys: [sender, receiver, arbitrator, server],
+						conditionScript: ScriptClass.encode([
+							"HASH160",
+							hash160(nonce),
+							"EQUAL",
+						]),
+					}).script
+				: undefined;
 
 			// Initialize the VtxoScript with all spending paths
 			super([
@@ -145,12 +149,12 @@ export namespace VEscrow {
 				unilateralReleaseScript,
 				unilateralRefundScript,
 				unilateralDirectScript,
-				...ghostScript ? [ghostScript] : [],
+				...(ghostScript ? [ghostScript] : []),
 			]);
 
 			// Store hex-encoded scripts for easy access
-			this.receiverDisputeScript = hex.encode(releaseScript);
-			this.senderDisputeScript = hex.encode(refundScript);
+			this.releaseFundsScript = hex.encode(releaseScript);
+			this.returnFundsScript = hex.encode(refundScript);
 			this.directScript = hex.encode(directScript);
 			this.receiverDisputeUnilateralScript = hex.encode(
 				unilateralReleaseScript,
@@ -164,16 +168,16 @@ export namespace VEscrow {
 		 * Get the tap leaf script for collaborative release path
 		 * (receiver + arbitrator + server)
 		 */
-		receiverDispute(): TapLeafScript {
-			return this.findLeaf(this.receiverDisputeScript);
+		releaseFunds(): TapLeafScript {
+			return this.findLeaf(this.releaseFundsScript);
 		}
 
 		/**
 		 * Get the tap leaf script for collaborative refund path
 		 * (sender + arbitrator + server)
 		 */
-		senderDispute(): TapLeafScript {
-			return this.findLeaf(this.senderDisputeScript);
+		returnFunds(): TapLeafScript {
+			return this.findLeaf(this.returnFundsScript);
 		}
 
 		/**
@@ -220,17 +224,17 @@ export namespace VEscrow {
 		}> {
 			return [
 				{
-					name: "receiverDispute", // receiver dispute
+					name: "releaseFunds", // receiver wins dispute
 					type: "collaborative",
 					description: "Release funds to receiver (goods delivered)",
-					script: this.receiverDisputeScript,
+					script: this.releaseFundsScript,
 					signers: ["receiver", "arbitrator", "server"],
 				},
 				{
-					name: "senderDispute", // sender dispute
+					name: "returnFunds", // sender wins dispute
 					type: "collaborative",
 					description: "Refund funds to sender (dispute resolved)",
-					script: this.senderDisputeScript,
+					script: this.returnFundsScript,
 					signers: ["sender", "arbitrator", "server"],
 				},
 				{
@@ -240,6 +244,8 @@ export namespace VEscrow {
 					script: this.directScript,
 					signers: ["sender", "receiver", "server"],
 				},
+
+				// TODO: support unilateral paths
 				{
 					name: "receiverDisputeUnilateral",
 					type: "unilateral",

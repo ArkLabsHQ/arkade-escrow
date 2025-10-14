@@ -5,8 +5,8 @@ import {
 	CONTRACT_STATUS,
 	ContractStatus,
 } from "../../escrows/contracts/escrow-contract.entity";
-import { DisputeEscrowContractOutDto } from "../../escrows/contracts/dto/dispute-escrow-contract.dto";
 import { GetExecutionByContractDto } from "../../escrows/contracts/dto/get-execution-by-contract";
+import { GetArbitrationDto } from "../../escrows/arbitration/dto/get-arbitration.dto";
 
 export class GetAdminEscrowContractDetailsDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
@@ -51,13 +51,13 @@ export class GetAdminEscrowContractDetailsDto {
 	@ApiProperty({
 		description: "Unspent VTXO for this contract",
 	})
-	virtualCoins?: VirtualCoin[];
+	virtualCoins!: VirtualCoin[];
 
 	@ApiProperty({ description: "Executions for this contract" })
-	executions?: GetExecutionByContractDto[];
+	executions!: GetExecutionByContractDto[];
 
 	@ApiProperty({ description: "Disputes for this contract" })
-	disputes?: DisputeEscrowContractOutDto[];
+	arbitrations?: GetArbitrationDto[];
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",
@@ -75,11 +75,11 @@ export class GetAdminEscrowContractDetailsDto {
 		description: "Unix epoch in milliseconds",
 		example: 1732690234123,
 	})
-	acceptedAt!: number;
+	acceptedAt?: number;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",
 		example: 1732690234123,
 	})
-	canceledAt!: number;
+	canceledAt?: number;
 }

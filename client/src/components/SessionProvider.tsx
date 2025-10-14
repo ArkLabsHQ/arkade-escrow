@@ -71,7 +71,8 @@ export const SessionProvider = ({ children }: Props) => {
 		}
 
 		const authData = getAuth();
-		if (authData && !me) {
+		if (authData && authData.xPubKey === xPublicKey && !me) {
+			console.log(`Logged in as ${xPublicKey}`);
 			setMe(new Me(authData.xPubKey, authData.accessToken));
 			return;
 		}
@@ -100,6 +101,7 @@ export const SessionProvider = ({ children }: Props) => {
 				// TODO: unused for now
 				expirersAt: 0,
 			});
+			console.log(`Signed up as ${xPublicKey}`);
 			setMe(new Me(xPublicKey, signupVerification.data.data.accessToken));
 		} else if (signupVerification.isError) {
 			console.error("Error verifying signup:", signupVerification.error);

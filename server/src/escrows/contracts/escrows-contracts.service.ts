@@ -1,4 +1,5 @@
 import {
+	BadRequestException,
 	ConflictException,
 	ForbiddenException,
 	Injectable,
@@ -13,7 +14,7 @@ import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { ArkAddress } from "@arkade-os/sdk";
+import { ArkAddress, verifyTapscriptSignatures } from "@arkade-os/sdk";
 import { Transaction } from "@scure/btc-signer";
 import { base64 } from "@scure/base";
 
@@ -47,7 +48,6 @@ import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { ArbitrationService } from "../arbitration/arbitration.service";
-import { DisputeEscrowContractOutDto } from "./dto/dispute-escrow-contract.dto";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -73,7 +73,6 @@ export class EscrowsContractsService {
 		@InjectRepository(ContractExecution)
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		private readonly arkService: ArkService,
-		private readonly arbitrationService: ArbitrationService,
 		private readonly events: EventEmitter2,
 	) {
 		const arbitratorPubKey =
@@ -194,6 +193,7 @@ export class EscrowsContractsService {
 			{
 				status: "created",
 				arkAddress: arkAddress.encode(),
+				acceptedAt: new Date(),
 			},
 		);
 
@@ -295,49 +295,6 @@ export class EscrowsContractsService {
 			status: persisted.status,
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
-		};
-	}
-
-	async disputeContract({
-		externalId,
-		claimant,
-		reason,
-	}: {
-		externalId: string;
-		claimant: string;
-		reason: string;
-	}): Promise<DisputeEscrowContractOutDto> {
-		const contract = await this.getOneForPartyAndStatus(externalId, claimant, [
-			"funded",
-			"pending-execution",
-		]);
-		if (!contract) {
-			throw new NotFoundException(
-				`Contract ${externalId} with status 'funded' or 'pending-execution' not found for ${claimant}`,
-			);
-		}
-
-		const newDispute = await this.arbitrationService.createDispute({
-			contractId: contract.externalId,
-			claimant,
-			reason,
-		});
-
-		await this.contractRepository.update(
-			{ externalId: contract.externalId },
-			{
-				status: "under-arbitration",
-			},
-		);
-
-		return {
-			externalId: newDispute.externalId,
-			contractId: contract.externalId,
-			claimant: newDispute.claimant,
-			reason: newDispute.reason,
-			status: newDispute.status,
-			createdAt: newDispute.createdAt.getTime(),
-			updatedAt: newDispute.updatedAt.getTime(),
 		};
 	}
 
@@ -473,12 +430,30 @@ export class EscrowsContractsService {
 			throw new ConflictException("Signer is not a required signer");
 		}
 
-		// Verify the signed PSBTs actually match the original tx skeleton
-		// and include a signature by signerPubKey
-		// this.verifyExecutionSignature(execution, signerPubKey, {
-		// 	arkTx: base64.decode(signature.arkTx),
-		// 	checkpoints: signature.checkpoints.map(base64.decode),
-		// });
+		// transaction: {
+		//     vtxo: {
+		//         txid: vtxo.txid,
+		//             vout: vtxo.vout,
+		//             value: vtxo.value,
+		//     },
+		//     arkTx: base64.encode(escrowTransaction.arkTx.toPSBT()),
+		//         checkpoints: escrowTransaction.checkpoints.map((_) =>
+		//         base64.encode(_.toPSBT()),
+		//     ),
+		//         requiredSigners: escrowTransaction.requiredSigners,
+		//         approvedByPubKeys: [],
+		//         rejectedByPubKeys: [],
+		// },
+		try {
+			this.logger.debug("verifying tapscript signatures");
+			const txBytes = base64.decode(signature.arkTx);
+			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
+			verifyTapscriptSignatures(tx, 0, [signerPubKey]);
+			this.logger.debug("OK tapscript signatures");
+		} catch (e) {
+			this.logger.error(e);
+			throw new BadRequestException("Invalid signature");
+		}
 
 		const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
 		let nextExecutionStatus = execution.status;
@@ -498,7 +473,7 @@ export class EscrowsContractsService {
 			}
 			case "pending-counterparty-signature": {
 				this.logger.debug(
-					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
+					`execution ${executionId} is pending-counterparty-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
 				);
 				if (signerIsInitiator) {
 					throw new ForbiddenException(
@@ -538,11 +513,15 @@ export class EscrowsContractsService {
 		);
 
 		if (nextExecutionStatus === "pending-server-confirmation") {
-			// initiator signed:
-			// [Nest] 2437723  - 10/02/2025, 9:38:28 AM   DEBUG [EscrowsContractsService] contract afyCciqRSjjCXAk8 status updated from pending-execution to completed
-			this.logger.debug(
-				`contract ${contractId} status updated from ${contract.status} to completed`,
-			);
+			await this.arkService.executeEscrowTransaction({
+				arkTx: Transaction.fromPSBT(base64.decode(updatedExcutionTx.arkTx), {
+					allowUnknown: true,
+				}),
+				checkpoints: updatedExcutionTx.checkpoints.map((c) =>
+					Transaction.fromPSBT(base64.decode(c), { allowUnknown: true }),
+				),
+				requiredSigners: execution.transaction.requiredSigners,
+			});
 
 			await this.contractRepository.update(
 				{ externalId: contract.externalId },
@@ -550,13 +529,6 @@ export class EscrowsContractsService {
 					status: "completed",
 				},
 			);
-			await this.arkService.executeEscrowTransaction({
-				arkTx: Transaction.fromPSBT(base64.decode(updatedExcutionTx.arkTx)),
-				checkpoints: updatedExcutionTx.checkpoints.map((c) =>
-					Transaction.fromPSBT(base64.decode(c)),
-				),
-				requiredSigners: execution.transaction.requiredSigners,
-			});
 
 			await this.contractExecutionRepository.update(
 				{
@@ -593,7 +565,7 @@ export class EscrowsContractsService {
 	): Promise<ExecuteEscrowContractOutDto> {
 		const contract = await this.getOneForPartyAndStatus(
 			externalId,
-			initiatorArkAddress,
+			initiatorPubKey,
 			"funded",
 		);
 		if (!contract) {
@@ -608,9 +580,6 @@ export class EscrowsContractsService {
 			throw new ForbiddenException("Only the receiver can execute this action");
 		}
 		const vtxo = contract.virtualCoins[0];
-		if (!vtxo) {
-			throw new UnprocessableEntityException("no vtxo found");
-		}
 		this.logger.debug(
 			`Contract ${contract.externalId} direct settlement using vtxo ${vtxo.txid} value ${vtxo.value}`,
 		);
@@ -718,10 +687,6 @@ export class EscrowsContractsService {
 		) {
 			throw new ForbiddenException("Not allowed to access this contract");
 		}
-		// const executions = await this.contractExecutionRepository.find({
-		// 	where: { contract: { externalId: contract.externalId } },
-		// 	order: { createdAt: "DESC" },
-		// });
 
 		return {
 			externalId: contract.externalId,
@@ -765,184 +730,6 @@ export class EscrowsContractsService {
 		}));
 	}
 
-	async getAllDisputesByContractId(
-		contractId: string,
-		pubKey: string,
-	): Promise<DisputeEscrowContractOutDto[]> {
-		const contract = await this.getOneForPartyAndStatus(contractId, pubKey);
-		if (contract === null) {
-			throw new NotFoundException(
-				`Contract ${contractId} not found for ${pubKey}`,
-			);
-		}
-		const disputes = await this.arbitrationService.getByContract(contractId);
-		return disputes.map((d) => ({
-			externalId: d.externalId,
-			contractId: d.contract.externalId,
-			claimant: d.claimant,
-			reason: d.reason,
-			status: d.status,
-			createdAt: d.createdAt.getTime(),
-			updatedAt: d.updatedAt.getTime(),
-		}));
-	}
-
-	private verifyExecutionSignature(
-		execution: ContractExecution,
-		signerPubKey: string,
-		signed: { arkTx: Uint8Array; checkpoints: Uint8Array[] },
-	) {
-		try {
-			// // TODO: signer must be one of the required signers for this execution
-			// if (!execution.transaction.requiredSigners.includes(signerPubKey)) {
-			// 	throw new ConflictException("Signer is not a required signer");
-			// }
-
-			// Parse unsigned/signed arkTx
-			const unsignedArkTx = Transaction.fromPSBT(
-				Uint8Array.from(execution.transaction.arkTx),
-			);
-			const signedArkTx = Transaction.fromPSBT(signed.arkTx);
-
-			// Skeleton consistency
-			if (!this.sameTxSkeleton(unsignedArkTx, signedArkTx)) {
-				throw new UnprocessableEntityException(
-					"Signed arkTx does not match the expected transaction",
-				);
-			}
-
-			// Ensure signed arkTx includes any signature/finalization (witness/script)
-			if (!this.txHasAnySignature(signedArkTx)) {
-				throw new ConflictException("arkTx does not contain any signatures");
-			}
-
-			// Checkpoints: same length
-			const unsignedCks = execution.transaction.checkpoints ?? [];
-			if (unsignedCks.length !== signed.checkpoints.length) {
-				throw new UnprocessableEntityException(
-					"Checkpoint count does not match",
-				);
-			}
-
-			for (let i = 0; i < unsignedCks.length; i++) {
-				const u = Transaction.fromPSBT(Uint8Array.from(unsignedCks[i]));
-				const s = Transaction.fromPSBT(signed.checkpoints[i]);
-
-				if (!this.sameTxSkeleton(u, s)) {
-					throw new UnprocessableEntityException(
-						`Signed checkpoint #${i} does not match the expected transaction`,
-					);
-				}
-				if (!this.txHasAnySignature(s)) {
-					throw new ConflictException(
-						`Checkpoint #${i} does not contain any signatures`,
-					);
-				}
-			}
-		} catch (e) {
-			if (
-				e instanceof ConflictException ||
-				e instanceof UnprocessableEntityException
-			) {
-				throw e;
-			}
-			this.logger.error("Signature verification failed", e as Error);
-			throw new UnprocessableEntityException("Invalid signature payload");
-		}
-	}
-
-	/**
-	 * Conservatively checks whether a transaction shows signs of being signed/finalized:
-	 * - any input contains witness data
-	 * - or any input contains scriptSig/final script data
-	 *
-	 * The exact properties depend on the Transaction object shape; we use optional checks.
-	 */
-	private txHasAnySignature(tx: Transaction): boolean {
-		try {
-			for (let i = 0; i < tx.inputsLength; i += 1) {
-				const input = tx.getInput(i);
-				// Common encodings for signed/finalized inputs
-				// TODO:
-				//  schnorr.verify(finalSignature, msg, aggregatePublicKey);
-
-				// test from here
-				const witness: Uint8Array[] | undefined = (input as any).witness;
-				const finalScriptSig: Uint8Array | undefined = (input as any).scriptSig;
-				// Some implementations expose `finalScriptWitness` or similar
-				const finalScriptWitness = input.finalScriptWitness;
-
-				if (Array.isArray(witness) && witness.length > 0) return true;
-				if (Array.isArray(finalScriptWitness) && finalScriptWitness.length > 0)
-					return true;
-				if (finalScriptSig instanceof Uint8Array && finalScriptSig.length > 0)
-					return true;
-			}
-			return false;
-		} catch {
-			return false;
-		}
-	}
-
-	/**
-	 * Compares two transactions to ensure they are the same "skeleton":
-	 * - same version, locktime (if applicable)
-	 * - same number of inputs/outputs
-	 * - each input has the same outpoint and sequence
-	 * - each output has the same amount and script
-	 */
-	private sameTxSkeleton(a: Transaction, b: Transaction): boolean {
-		try {
-			if ((a as any).version !== (b as any).version) return false;
-			if (((a as any).locktime ?? 0) !== ((b as any).locktime ?? 0))
-				return false;
-
-			const aIns = (a as any).getInputs?.() ?? (a as any).inputs ?? [];
-			const bIns = (b as any).getInputs?.() ?? (b as any).inputs ?? [];
-			const aOuts = (a as any).getOutputs?.() ?? (a as any).outputs ?? [];
-			const bOuts = (b as any).getOutputs?.() ?? (b as any).outputs ?? [];
-
-			if (aIns.length !== bIns.length) return false;
-			if (aOuts.length !== bOuts.length) return false;
-
-			for (let i = 0; i < aIns.length; i++) {
-				const ai = aIns[i];
-				const bi = bIns[i];
-				if ((ai as any).txid !== (bi as any).txid) return false;
-				if ((ai as any).vout !== (bi as any).vout) return false;
-				if (
-					((ai as any).sequence ?? 0xffffffff) !==
-					((bi as any).sequence ?? 0xffffffff)
-				)
-					return false;
-			}
-
-			for (let i = 0; i < aOuts.length; i++) {
-				const ao = aOuts[i];
-				const bo = bOuts[i];
-				// amount can be bigint/number depending on implementation
-				const aAmt = BigInt((ao as any).amount);
-				const bAmt = BigInt((bo as any).amount);
-				if (aAmt !== bAmt) return false;
-
-				const aScript = (ao as any).script as Uint8Array | undefined;
-				const bScript = (bo as any).script as Uint8Array | undefined;
-				if (!aScript || !bScript) return false;
-				if (!this.equalBytes(aScript, bScript)) return false;
-			}
-
-			return true;
-		} catch {
-			return false;
-		}
-	}
-
-	private equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-		if (a.length !== b.length) return false;
-		for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-		return true;
-	}
-
 	private getOneForPartyAndStatus(
 		contractId: string,
 		party: PublicKey,
@@ -950,6 +737,7 @@ export class EscrowsContractsService {
 	): Promise<EscrowContract | null> {
 		const qb = this.contractRepository
 			.createQueryBuilder("c")
+			.leftJoinAndSelect("c.request", "request")
 			.where("c.externalId = :contractId", { contractId })
 			.andWhere(
 				new Brackets((w) => {

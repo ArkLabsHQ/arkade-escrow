@@ -13,6 +13,7 @@ import { ArkModule } from "../ark/ark.module";
 import { ContractExecution } from "./contracts/contract-execution.entity";
 import { ContractArbitration } from "./arbitration/contract-arbitration.entity";
 import { ArbitrationService } from "./arbitration/arbitration.service";
+import { ArbitrationController } from "./arbitration/arbitration.controller";
 
 @Module({
 	imports: [
@@ -31,7 +32,11 @@ import { ArbitrationService } from "./arbitration/arbitration.service";
 		EscrowRequestsService,
 		ArbitrationService,
 	],
-	controllers: [EscrowsContractsController, EscrowRequestsController],
-	exports: [EscrowsContractsService, EscrowRequestsService],
+	controllers: [
+		EscrowsContractsController,
+		EscrowRequestsController,
+		ArbitrationController,
+	],
+	exports: [EscrowsContractsService, EscrowRequestsService, ArbitrationService],
 })
 export class EscrowsModule {}

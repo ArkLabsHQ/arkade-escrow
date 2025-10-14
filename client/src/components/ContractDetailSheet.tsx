@@ -56,6 +56,7 @@ interface ContractDetailSheetProps {
 			executionId?: string;
 			walletAddress: string | null;
 			transaction: GetExecutionByContractDto["transaction"] | null;
+			reason?: string;
 		},
 	) => void;
 	me: Me;
@@ -81,6 +82,22 @@ export const ContractDetailSheet = ({
 				ApiPaginatedEnvelope<GetExecutionByContractDto>
 			>(
 				`${Config.apiBaseUrl}/escrows/contracts/${contract?.externalId}/executions`,
+				{
+					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+				},
+			);
+			return res.data;
+		},
+		enabled: !!contract?.externalId,
+	});
+
+	const { data: dataArbitrations } = useQuery({
+		queryKey: ["contract-arbitrations", contract?.externalId],
+		queryFn: async () => {
+			const res = await axios.get<
+				ApiPaginatedEnvelope<GetExecutionByContractDto>
+			>(
+				`${Config.apiBaseUrl}/escrows/arbitrations/?contract=${contract?.externalId}`,
 				{
 					headers: { authorization: `Bearer ${me.getAccessToken()}` },
 				},
@@ -171,6 +188,7 @@ export const ContractDetailSheet = ({
 				walletAddress,
 				executionId: currentExecution?.externalId,
 				transaction: currentExecution?.transaction ?? null,
+				reason: data?.reason,
 			});
 			// toast.success(messages[currentAction]);
 			onOpenChange(false);
@@ -198,6 +216,7 @@ export const ContractDetailSheet = ({
 			case "canceled-by-sender":
 			case "canceled-by-receiver":
 			case "canceled-by-arbiter":
+			case "under-arbitration":
 				return "bg-destructive/10 text-destructive border-destructive/20";
 			default:
 				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";

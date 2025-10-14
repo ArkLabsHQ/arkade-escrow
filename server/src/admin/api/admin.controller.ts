@@ -75,7 +75,7 @@ export class AdminController {
 		return paginatedEnvelope(items, { total, nextCursor });
 	}
 
-	@Sse("contracts/events")
+	@Sse("contracts/sse")
 	sse(): Observable<SseEvent> {
 		return this.adminService.events.pipe(
 			map((event) => ({
@@ -85,15 +85,13 @@ export class AdminController {
 	}
 
 	@ApiOperation({ summary: "Retrieve all details for the given contract" })
-	@ApiBody({ type: ArbitrateDisputeInDto })
 	@ApiOkResponse({
 		description: "The whole contract",
 		schema: getSchemaPathForDto(GetAdminEscrowContractDetailsDto),
 	})
-	@Post("contracts/:externalId")
+	@Get("contracts/:externalId")
 	async contractDetails(
 		@Param("externalId") externalId: string,
-		@Body() dto: ArbitrateDisputeInDto,
 	): Promise<ArbitrateDisputeOutDto> {
 		const data = await this.adminService.getContractDetails(externalId);
 		return envelope(data);

@@ -82,9 +82,9 @@ export class EscrowContract {
 	@UpdateDateColumn()
 	updatedAt!: Date;
 
-	@CreateDateColumn()
-	acceptedAt!: Date;
+	@Column({ type: "datetime", nullable: true })
+	acceptedAt?: Date;
 
-	@UpdateDateColumn()
-	canceledAt!: Date;
+	@Column({ type: "datetime", nullable: true })
+	canceledAt?: Date;
 }

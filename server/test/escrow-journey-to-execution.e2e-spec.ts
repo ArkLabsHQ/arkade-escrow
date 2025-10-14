@@ -5,8 +5,63 @@ import { hashes, utils as secpUtils } from "@noble/secp256k1";
 import { sha256 } from "@noble/hashes/sha2";
 import { AppModule } from "../src/app.module";
 import { signupAndGetJwt } from "./utils";
+import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
+import { execSync } from "node:child_process";
+import { base64 } from "@scure/base";
 
 hashes.sha256 = sha256;
+
+/** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
+const arkdExec =
+	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
+
+interface TestArkWallet {
+	wallet: Wallet;
+	identity: SingleKey;
+}
+function createTestIdentity(name: Uint8Array): SingleKey {
+	return SingleKey.fromPrivateKey(name);
+}
+async function createTestArkWallet(name: Uint8Array): Promise<TestArkWallet> {
+	const identity = createTestIdentity(name);
+
+	const wallet = await Wallet.create({
+		identity,
+		arkServerUrl: "http://localhost:7070",
+	});
+
+	return {
+		wallet,
+		identity,
+	};
+}
+function faucetOffchain(address: string, amount: number): void {
+	console.log(
+		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
+	);
+	execCommand(
+		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
+	);
+}
+function execCommand(command: string): string {
+	command += " | grep -v WARN";
+	const result = execSync(command).toString().trim();
+	return result;
+}
+// before each test check if the ark's cli running in the test env has at least 20_000 offchain balance
+// if not, fund it with 100.000
+function beforeEachFaucet(): void {
+	const balanceOutput = execCommand(`${arkdExec} ark balance`);
+	const balance = JSON.parse(balanceOutput);
+	const offchainBalance = balance.offchain_balance.total;
+
+	if (offchainBalance <= 20_000) {
+		const noteStr = execCommand(`${arkdExec} arkd note --amount 100000`);
+		execCommand(`${arkdExec} ark redeem-notes -n ${noteStr} --password secret`);
+	}
+}
+
+/* -------------- */
 
 describe("Escrow creation from Request to contract", () => {
 	let app: INestApplication;
@@ -24,11 +79,14 @@ describe("Escrow creation from Request to contract", () => {
 		await app.close();
 	});
 
+	beforeEach(beforeEachFaucet, 20000);
+
 	it("should create an escrow request and contract from draft to created", async () => {
-		const receiver = secpUtils.randomSecretKey();
-		const sender = secpUtils.randomSecretKey();
-		const receiverToken = await signupAndGetJwt(app, receiver);
-		const senderToken = await signupAndGetJwt(app, sender);
+		const alice = await createTestArkWallet(secpUtils.randomSecretKey());
+		const bob = await createTestArkWallet(secpUtils.randomSecretKey());
+
+		const receiverToken = await signupAndGetJwt(app, alice.identity);
+		const senderToken = await signupAndGetJwt(app, bob.identity);
 
 		const payload = {
 			side: "receiver",
@@ -121,5 +179,117 @@ describe("Escrow creation from Request to contract", () => {
 		expect(getContractRes.body.data.externalId).toBe(contractId);
 		expect(getContractRes.body.data.status).toBe("created");
 		expect(getContractRes.body.data.arkAddress).toBe(accepted.arkAddress);
-	});
+
+		faucetOffchain(accepted.arkAddress, accepted.amount);
+
+		await Promise.race([
+			new Promise((resolve) =>
+				setTimeout(async () => {
+					console.log("Waiting for arkd to sync...");
+					const getContractRes = await request(app.getHttpServer())
+						.get(`/api/v1/escrows/contracts/${contractId}`)
+						.set("Authorization", `Bearer ${receiverToken}`)
+						.expect(200);
+
+					expect(getContractRes.body).toBeDefined();
+					expect(getContractRes.body.data).toBeDefined();
+					expect(getContractRes.body.data.status).toBe("funded");
+					resolve(undefined);
+				}, 5000),
+			),
+			new Promise((_, reject) =>
+				setTimeout(() => {
+					reject();
+				}, 10000),
+			),
+		]);
+
+		const aliceAddress = await alice.wallet.getAddress();
+
+		// funded, now the signatures
+		const executionRes = await request(app.getHttpServer())
+			.post(`/api/v1/escrows/contracts/${contractId}/execute`)
+			.send({
+				contractId: accepted.externalId,
+				arkAddress: aliceAddress,
+			})
+			.set("Authorization", `Bearer ${receiverToken}`)
+			.expect(201);
+
+		expect(executionRes.body).toBeDefined();
+		expect(executionRes.body.data).toBeDefined();
+		expect(executionRes.body.data.externalId).toBeDefined();
+
+		const aliceSignature = await signTx(
+			executionRes.body.data.arkTx,
+			executionRes.body.data.checkpoints,
+			alice,
+		);
+
+		const aliceSigns = await request(app.getHttpServer())
+			.patch(
+				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
+			)
+			.send({
+				arkTx: aliceSignature.arkTx,
+				checkpoints: aliceSignature.checkpoints,
+			})
+			.set("Authorization", `Bearer ${receiverToken}`)
+			.expect(200);
+
+		const executionSignedByAlice = await request(app.getHttpServer())
+			.get(
+				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
+			)
+			.set("Authorization", `Bearer ${senderToken}`)
+			.expect(200);
+
+		const bobSignature = await signTx(
+			executionSignedByAlice.body.data.transaction.arkTx,
+			executionSignedByAlice.body.data.transaction.checkpoints,
+			bob,
+		);
+
+		const bobSigns = await request(app.getHttpServer())
+			.patch(
+				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
+			)
+			.send({
+				arkTx: bobSignature.arkTx,
+				checkpoints: bobSignature.checkpoints,
+			})
+			.set("Authorization", `Bearer ${senderToken}`)
+			.expect(200);
+
+		/**
+		 * TODO: this is where the code fails with
+		 * [Nest] 2965347  - 10/14/2025, 4:22:10 PM   ERROR [ExceptionsHandler] INVALID_PSBT_INPUT: INVALID_PSBT_INPUT (5): missing taptree on input 0
+		 */
+		const contractSignedByBob = await request(app.getHttpServer())
+			.get(`/api/v1/escrows/contracts/${contractId}`)
+			.set("Authorization", `Bearer ${receiverToken}`)
+			.expect(200);
+	}, 20000);
 });
+
+async function signTx(
+	base64Tx: string,
+	checkpoints: string[],
+	wallet: TestArkWallet,
+) {
+	const tx = Transaction.fromPSBT(base64.decode(base64Tx), {
+		allowUnknown: true,
+	});
+	const signedTx = await wallet.identity.sign(tx);
+	const ckpts = checkpoints.map(async (cp) => {
+		const signed = await wallet.identity.sign(
+			Transaction.fromPSBT(base64.decode(cp), { allowUnknown: true }),
+			[0],
+		);
+		return base64.encode(signed.toPSBT());
+	});
+	return {
+		arkTx: base64.encode(signedTx.toPSBT()),
+		checkpoints: await Promise.all(ckpts),
+	};
+}

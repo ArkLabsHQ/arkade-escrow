@@ -20,7 +20,7 @@ import { Contract } from "../common/Contract.type";
 import { ActionType } from "../common/Action.type";
 
 export type EscrowTransactionForAction = {
-	action: "direct-settle";
+	action: ActionType;
 	receiverAddress: ArkAddress;
 	receiverPublicKey: string;
 	senderPublicKey: string;
@@ -166,11 +166,13 @@ export class ArkService {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
+		this.logger.log("Executing Ark transaction...");
 		// The Ark transaction has been signed by each required party when they approved
 		// Now we can submit the fully-signed transaction
 		const arkTxData = transaction.arkTx.toPSBT();
 		const arkTx = Transaction.fromPSBT(arkTxData, { allowUnknown: true });
 
+		this.logger.log("Executing Ark transaction... PHASE 1");
 		// Phase 1: Submit the signed Ark transaction and get checkpoint transactions
 		const checkpointData = transaction.checkpoints.map((_) => _.toPSBT());
 		const { arkTxid } = await this.provider.submitTx(
@@ -212,7 +214,7 @@ export class ArkService {
 			sender: hex.decode(contract.senderPublicKey),
 			arbitrator: hex.decode(contract.arbitratorPublicKey),
 			server: hex.decode(ArkService.getServerKey(arkInfo)),
-			// nonce: new TextEncoder().encode(contract.contractNonce),
+			nonce: new TextEncoder().encode(contract.contractNonce),
 		});
 	}
 
@@ -236,13 +238,10 @@ export class ArkService {
 		action: ActionType,
 	): TapLeafScript | null {
 		switch (action) {
-			case "dispute":
-				// TODO: determine the side of the dispute
-				// 	return escrowScript.receiverDispute();
-				// case "refund":
-				// 	return escrowScript.senderDispute();
-				throw new Error("Dispute not implemented");
-
+			case "release-funds":
+				return escrowScript.releaseFunds();
+			case "return-funds":
+				return escrowScript.returnFunds();
 			// this is the consensual settlement
 			case "direct-settle":
 				return escrowScript.direct();
@@ -257,16 +256,15 @@ export class ArkService {
 	): Signers[] | undefined {
 		const spendingPaths = escrowScript.getSpendingPaths();
 		switch (action) {
-			// case "release":
-			// 	return spendingPaths.find((_) => _.name === "release")?.signers;
-			//
-			// case "refund":
-			// 	// Send all funds to sender
-			// 	return spendingPaths.find((_) => _.name === "refund")?.signers;
-
 			case "direct-settle": {
 				return spendingPaths.find((_) => _.name === "direct")?.signers;
 			}
+
+			case "release-funds":
+				return spendingPaths.find((_) => _.name === "releaseFunds")?.signers;
+
+			case "return-funds":
+				return spendingPaths.find((_) => _.name === "returnFunds")?.signers;
 
 			default:
 				throw new Error(`Unknown action: ${action}`);

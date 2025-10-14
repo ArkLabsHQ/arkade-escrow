@@ -67,11 +67,11 @@ export class GetAdminEscrowContractDto {
 		description: "Unix epoch in milliseconds",
 		example: 1732690234123,
 	})
-	acceptedAt!: number;
+	acceptedAt?: number;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",
 		example: 1732690234123,
 	})
-	canceledAt!: number;
+	canceledAt?: number;
 }

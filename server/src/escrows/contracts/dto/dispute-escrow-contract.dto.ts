@@ -1,39 +1,14 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { ArbitrationStatus } from "../../arbitration/contract-arbitration.entity";
+import { IsNotEmpty, IsString } from "class-validator";
 
 export class DisputeEscrowContractInDto {
-	@ApiProperty({ description: "Reason for dispute", required: true })
-	reason!: string;
-}
-
-export class DisputeEscrowContractOutDto {
-	@ApiProperty({
-		example: "q3f7p9n4z81k6c0b",
-		description: "The Arbitration ID",
-	})
-	externalId!: string;
-
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b", description: "The Contract ID" })
+	@IsString()
+	@IsNotEmpty()
 	contractId!: string;
 
-	@ApiProperty({
-		description: "Public Key of the claimant who initiated the dispute",
-	})
-	claimant!: string;
-
-	@ApiProperty({
-		description: "Reason for dispute",
-	})
+	@ApiProperty({ description: "Reason for dispute", required: true })
+	@IsString()
+	@IsNotEmpty()
 	reason!: string;
-
-	@ApiProperty({
-		description: "Status of the dispute",
-	})
-	status!: ArbitrationStatus;
-
-	@ApiProperty({ description: "Unix epoch in milliseconds" })
-	createdAt!: number;
-
-	@ApiProperty({ description: "Unix epoch in milliseconds" })
-	updatedAt!: number;
 }

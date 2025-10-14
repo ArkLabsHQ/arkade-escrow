@@ -79,7 +79,17 @@ Please don't check in your local editor files.
 - logout with JWT invalidation
 
 
-## TEST
+## TESTING
 
-{"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNzcxNTZjYS05MzFjLTRjYWEtODBkNC1kY2EyZjczZTE0YjMiLCJpYXQiOjE3NTk4OTg3MzQsImV4cCI6MTc2MDUwMzUzNH0.WJY6lCbNAgV7I26438jswkXf3EYdLEvbSuh61_W1nlA","xPubKey":"d76db47a7cbf9973c340b073b4f0c608604a82c052bad6b8c31ddae98d353ab9","expirersAt":0}
-{"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMjg5NTgzMy05MjBmLTQyMDctODY4Yi03ZDFmYjAyMDBlODEiLCJpYXQiOjE3NTk5MDExODQsImV4cCI6MTc2MDUwNTk4NH0.KEIUuD0IEAlPfdEnxcMnrH5L2yvaTajhJQ7RsiphI9M","xPubKey":"7c0591179983c924f2187c32a7781e50a96244100371214ab944e060532961e4","expirersAt":0}
+To test a whole transaction on the happy path:
+
+```bash
+$ nigiri start --ark
+$ npm install
+$ npm run test:e2e
+```
+
+The current error is occurring while submitting the transaction:
+```
+[Nest] 2968033  - 10/14/2025, 4:34:41 PM   ERROR [ExceptionsHandler] INVALID_PSBT_INPUT: INVALID_PSBT_INPUT (5): missing taptree on input 0 
+```

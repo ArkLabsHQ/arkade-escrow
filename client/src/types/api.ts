@@ -55,7 +55,10 @@ type ContractStatus =
 	// canceled by the receiver
 	| "canceled-by-receiver"
 	// canceled by the arbiter
-	| "canceled-by-arbiter";
+	| "canceled-by-arbiter"
+
+	// dispute
+	| "under-arbitration";
 
 export type GetEscrowContractDto = {
 	externalId: string;

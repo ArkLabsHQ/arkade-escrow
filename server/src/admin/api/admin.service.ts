@@ -1,12 +1,11 @@
 import {
-	Injectable,
 	BadRequestException,
-	NotFoundException,
-	Sse,
-	Logger,
-	UnprocessableEntityException,
 	ConflictException,
+	Injectable,
+	Logger,
+	NotFoundException,
 	NotImplementedException,
+	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, Repository } from "typeorm";
@@ -22,7 +21,6 @@ import { GetAdminEscrowContractDto } from "./get-admin-escrow-contract.dto";
 import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-details.dto";
 import { Subject } from "rxjs";
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
-import { ArkAddress } from "@arkade-os/sdk";
 import { ArkService } from "../../ark/ark.service";
 
 type AdminEvent = {
@@ -111,8 +109,8 @@ export class AdminService {
 			virtualCoins: r.virtualCoins,
 			createdAt: r.createdAt.getTime(),
 			updatedAt: r.updatedAt.getTime(),
-			acceptedAt: r.acceptedAt.getTime(),
-			canceledAt: r.canceledAt.getTime(),
+			acceptedAt: r.acceptedAt?.getTime(),
+			canceledAt: r.canceledAt?.getTime(),
 		}));
 
 		return { items, nextCursor, total };
@@ -141,7 +139,7 @@ export class AdminService {
 			description: contract.request.description,
 			status: contract.status,
 			arkAddress: contract.arkAddress,
-			virtualCoins: contract.virtualCoins,
+			virtualCoins: contract.virtualCoins ?? [],
 			executions: executions.map((e) => ({
 				...e,
 				contract: undefined,
@@ -149,17 +147,21 @@ export class AdminService {
 				createdAt: e.createdAt.getTime(),
 				updatedAt: e.updatedAt.getTime(),
 			})),
-			disputes: arbitrations.map((a) => ({
-				...a,
-				contract: undefined,
+			arbitrations: arbitrations.map((a) => ({
+				externalId: a.externalId,
 				contractId: a.contract.externalId,
+				claimantPublicKey: a.claimantPubkey,
+				defendantPublicKey: a.defendantPubkey,
+				reason: a.reason,
+				status: a.status,
+				verdict: a.verdict,
 				createdAt: a.createdAt.getTime(),
 				updatedAt: a.updatedAt.getTime(),
 			})),
 			createdAt: contract.createdAt.getTime(),
 			updatedAt: contract.updatedAt.getTime(),
-			acceptedAt: contract.acceptedAt.getTime(),
-			canceledAt: contract.canceledAt.getTime(),
+			acceptedAt: contract.acceptedAt?.getTime(),
+			canceledAt: contract.canceledAt?.getTime(),
 		};
 	}
 
@@ -218,27 +220,34 @@ export class AdminService {
 			`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
 		);
 
-		throw new NotImplementedException();
-
 		switch (input.action) {
-			case "settle":
-				this.executeSettlement();
-				return;
-			case "refund":
-				this.executeRefund();
-				return;
+			case "settle": {
+				return await this.arbitrationRepository.save({
+					...arbitration,
+					status: "resolved",
+					verdict: "release",
+				});
+			}
+			case "refund": {
+				return await this.arbitrationRepository.save({
+					...arbitration,
+					status: "resolved",
+					verdict: "refund",
+				});
+			}
 			default:
 				throw new BadRequestException(`Unsupported action ${input.action}`);
 		}
 	}
 
-	private async executeSettlement() {
+	private async executeSettlement(contract: EscrowContract) {
 		// try {
 		// 	const escrowTransaction = await this.arkService.createEscrowTransaction(
 		// 		{
-		// 			action: "direct-settle",
-		// 			receiverAddress: ArkAddress.decode(initiatorArkAddress),
-		// 			receiverPublicKey: initiatorPubKey,
+		// 			action: "release-funds",
+		// 			// TODO: get the ark address of the receiver!
+		// 			receiverAddress: ArkAddress.decode(),
+		// 			receiverPublicKey: contract.receiverPubkey,
 		// 			senderPublicKey: contract.senderPubkey,
 		// 			arbitratorPublicKey: this.arbitratorPublicKey,
 		// 			contractNonce: `${contract.externalId}${contract.request.externalId}`,
