@@ -3,6 +3,7 @@ import { Signers, VEscrow } from "./escrow";
 import {
 	ArkAddress,
 	ArkInfo,
+	ArkTxInput,
 	buildOffchainTx,
 	CSVMultisigTapscript,
 	RelativeTimelock,
@@ -109,14 +110,9 @@ export class ArkService {
 			throw new Error(`Invalid action: ${transactionInput.action}`);
 		}
 
-		// Create server unroll script for checkpoint transactions
-		const serverKey = ArkService.getServerKey(this.arkInfo);
-		const unilateralDelay = ArkService.getUnilateralDelay(this.arkInfo);
-
-		const serverUnrollScript = CSVMultisigTapscript.encode({
-			pubkeys: [hex.decode(serverKey)],
-			timelock: unilateralDelay,
-		});
+		const serverUnrollScript = CSVMultisigTapscript.decode(
+			hex.decode(this.arkInfo.checkpointTapscript),
+		);
 
 		const outputs = ArkService.createOutputsForAction(
 			transactionInput,
@@ -124,11 +120,10 @@ export class ArkService {
 		);
 
 		// Create input from the contract VTXO
-		const input = {
+		const input: ArkTxInput = {
 			txid: vtxo.txid,
 			vout: vtxo.vout, // index
 			value: vtxo.value,
-			script: script.pkScript, // hash of all spending conditions
 			tapTree: script.encode(), // all spending conditions
 			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
 		};
