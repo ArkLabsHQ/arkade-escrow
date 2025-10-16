@@ -1,6 +1,6 @@
 const { schnorr, utils, getPublicKey, hashes } = require("@noble/secp256k1");
 const { bytesToHex, hexToBytes } = require("@noble/hashes/utils");
-const { sha256 } = require("@noble/hashes/sha2");
+const { sha256 } = require("@noble/hashes/sha2.js");
 
 // CRITICAL: Set up hashing exactly like E2E test
 hashes.sha256 = sha256;

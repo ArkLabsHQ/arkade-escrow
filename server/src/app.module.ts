@@ -26,7 +26,7 @@ const isDev = process.env.NODE_ENV === "development";
 		ConfigModule.forRoot({ isGlobal: true }),
 		TypeOrmModule.forRootAsync({
 			useFactory: () => ({
-				type: "sqlite",
+				type: "better-sqlite3",
 				database: isTest ? ":memory:" : process.env.SQLITE_DB_PATH,
 				synchronize: true,
 				// logging: isDev,

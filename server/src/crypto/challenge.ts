@@ -1,4 +1,4 @@
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 import { randomBytes } from "node:crypto";
 
 export type ChallengePayload = {
