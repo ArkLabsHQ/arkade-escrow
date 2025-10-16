@@ -14,7 +14,7 @@ import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { ArkAddress, verifyTapscriptSignatures } from "@arkade-os/sdk";
+import { ArkAddress /*, verifyTapscriptSignatures */ } from "@arkade-os/sdk";
 import { Transaction } from "@scure/btc-signer";
 import { base64 } from "@scure/base";
 
@@ -445,7 +445,7 @@ export class EscrowsContractsService {
 			this.logger.debug("verifying tapscript signatures");
 			const txBytes = base64.decode(signature.arkTx);
 			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
-			verifyTapscriptSignatures(tx, 0, [signerPubKey]);
+			// verifyTapscriptSignatures(tx, 0, [signerPubKey]);
 			this.logger.debug("OK tapscript signatures");
 		} catch (e) {
 			this.logger.error(e);

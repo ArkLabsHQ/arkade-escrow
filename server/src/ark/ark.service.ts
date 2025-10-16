@@ -130,13 +130,6 @@ export class ArkService {
 			tapTree: script.encode(), // all spending conditions
 			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
 		};
-		console.log(
-			"escrow address --> ",
-			script
-				.address("tark", hex.decode(this.arkInfo!.signerPubkey.slice(2)))
-				.encode(),
-		);
-		console.log("script encode", hex.encode(script.encode()));
 
 		this.logger.log(
 			"Building offchain tx with input:",
