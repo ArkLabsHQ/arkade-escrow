@@ -29,8 +29,10 @@ export type EscrowTransactionForAction = {
 	contractNonce: string;
 };
 export type EscrowTransaction = {
-	arkTx: Transaction;
-	checkpoints: Transaction[];
+	// base64
+	arkTx: string;
+	// base64
+	checkpoints: string[];
 	requiredSigners: Signers[];
 };
 
@@ -111,7 +113,7 @@ export class ArkService {
 		}
 
 		const serverUnrollScript = CSVMultisigTapscript.decode(
-			hex.decode(this.arkInfo.checkpointTapscript),
+			hex.decode((this.arkInfo as any).checkpointTapscript),
 		);
 
 		const outputs = ArkService.createOutputsForAction(
@@ -124,9 +126,17 @@ export class ArkService {
 			txid: vtxo.txid,
 			vout: vtxo.vout, // index
 			value: vtxo.value,
+			// script: script.pkScript, // hash of all spending conditions
 			tapTree: script.encode(), // all spending conditions
 			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
 		};
+		console.log(
+			"escrow address --> ",
+			script
+				.address("tark", hex.decode(this.arkInfo!.signerPubkey.slice(2)))
+				.encode(),
+		);
+		console.log("script encode", hex.encode(script.encode()));
 
 		this.logger.log(
 			"Building offchain tx with input:",
@@ -154,37 +164,58 @@ export class ArkService {
 			throw new Error(`Required signers not found for action ${input}`);
 		}
 
-		return { arkTx, checkpoints, requiredSigners: requiredSigners };
+		console.log("created tx --> ", base64.encode(arkTx.toPSBT()));
+		// console.log("created chkpoints --> ", checkpoints.map((_) => base64.encode(_.toPSBT())));
+
+		return {
+			arkTx: base64.encode(arkTx.toPSBT()),
+			checkpoints: checkpoints.map((_) => base64.encode(_.toPSBT())),
+			requiredSigners: requiredSigners,
+		};
 	}
 
-	async executeEscrowTransaction(transaction: EscrowTransaction) {
+	async executeEscrowTransaction(transaction: {
+		arkTx: string;
+		checkpoints: string[];
+		requiredSigners: Signers[];
+	}): Promise<string> {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
 		this.logger.log("Executing Ark transaction...");
 		// The Ark transaction has been signed by each required party when they approved
 		// Now we can submit the fully-signed transaction
-		const arkTxData = transaction.arkTx.toPSBT();
-		const arkTx = Transaction.fromPSBT(arkTxData, { allowUnknown: true });
+		const { arkTx, checkpoints } = transaction;
 
-		this.logger.log("Executing Ark transaction... PHASE 1");
-		// Phase 1: Submit the signed Ark transaction and get checkpoint transactions
-		const checkpointData = transaction.checkpoints.map((_) => _.toPSBT());
-		const { arkTxid } = await this.provider.submitTx(
-			base64.encode(arkTx.toPSBT()),
-			checkpointData.map((c) => base64.encode(c)),
-		);
+		// const arkTxForSubmission = base64.encode(arkTx.toPSBT());
+		// const checkpointsForSubmission = checkpoints.map((_) =>
+		// 	base64.encode(_.toPSBT()),
+		// );
 
-		this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
+		// const checkpointData = transaction.checkpoints.map((_) => _.toPSBT());
+		// console.log("SUBIMT     arkTx --> ", arkTxForSubmission);
+		// console.log("SUBIMT chkpoints --> ", checkpointsForSubmission);
 
-		// Phase 2: Use the checkpoint transactions signed by each required party
-		// (each user signed their checkpoints when they approved)
-		console.log("Using pre-signed checkpoints for finalization...");
-		const finalCheckpoints = checkpointData.map((c) => base64.encode(c));
+		try {
+			const { arkTxid } = await this.provider.submitTx(
+				transaction.arkTx,
+				transaction.checkpoints,
+			);
 
-		// Finalize the transaction
-		await this.provider.finalizeTx(arkTxid, finalCheckpoints);
-		console.log(`Successfully finalized tx with ID: ${arkTxid}`);
+			this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
+
+			// Phase 2: Use the checkpoint transactions signed by each required party
+			// (each user signed their checkpoints when they approved)
+			// const finalCheckpoints = checkpointData.map((c) => base64.encode(c));
+
+			// Finalize the transaction
+			await this.provider.finalizeTx(arkTxid, transaction.checkpoints);
+			this.logger.log(`Successfully finalized tx with ID: ${arkTxid}`);
+			return arkTxid;
+		} catch (cause) {
+			this.logger.error("Failed to execute transaction", { cause });
+			throw new Error("Failed to execute transaction", { cause });
+		}
 	}
 
 	static async getVtxosForScript(

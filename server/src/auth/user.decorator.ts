@@ -9,6 +9,6 @@ export const UserFromJwt = createParamDecorator(
 	): string | AuthUser | undefined => {
 		const req: Request = ctx.switchToHttp().getRequest();
 		// Assuming JwtAuthGuard attaches user: { userId: string, ... }
-		return key ? req.user?.[key] : req.user;
+		return key ? (req as any).user?.[key] : (req as any).user;
 	},
 );
