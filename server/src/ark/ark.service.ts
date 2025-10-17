@@ -197,10 +197,12 @@ export class ArkService {
 		// console.log("SUBIMT chkpoints --> ", checkpointsForSubmission);
 
 		try {
-			const { arkTxid } = await this.provider.submitTx(
-				transaction.arkTx,
-				transaction.checkpoints,
-			);
+			// TODO: we should send the unsigned checkpoints to prevent possible scams
+			const { arkTxid, signedCheckpointTxs, finalArkTx } =
+				await this.provider.submitTx(
+					transaction.arkTx,
+					transaction.checkpoints,
+				);
 
 			this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
 
@@ -208,8 +210,40 @@ export class ArkService {
 			// (each user signed their checkpoints when they approved)
 			// const finalCheckpoints = checkpointData.map((c) => base64.encode(c));
 
+			const decodedSignedCheckpointTxs = signedCheckpointTxs.map((_) =>
+				Transaction.fromPSBT(base64.decode(_)),
+			);
+			// this is the one that we mutate and then submit
+			const decodedMyCheckpointTx = transaction.checkpoints.map((_) =>
+				Transaction.fromPSBT(base64.decode(_)),
+			);
+
+			for (let i = 0; i < decodedMyCheckpointTx.length; i++) {
+				const myCheckpointTx = decodedMyCheckpointTx[i];
+				const signedCheckpointTx = decodedSignedCheckpointTxs.find(
+					(_) => _.id === myCheckpointTx.id,
+				);
+				if (!signedCheckpointTx) {
+					throw new Error("Signed checkpoint not found");
+				}
+				// for every input, concatenate its signatures with the signature from the server
+				for (let j = 0; j < myCheckpointTx.inputsLength; j++) {
+					const input = myCheckpointTx.getInput(j);
+					const inputFromServer = signedCheckpointTx.getInput(j);
+					if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
+					myCheckpointTx.updateInput(i, {
+						tapScriptSig: input.tapScriptSig?.concat(
+							inputFromServer.tapScriptSig,
+						),
+					});
+				}
+			}
+
 			// Finalize the transaction
-			await this.provider.finalizeTx(arkTxid, transaction.checkpoints);
+			await this.provider.finalizeTx(
+				arkTxid,
+				decodedMyCheckpointTx.map((_) => base64.encode(_.toPSBT())),
+			);
 			this.logger.log(`Successfully finalized tx with ID: ${arkTxid}`);
 			return arkTxid;
 		} catch (cause) {

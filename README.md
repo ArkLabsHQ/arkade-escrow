@@ -81,15 +81,11 @@ Please don't check in your local editor files.
 
 ## TESTING
 
+### E2E
 To test a whole transaction on the happy path:
 
 ```bash
 $ nigiri start --ark
 $ npm install
 $ npm run test:e2e
-```
-
-The current error is occurring while submitting the transaction:
-```
-[Nest] 2968033  - 10/14/2025, 4:34:41 PM   ERROR [ExceptionsHandler] INVALID_PSBT_INPUT: INVALID_PSBT_INPUT (5): missing taptree on input 0 
 ```

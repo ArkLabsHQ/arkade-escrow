@@ -1,11 +1,9 @@
-import { schnorr, utils as secpUtils, getPublicKey } from "@noble/secp256k1";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import * as request from "supertest";
 import type { INestApplication } from "@nestjs/common";
-import { Bytes } from "@scure/btc-signer/utils.js";
-import { Point } from "@noble/secp256k1/index";
+import { Point } from "@noble/secp256k1";
 import { Identity } from "@arkade-os/sdk";
-import { base64, hex } from "@scure/base";
+import { hex } from "@scure/base";
 
 export function normalizeToXOnly(pubHex: string): string {
 	const h = pubHex.toLowerCase();

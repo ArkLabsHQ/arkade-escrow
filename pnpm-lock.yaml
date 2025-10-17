@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@arkade-os/sdk':
-        specifier: 0.3.1-alpha.3
-        version: 0.3.1-alpha.3
+        specifier: 0.3.1-alpha.5
+        version: 0.3.1-alpha.5
       '@nestjs/common':
         specifier: ^11.1.6
         version: 11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -185,8 +185,8 @@ packages:
     resolution: {integrity: sha512-ADfbaBsrG8mBF6Mfs+crKA/2ykB8AJI50Cv9tKmZfwcUcyAdmTr+vVvhsBCfvUAEokigSsgqgpYxfkJVxhJYeg==}
     engines: {node: ^18.19.1 || ^20.11.1 || >=22.0.0, npm: ^6.11.0 || ^7.5.6 || >=8.0.0, yarn: '>= 1.13.0'}
 
-  '@arkade-os/sdk@0.3.1-alpha.3':
-    resolution: {integrity: sha512-JYCyWivxl9N1d+oHrN7MjlBOmmHFJKLeDP+A/ey6D2NrzAiQAxyQgiIAS5CZg++klKgI6EOBER5fq3whj/4rFw==}
+  '@arkade-os/sdk@0.3.1-alpha.5':
+    resolution: {integrity: sha512-6CRCkp7SUdCu5wuqTapuzBy/KW0Pnfb9hCrZoLTR9BWbyQZFzLrhSVuZlGd4W2mJgLkHCYGGRxr2vl35kIJyUw==}
     engines: {node: '>=20.0.0'}
 
   '@babel/code-frame@7.27.1':
@@ -4010,7 +4010,7 @@ snapshots:
     transitivePeerDependencies:
       - chokidar
 
-  '@arkade-os/sdk@0.3.1-alpha.3':
+  '@arkade-os/sdk@0.3.1-alpha.5':
     dependencies:
       '@noble/curves': 2.0.0
       '@noble/secp256k1': 3.0.0

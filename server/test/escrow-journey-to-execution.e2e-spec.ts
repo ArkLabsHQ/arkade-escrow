@@ -1,13 +1,15 @@
 import * as request from "supertest";
-import { Test, type TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
-import { hashes, utils as secpUtils } from "@noble/secp256k1";
-import { sha256 } from "@noble/hashes/sha2.js"
 import { AppModule } from "../src/app.module";
-import { signupAndGetJwt } from "./utils";
 import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
-import { execSync } from "node:child_process";
+import { Test, type TestingModule } from "@nestjs/testing";
 import { base64 } from "@scure/base";
+import { execSync } from "node:child_process";
+import { hashes } from "@noble/secp256k1";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utils as secpUtils } from "@noble/secp256k1";
+
+import { signupAndGetJwt } from "./utils";
 
 hashes.sha256 = sha256;
 
