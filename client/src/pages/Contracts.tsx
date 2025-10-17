@@ -72,7 +72,9 @@ const Contracts = () => {
 				});
 			}
 			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
+			console.log(`TEST!!! -> ${arkTx}`);
 			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
+			console.log(`TEST!! SIGNED -> ${signed}`);
 
 			const r = await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,

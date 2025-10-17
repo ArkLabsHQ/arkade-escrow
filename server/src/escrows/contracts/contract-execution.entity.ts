@@ -42,6 +42,11 @@ export type ExecutionTransaction = {
 	rejectedByPubKeys: PublicKey[]; // List of pubkeys who have rejected
 };
 
+export type ArkServerData = {
+	// Only present when a transaction succeeded
+	finalTxId: string;
+};
+
 @Entity("contract_executions")
 export class ContractExecution {
 	@PrimaryGeneratedColumn()
@@ -77,6 +82,9 @@ export class ContractExecution {
 
 	@Column({ type: "simple-json" })
 	transaction!: ExecutionTransaction;
+
+	@Column({ type: "simple-json", nullable: true })
+	arkServerData?: ArkServerData;
 
 	@CreateDateColumn()
 	createdAt!: Date;

@@ -13,6 +13,7 @@ import { ArkFundingWatcher } from "./funding-watcher.service";
 			inject: [ConfigService],
 			useFactory: (cfg: ConfigService) => {
 				const arkServerUrl = cfg.get<string>("ARK_SERVER_URL");
+				console.log("ARK_SERVER_URL", arkServerUrl);
 				return new RestArkProvider(
 					arkServerUrl ?? "https://mutinynet.arkade.sh",
 				);

@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { hashes } from "@noble/secp256k1";
-import { sha256 } from "@noble/hashes/sha2";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 dotenv.config();
 

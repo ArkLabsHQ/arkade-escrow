@@ -278,10 +278,8 @@ export class ArbitrationService {
 							vout: vtxo.vout,
 							value: vtxo.value,
 						},
-						arkTx: base64.encode(escrowTransaction.arkTx.toPSBT()),
-						checkpoints: escrowTransaction.checkpoints.map((_) =>
-							base64.encode(_.toPSBT()),
-						),
+						arkTx: escrowTransaction.arkTx,
+						checkpoints: escrowTransaction.checkpoints,
 						requiredSigners: escrowTransaction.requiredSigners,
 						approvedByPubKeys: [this.arbitratorPublicKey],
 						rejectedByPubKeys: [],

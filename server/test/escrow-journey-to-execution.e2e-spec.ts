@@ -1,13 +1,15 @@
 import * as request from "supertest";
-import { Test, type TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
-import { hashes, utils as secpUtils } from "@noble/secp256k1";
-import { sha256 } from "@noble/hashes/sha2";
 import { AppModule } from "../src/app.module";
-import { signupAndGetJwt } from "./utils";
 import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
-import { execSync } from "node:child_process";
+import { Test, type TestingModule } from "@nestjs/testing";
 import { base64 } from "@scure/base";
+import { execSync } from "node:child_process";
+import { hashes } from "@noble/secp256k1";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utils as secpUtils } from "@noble/secp256k1";
+
+import { signupAndGetJwt } from "./utils";
 
 hashes.sha256 = sha256;
 
@@ -220,6 +222,9 @@ describe("Escrow creation from Request to contract", () => {
 		expect(executionRes.body.data).toBeDefined();
 		expect(executionRes.body.data.externalId).toBeDefined();
 
+		console.log("Execution created (checkpoints)");
+		console.log(executionRes.body.data.checkpoints);
+
 		const aliceSignature = await signTx(
 			executionRes.body.data.arkTx,
 			executionRes.body.data.checkpoints,
@@ -243,6 +248,9 @@ describe("Escrow creation from Request to contract", () => {
 			)
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
+
+		console.log("Execution signed by Alice (checkpoints)");
+		console.log(executionSignedByAlice.body.data.transaction.checkpoints);
 
 		const bobSignature = await signTx(
 			executionSignedByAlice.body.data.transaction.arkTx,

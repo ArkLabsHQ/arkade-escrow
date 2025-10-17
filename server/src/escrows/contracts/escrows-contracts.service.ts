@@ -48,6 +48,7 @@ import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { ArbitrationService } from "../arbitration/arbitration.service";
+import { Signers } from "../../ark/escrow";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -408,6 +409,16 @@ export class EscrowsContractsService {
 				`Contract ${contractId} or execution ${executionId} not found`,
 			);
 		}
+		if (execution.status === "pending-server-confirmation") {
+			// TODO: for debug only
+			await this.submitAndFinalizeExecutionTransaction({
+				signedTx: signature.arkTx,
+				signedCheckpoints: signature.checkpoints,
+				requiredSigners: execution.transaction.requiredSigners,
+				contractId,
+				executionId,
+			});
+		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
 			throw new ConflictException("Signer has already signed");
 		}
@@ -430,20 +441,6 @@ export class EscrowsContractsService {
 			throw new ConflictException("Signer is not a required signer");
 		}
 
-		// transaction: {
-		//     vtxo: {
-		//         txid: vtxo.txid,
-		//             vout: vtxo.vout,
-		//             value: vtxo.value,
-		//     },
-		//     arkTx: base64.encode(escrowTransaction.arkTx.toPSBT()),
-		//         checkpoints: escrowTransaction.checkpoints.map((_) =>
-		//         base64.encode(_.toPSBT()),
-		//     ),
-		//         requiredSigners: escrowTransaction.requiredSigners,
-		//         approvedByPubKeys: [],
-		//         rejectedByPubKeys: [],
-		// },
 		try {
 			this.logger.debug("verifying tapscript signatures");
 			const txBytes = base64.decode(signature.arkTx);
@@ -498,7 +495,10 @@ export class EscrowsContractsService {
 			...execution.transaction,
 			arkTx: signature.arkTx,
 			checkpoints: signature.checkpoints,
-			approvedByPubKeys: [signerPubKey],
+			approvedByPubKeys: [
+				signerPubKey,
+				...execution.transaction.approvedByPubKeys,
+			],
 		};
 
 		await this.contractExecutionRepository.update(
@@ -513,32 +513,13 @@ export class EscrowsContractsService {
 		);
 
 		if (nextExecutionStatus === "pending-server-confirmation") {
-			await this.arkService.executeEscrowTransaction({
-				arkTx: Transaction.fromPSBT(base64.decode(updatedExcutionTx.arkTx), {
-					allowUnknown: true,
-				}),
-				checkpoints: updatedExcutionTx.checkpoints.map((c) =>
-					Transaction.fromPSBT(base64.decode(c), { allowUnknown: true }),
-				),
+			await this.submitAndFinalizeExecutionTransaction({
+				signedTx: signature.arkTx,
+				signedCheckpoints: signature.checkpoints,
 				requiredSigners: execution.transaction.requiredSigners,
+				contractId,
+				executionId,
 			});
-
-			await this.contractRepository.update(
-				{ externalId: contract.externalId },
-				{
-					status: "completed",
-				},
-			);
-
-			await this.contractExecutionRepository.update(
-				{
-					externalId: contract.externalId,
-					contract: { externalId: contractId },
-				},
-				{
-					status: "executed",
-				},
-			);
 		}
 		const persisted = await this.contractExecutionRepository.findOne({
 			where: {
@@ -556,6 +537,46 @@ export class EscrowsContractsService {
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
 		};
+	}
+
+	private async submitAndFinalizeExecutionTransaction(input: {
+		// Base64 encoded PSBT
+		signedTx: string;
+		// Base64 encoded PSBT
+		signedCheckpoints: string[];
+		requiredSigners: Signers[];
+		contractId: string;
+		executionId: string;
+	}) {
+		const finalTxId = await this.arkService.executeEscrowTransaction({
+			arkTx: input.signedTx,
+			// Transaction.fromPSBT(base64.decode(input.signedTx), {
+			// 	allowUnknown: true,
+			// }),
+			checkpoints: input.signedCheckpoints,
+			//     .map((c) =>
+			// 	Transaction.fromPSBT(base64.decode(c), { allowUnknown: true }),
+			// ),
+			requiredSigners: input.requiredSigners,
+		});
+
+		await this.contractRepository.update(
+			{ externalId: input.contractId },
+			{ status: "completed" },
+		);
+
+		await this.contractExecutionRepository.update(
+			{
+				externalId: input.executionId,
+				contract: { externalId: input.contractId },
+				arkServerData: { finalTxId },
+			},
+			{
+				status: "executed",
+			},
+		);
+
+		return finalTxId;
 	}
 
 	async createDirectSettlementExecution(
@@ -580,7 +601,7 @@ export class EscrowsContractsService {
 			throw new ForbiddenException("Only the receiver can execute this action");
 		}
 		const vtxo = contract.virtualCoins[0];
-		this.logger.debug(
+		console.debug(
 			`Contract ${contract.externalId} direct settlement using vtxo ${vtxo.txid} value ${vtxo.value}`,
 		);
 		try {
@@ -611,10 +632,8 @@ export class EscrowsContractsService {
 						vout: vtxo.vout,
 						value: vtxo.value,
 					},
-					arkTx: base64.encode(escrowTransaction.arkTx.toPSBT()),
-					checkpoints: escrowTransaction.checkpoints.map((_) =>
-						base64.encode(_.toPSBT()),
-					),
+					arkTx: escrowTransaction.arkTx,
+					checkpoints: escrowTransaction.checkpoints,
 					requiredSigners: escrowTransaction.requiredSigners,
 					approvedByPubKeys: [],
 					rejectedByPubKeys: [],

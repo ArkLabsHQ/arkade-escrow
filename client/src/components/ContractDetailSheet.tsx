@@ -231,6 +231,9 @@ export const ContractDetailSheet = ({
 				return "Virtual coins are present at this address";
 			case "pending-execution": {
 				if (!currentExecution) return "Pending execution";
+				if (currentExecution.status === "pending-server-confirmation") {
+					return "Waiting for the server to confirm the transaction";
+				}
 				const isInitiator = me.isMyPubkey(currentExecution.initiatedByPubKey);
 				if (isInitiator) {
 					if (currentExecution.status === "pending-counterparty-signature")
@@ -619,6 +622,19 @@ export const ContractDetailSheet = ({
 									{"Approve Settlement"}
 								</Button>
 							)}
+
+						{/* Pending-execution from server: try again */}
+						{/*{contract.status === "pending-execution" &&*/}
+						{/*	!currentExecution?.status.startsWith(*/}
+						{/*		"pending-server-confirmation",*/}
+						{/*	) && (*/}
+						{/*		<Button*/}
+						{/*			className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"*/}
+						{/*			onClick={() => handleActionClick("approve")}*/}
+						{/*		>*/}
+						{/*			{"Execute again"}*/}
+						{/*		</Button>*/}
+						{/*	)}*/}
 
 						{/* Funded or Pending-execution: Dispute */}
 						{(contract.status === "funded" ||
