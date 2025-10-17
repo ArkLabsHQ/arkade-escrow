@@ -73,33 +73,6 @@ const ContractDetails = () => {
 		fetchContract();
 	}, [externalId]);
 
-	// SSE listener for contract updates
-	useEffect(() => {
-		const eventSource = new EventSource(
-			"http://localhost:3002/api/admin/v1/contracts/sse",
-		);
-
-		eventSource.onmessage = (event) => {
-			try {
-				const data = JSON.parse(event.data);
-				if (data.type === "updated" && data.id === externalId) {
-					console.log("Contract update received, refetching...");
-					fetchContract();
-				}
-			} catch (error) {
-				console.error("Error parsing SSE event:", error);
-			}
-		};
-
-		eventSource.onerror = (error) => {
-			console.error("SSE connection error:", error);
-		};
-
-		return () => {
-			eventSource.close();
-		};
-	}, [externalId]);
-
 	const fetchContract = async () => {
 		try {
 			const response = await fetch(
@@ -114,6 +87,30 @@ const ContractDetails = () => {
 			setLoading(false);
 		}
 	};
+
+    // SSE listener for contract updates
+    useEffect(() => {
+        const eventSource = new EventSource(
+            "http://localhost:3002/api/admin/v1/contracts/sse",
+        );
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                fetchContract()
+            } catch (error) {
+                console.error("Error parsing SSE event:", error);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error("SSE connection error:", error);
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, []);
 
 	const handleArbitration = async (
 		disputeId: string,

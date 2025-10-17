@@ -34,11 +34,15 @@ const Contracts = () => {
 	const [total, setTotal] = useState(0);
 	const observerTarget = useRef<HTMLDivElement>(null);
 
-	const fetchContracts = useCallback(
-		async (nextCursor?: string) => {
-			if (!nextCursor && contracts.length > 0) return; // Already loaded initial data
 
-			const isInitialLoad = !nextCursor;
+
+	const fetchContracts = useCallback(
+		async (nextCursor?: string,options?: { force?: boolean }) => {
+            // Change: allow bypassing the early-return when force is true
+            if (!nextCursor && contracts.length > 0 && !options?.force) return; // Already loaded initial data
+
+
+            const isInitialLoad = !nextCursor;
 			if (isInitialLoad) {
 				setLoading(true);
 			} else {
@@ -76,6 +80,38 @@ const Contracts = () => {
 	useEffect(() => {
 		fetchContracts();
 	}, []);
+
+    const refetchFromStart = useCallback(async () => {
+        setContracts([]);
+        setCursor(null);
+        setHasMore(true);
+        setTotal(0);
+        await fetchContracts(undefined, { force: true });
+    }, [fetchContracts]);
+
+    // SSE listener for contract updates
+    useEffect(() => {
+        const eventSource = new EventSource(
+            "http://localhost:3002/api/admin/v1/contracts/sse",
+        );
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                refetchFromStart()
+            } catch (error) {
+                console.error("Error parsing SSE event:", error);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error("SSE connection error:", error);
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, []);
 
 	useEffect(() => {
 		const observer = new IntersectionObserver(

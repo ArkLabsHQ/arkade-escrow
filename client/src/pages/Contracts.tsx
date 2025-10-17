@@ -18,11 +18,18 @@ import {
 	GetEscrowContractDto,
 } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQueryClient,
+} from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
-import { useMessageBridge } from "@/components/MessageBus";
-import type { ApiEnvelope } from "../../../server/src/common/dto/envelopes";
+import { Transaction, useMessageBridge } from "@/components/MessageBus";
+import {
+	ApiEnvelope,
+	ApiEnvelopeShellDto,
+} from "../../../server/src/common/dto/envelopes";
 
 const Contracts = () => {
 	const { signTransaction } = useMessageBridge();
@@ -40,6 +47,125 @@ const Contracts = () => {
 		"all",
 	);
 	const [refreshKey, setRefreshKey] = useState(0);
+
+	const queryClient = useQueryClient();
+
+	// Fetch contracts with pagination (cursor + limit)
+	const limit = Config.itemsPerPage;
+	const {
+		data,
+		isFetchingNextPage,
+		hasNextPage,
+		fetchNextPage,
+		isError,
+		error,
+		isPending,
+		refetch,
+	} = useInfiniteQuery({
+		queryKey: ["my-escrow-contracts", limit, refreshKey],
+		initialPageParam: { cursor: undefined as string | undefined, limit },
+		queryFn: async ({ pageParam }) => {
+			const params = {
+				limit: pageParam?.limit ?? limit,
+				cursor: pageParam?.cursor,
+			};
+			const res = await axios.get<ApiPaginatedEnvelope<GetEscrowContractDto>>(
+				`${Config.apiBaseUrl}/escrows/contracts`,
+				{
+					params,
+					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+				},
+			);
+			return res.data;
+		},
+		getNextPageParam: (lastPage) => {
+			const nextCursor = lastPage?.meta?.nextCursor ?? undefined;
+			return nextCursor ? { cursor: nextCursor, limit } : undefined;
+		},
+	});
+
+	// Fetch a single contract and update it in-place
+	const refreshOneContract = useCallback(
+		async (externalId: string) => {
+			try {
+				const res = await axios.get<ApiEnvelopeShellDto<GetEscrowContractDto>>(
+					`${Config.apiBaseUrl}/escrows/contracts/${externalId}`,
+					{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+				);
+				const updated = res.data;
+				// 2) Update list cache
+				queryClient.setQueryData(
+					["my-escrow-contracts", limit, refreshKey],
+
+					(input: {
+						pages: ApiPaginatedEnvelope<GetEscrowContractDto>[];
+						pageParams: unknown;
+					}) => {
+						console.log(input);
+						if (!input) return input;
+						const pageIdx = input.pages.findIndex((p) =>
+							p.data.some((c) => c.externalId === externalId),
+						);
+						if (pageIdx === -1) return input;
+						const items = input.pages[pageIdx].data;
+						const idx = items.findIndex((c) => c.externalId === externalId);
+						if (idx === -1) return input; // not loaded on this page
+						const nextItems = items.slice();
+						nextItems[idx] = { ...items[idx], ...updated.data };
+						const nextPages = input.pages.slice();
+						nextPages[pageIdx] = { ...input.pages[pageIdx], data: nextItems };
+						console.log(
+							`updating ${externalId} with ${updated.data.status} -> ${nextPages[pageIdx].data[idx].status}`,
+						);
+						return { ...input, pages: nextPages };
+					},
+				);
+
+				// 3) Update detail cache (optional)
+				queryClient.setQueryData(["contract", externalId], { data: updated });
+			} catch (e) {
+				console.error(e);
+				toast.error("Failed to refresh contract");
+			}
+		},
+		[limit, me.getAccessToken, queryClient.setQueryData, refreshKey],
+	);
+
+	// SSE listener for contract updates
+	useEffect(() => {
+		// TODO: this must be authenticated
+		const eventSource = new EventSource(
+			`${Config.apiBaseUrl}/escrows/contracts/sse`,
+		);
+
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				console.log(data);
+
+				switch (data?.type) {
+					case "new_contract":
+						setRefreshKey(refreshKey + 1);
+						break;
+					case "contract_updated":
+						refreshOneContract(data.externalId);
+						break;
+					default:
+						console.error("Unknown event type:", data.type);
+				}
+			} catch (error) {
+				console.error("Error parsing SSE event:", error);
+			}
+		};
+
+		eventSource.onerror = (error) => {
+			console.error("SSE connection error:", error);
+		};
+
+		return () => {
+			eventSource.close();
+		};
+	}, [refreshKey, refreshOneContract]);
 
 	const acceptContract = useMutation({
 		mutationFn: async (contractId: string) => {
@@ -129,40 +255,6 @@ const Contracts = () => {
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
 			console.log(r);
-		},
-	});
-
-	// Fetch contracts with pagination (cursor + limit)
-	const limit = Config.itemsPerPage;
-	const {
-		data,
-		isFetchingNextPage,
-		hasNextPage,
-		fetchNextPage,
-		isError,
-		error,
-		isPending,
-		refetch,
-	} = useInfiniteQuery({
-		queryKey: ["my-escrow-contracts", limit, refreshKey],
-		initialPageParam: { cursor: undefined as string | undefined, limit },
-		queryFn: async ({ pageParam }) => {
-			const params = {
-				limit: pageParam?.limit ?? limit,
-				cursor: pageParam?.cursor,
-			};
-			const res = await axios.get<ApiPaginatedEnvelope<GetEscrowContractDto>>(
-				`${Config.apiBaseUrl}/escrows/contracts`,
-				{
-					params,
-					headers: { authorization: `Bearer ${me.getAccessToken()}` },
-				},
-			);
-			return res.data;
-		},
-		getNextPageParam: (lastPage) => {
-			const nextCursor = lastPage?.meta?.nextCursor ?? undefined;
-			return nextCursor ? { cursor: nextCursor, limit } : undefined;
 		},
 	});
 
@@ -331,7 +423,7 @@ const Contracts = () => {
 							acceptContract.mutate(contractId, {
 								onSuccess: (d) => {
 									toast.success("Contract accepted successfully");
-									setRefreshKey(refreshKey + 1);
+									// setRefreshKey(refreshKey + 1);
 								},
 								onError: (error) => {
 									toast.error("Failed to accept contract");
@@ -351,7 +443,7 @@ const Contracts = () => {
 								{
 									onSuccess: (d) => {
 										toast.success("Contract executed successfully");
-										setRefreshKey(refreshKey + 1);
+										// setRefreshKey(refreshKey + 1);
 									},
 									onError: (error) => {
 										toast.error("Failed to execute contract");
@@ -373,7 +465,7 @@ const Contracts = () => {
 								{
 									onSuccess: (d) => {
 										toast.success("Settlement approved successfully");
-										setRefreshKey(refreshKey + 1);
+										// setRefreshKey(refreshKey + 1);
 									},
 									onError: (error) => {
 										console.error(error);

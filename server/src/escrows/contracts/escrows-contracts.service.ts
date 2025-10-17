@@ -24,6 +24,7 @@ import { ContractStatus, EscrowContract } from "./escrow-contract.entity";
 import {
 	CONTRACT_CREATED_ID,
 	CONTRACT_DRAFTED_ID,
+	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
 	CONTRACT_VOIDED_ID,
 	ContractCreated,
@@ -49,6 +50,7 @@ import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { ArbitrationService } from "../arbitration/arbitration.service";
 import { Signers } from "../../ark/escrow";
+import { Subject } from "rxjs";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -60,6 +62,11 @@ type DraftContractInput = {
 
 type ContractQueryFilter = {
 	status?: ContractStatus;
+};
+
+type ContractEvent = {
+	type: "updated_contract";
+	externalId: string;
 };
 
 @Injectable()
@@ -417,6 +424,14 @@ export class EscrowsContractsService {
 				requiredSigners: execution.transaction.requiredSigners,
 				contractId,
 				executionId,
+			});
+			this.events.emit(CONTRACT_EXECUTED_ID, {
+				eventId: randomUUID(),
+				contractId,
+				executionId,
+				arkTxId: signature.arkTx,
+				checkpoints: signature.checkpoints,
+				createdAt: new Date().toISOString(),
 			});
 		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
