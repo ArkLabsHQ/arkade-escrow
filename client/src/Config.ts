@@ -1,6 +1,12 @@
+const apiBaseUrl =
+	import.meta.env.VITE_API_BASE_URL || "http://localhost:3002/api/v1";
+const appRootUrl = import.meta.env.VITE_APP_ROOT_URL || "/client";
+const hostUrl = import.meta.env.VITE_HOST_URL || "http://localhost:3003";
+const itemsPerPage = Number(import.meta.env.VITE_ITEMS_PER_PAGE ?? 10);
+
 export default {
-	apiBaseUrl: "http://localhost:3002/api/v1",
-	appRootUrl: "/client",
-	hostUrl: "http://localhost:3003",
-	itemsPerPage: 10,
+	apiBaseUrl,
+	appRootUrl,
+	hostUrl,
+	itemsPerPage,
 };
