@@ -14,24 +14,24 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
 FROM deps AS build
 WORKDIR /app
 COPY . .
-# Either 'nest build' (requires @nestjs/cli in devDependencies)
-# or 'tsc -p tsconfig.build.json'
+# Build API
 RUN npm run build
-# Build client and backoffice apps
-RUN cd client && npm ci --no-audit --fund=false && npm run build
-RUN cd backoffice && npm ci --no-audit --fund=false && npm run build
-# Trim dev deps after build
-RUN npm prune --omit=dev
+# Build client and backoffice apps (install per-app deps to avoid mutating root node_modules)
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm bash -lc "cd client && npm ci --no-audit --fund=false && npm run build"
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm bash -lc "cd backoffice && npm ci --no-audit --fund=false && npm run build"
+# Do NOT prune here; some tools install optional platform-specific files that confuse prune during multi-builds
 
 # ---- runtime ----
 FROM node:24 AS production
 WORKDIR /app
 RUN mkdir -p /app/data
 
-COPY --from=build /app/node_modules ./node_modules
+# Copy only production deps fresh to avoid prune issues
+COPY package*.json ./
+RUN --mount=type=cache,id=npm-cache,target=/root/.npm npm ci --omit=dev --no-audit --fund=false
+
+# App code and builds
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/package*.json ./
-# Copy built frontends into image
 COPY --from=build /app/client/dist ./client
 COPY --from=build /app/backoffice/dist ./backoffice
 
