@@ -35,16 +35,13 @@ import {
 	ArbitrateDisputeInDto,
 	ArbitrateDisputeOutDto,
 } from "./arbitrate-dispute-in.dto";
+import {ServerSentEventsService, SseEvent} from "../../common/server-sent-events.service";
 
-// biome-ignore lint/suspicious/noExplicitAny: just anything remotely JSON-serializable
-interface SseEvent<T = any> {
-	data: T;
-}
 
 @ApiTags("Admin")
 @Controller("api/admin/v1")
 export class AdminController {
-	constructor(private readonly adminService: AdminService) {}
+	constructor(private readonly adminService: AdminService, private readonly sseService: ServerSentEventsService) {}
 
 	@ApiOperation({ summary: "List all contracts paginated" })
 	@ApiQuery({
@@ -77,7 +74,7 @@ export class AdminController {
 
 	@Sse("contracts/sse")
 	sse(): Observable<SseEvent> {
-		return this.adminService.events.pipe(
+		return this.sseService.adminEvents.pipe(
 			map((event) => ({
 				data: event,
 			})),

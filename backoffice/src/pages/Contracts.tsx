@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import Config from "@/Config.ts";
 
 interface Contract {
 	externalId: string;
@@ -35,8 +36,9 @@ const Contracts = () => {
 	const observerTarget = useRef<HTMLDivElement>(null);
 
 	const fetchContracts = useCallback(
-		async (nextCursor?: string) => {
-			if (!nextCursor && contracts.length > 0) return; // Already loaded initial data
+		async (nextCursor?: string, options?: { force?: boolean }) => {
+			// Change: allow bypassing the early-return when force is true
+			if (!nextCursor && contracts.length > 0 && !options?.force) return; // Already loaded initial data
 
 			const isInitialLoad = !nextCursor;
 			if (isInitialLoad) {
@@ -47,8 +49,8 @@ const Contracts = () => {
 
 			try {
 				const url = nextCursor
-					? `http://localhost:3002/api/admin/v1/contracts?limit=20&cursor=${nextCursor}`
-					: `http://localhost:3002/api/admin/v1/contracts?limit=20`;
+					? `${Config.apiBaseUrl}/admin/v1/contracts?limit=20&cursor=${nextCursor}`
+					: `${Config.apiBaseUrl}/admin/v1/contracts?limit=20`;
 
 				const response = await fetch(url);
 				const result = await response.json();
@@ -75,7 +77,39 @@ const Contracts = () => {
 
 	useEffect(() => {
 		fetchContracts();
-	}, []);
+	}, [fetchContracts]);
+
+	const refetchFromStart = useCallback(async () => {
+		setContracts([]);
+		setCursor(null);
+		setHasMore(true);
+		setTotal(0);
+		await fetchContracts(undefined, { force: true });
+	}, [fetchContracts]);
+
+	// SSE listener for contract updates
+	useEffect(() => {
+		const eventSource = new EventSource(
+			"${Config.apiBaseUrl}/admin/v1/contracts/sse",
+		);
+
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				refetchFromStart();
+			} catch (error) {
+				console.error("Error parsing SSE event:", error);
+			}
+		};
+
+		eventSource.onerror = (error) => {
+			console.error("SSE connection error:", error);
+		};
+
+		return () => {
+			eventSource.close();
+		};
+	}, [refetchFromStart]);
 
 	useEffect(() => {
 		const observer = new IntersectionObserver(
@@ -128,7 +162,7 @@ const Contracts = () => {
 			<Header />
 			<main className="container mx-auto px-6 py-8">
 				<Link
-					to="/"
+					to={Config.appRootUrl}
 					className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
 				>
 					<ArrowLeft size={20} />
@@ -165,7 +199,7 @@ const Contracts = () => {
 									>
 										<TableCell>
 											<Link
-												to={`/admin/backoffice/contracts/${contract.externalId}`}
+												to={`/backoffice/contracts/${contract.externalId}`}
 												className="text-primary hover:underline font-mono text-sm"
 											>
 												{contract.externalId}

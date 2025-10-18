@@ -12,7 +12,7 @@ const Home = () => {
         <h2 className="text-3xl font-bold text-foreground mb-8">Dashboard</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link to="/admin/backoffice/contracts" className="block transition-transform hover:scale-105">
+          <Link to="/backoffice/contracts" className="block transition-transform hover:scale-105">
             <Card className="h-full hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">

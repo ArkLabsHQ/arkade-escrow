@@ -157,13 +157,13 @@ const Index = () => {
 			<main className="container px-4 py-8 md:px-6">
 				{/* Quick Actions */}
 				<div className="mb-8 flex gap-3 animate-slide-up">
-					<Link to="/requests">
+					<Link to={`${Config.appRootUrl}/requests`}>
 						<Button variant="outline" className="gap-2">
 							<FileText className="h-4 w-4" />
 							My Requests
 						</Button>
 					</Link>
-					<Link to="/contracts">
+					<Link to={`${Config.appRootUrl}/contracts`}>
 						<Button variant="outline" className="gap-2">
 							<FileText className="h-4 w-4" />
 							My Contracts

@@ -1,15 +1,13 @@
 import * as request from "supertest";
-import type { INestApplication } from "@nestjs/common";
-import { AppModule } from "../src/app.module";
-import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
 import { Test, type TestingModule } from "@nestjs/testing";
-import { base64 } from "@scure/base";
-import { execSync } from "node:child_process";
-import { hashes } from "@noble/secp256k1";
+import type { INestApplication } from "@nestjs/common";
+import { hashes, utils as secpUtils } from "@noble/secp256k1";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { utils as secpUtils } from "@noble/secp256k1";
-
+import { AppModule } from "../src/app.module";
 import { signupAndGetJwt } from "./utils";
+import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
+import { execSync } from "node:child_process";
+import { base64 } from "@scure/base";
 
 hashes.sha256 = sha256;
 
@@ -38,9 +36,6 @@ async function createTestArkWallet(name: Uint8Array): Promise<TestArkWallet> {
 	};
 }
 function faucetOffchain(address: string, amount: number): void {
-	console.log(
-		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
-	);
 	execCommand(
 		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
 	);
@@ -222,16 +217,13 @@ describe("Escrow creation from Request to contract", () => {
 		expect(executionRes.body.data).toBeDefined();
 		expect(executionRes.body.data.externalId).toBeDefined();
 
-		console.log("Execution created (checkpoints)");
-		console.log(executionRes.body.data.checkpoints);
-
 		const aliceSignature = await signTx(
 			executionRes.body.data.arkTx,
 			executionRes.body.data.checkpoints,
 			alice,
 		);
 
-		const aliceSigns = await request(app.getHttpServer())
+		await request(app.getHttpServer())
 			.patch(
 				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
 			)
@@ -249,16 +241,13 @@ describe("Escrow creation from Request to contract", () => {
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
 
-		console.log("Execution signed by Alice (checkpoints)");
-		console.log(executionSignedByAlice.body.data.transaction.checkpoints);
-
 		const bobSignature = await signTx(
 			executionSignedByAlice.body.data.transaction.arkTx,
 			executionSignedByAlice.body.data.transaction.checkpoints,
 			bob,
 		);
 
-		const bobSigns = await request(app.getHttpServer())
+		await request(app.getHttpServer())
 			.patch(
 				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
 			)
@@ -269,14 +258,12 @@ describe("Escrow creation from Request to contract", () => {
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
 
-		/**
-		 * TODO: this is where the code fails with
-		 * [Nest] 2965347  - 10/14/2025, 4:22:10 PM   ERROR [ExceptionsHandler] INVALID_PSBT_INPUT: INVALID_PSBT_INPUT (5): missing taptree on input 0
-		 */
-		const contractSignedByBob = await request(app.getHttpServer())
+		const finalContract = await request(app.getHttpServer())
 			.get(`/api/v1/escrows/contracts/${contractId}`)
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(200);
+
+		expect(finalContract.body.data.status).toBe("completed");
 	}, 20000);
 });
 

@@ -44,15 +44,6 @@ export class AdminService {
 		private readonly arkService: ArkService,
 	) {}
 
-	// Observable for controllers to subscribe to
-	get events() {
-		return this.events$.asObservable();
-	}
-
-	emitUpdatedContract(externalId: string) {
-		this.events$.next({ type: "updated_contract", externalId });
-	}
-
 	async findAll(
 		limit: number,
 		cursor: Cursor = emptyCursor,
