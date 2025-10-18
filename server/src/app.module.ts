@@ -16,6 +16,7 @@ import { UsersModule } from "./users/users.module";
 import { EscrowsModule } from "./escrows/escrows.module";
 import { RequestLoggingMiddleware } from "./common/middlewares/request-logging.middleware";
 import { AdminModule } from "./admin/api/admin.module";
+import { BasicAuthMiddleware } from "./basic-auth.middleware";
 
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV === "development";
@@ -62,6 +63,10 @@ const isDev = process.env.NODE_ENV === "development";
 })
 export class AppModule implements NestModule {
 	configure(consumer: MiddlewareConsumer) {
+		consumer
+			.apply(BasicAuthMiddleware)
+			.forRoutes({ path: "backoffice", method: RequestMethod.ALL });
+
 		consumer
 			.apply(RequestLoggingMiddleware)
 			.exclude({ path: "health", method: RequestMethod.ALL })
