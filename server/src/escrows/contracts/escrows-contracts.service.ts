@@ -29,6 +29,7 @@ import {
 	CONTRACT_VOIDED_ID,
 	ContractCreated,
 	ContractDrafted,
+	ContractExecuted,
 	ContractFunded,
 	ContractId,
 	ContractVoided,
@@ -42,6 +43,7 @@ import {
 import { ExecuteEscrowContractOutDto } from "./dto/execute-escrow-contract.dto";
 import {
 	ContractExecution,
+	ExecutionStatus,
 	ExecutionTransaction,
 } from "./contract-execution.entity";
 import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
@@ -417,22 +419,9 @@ export class EscrowsContractsService {
 			);
 		}
 		if (execution.status === "pending-server-confirmation") {
-			// TODO: for debug only
-			await this.submitAndFinalizeExecutionTransaction({
-				signedTx: signature.arkTx,
-				signedCheckpoints: signature.checkpoints,
-				requiredSigners: execution.transaction.requiredSigners,
-				contractId,
-				executionId,
-			});
-			this.events.emit(CONTRACT_EXECUTED_ID, {
-				eventId: randomUUID(),
-				contractId,
-				executionId,
-				arkTxId: signature.arkTx,
-				checkpoints: signature.checkpoints,
-				createdAt: new Date().toISOString(),
-			});
+			throw new InternalServerErrorException(
+				"Execution in pending-server-confirmation",
+			);
 		}
 		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
 			throw new ConflictException("Signer has already signed");
@@ -468,7 +457,7 @@ export class EscrowsContractsService {
 		}
 
 		const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
-		let nextExecutionStatus = execution.status;
+		let nextExecutionStatus: ExecutionStatus = execution.status;
 
 		switch (execution.status) {
 			case "pending-initiator-signature": {
@@ -528,13 +517,19 @@ export class EscrowsContractsService {
 		);
 
 		if (nextExecutionStatus === "pending-server-confirmation") {
-			await this.submitAndFinalizeExecutionTransaction({
+			this.logger.debug(
+				`execution ${executionId} is pending-server-confirmation`,
+			);
+			const finalTxId = await this.submitAndFinalizeExecutionTransaction({
 				signedTx: signature.arkTx,
 				signedCheckpoints: signature.checkpoints,
 				requiredSigners: execution.transaction.requiredSigners,
 				contractId,
 				executionId,
 			});
+			this.logger.debug(
+				`execution ${executionId} successfully submitted to ark with txid ${finalTxId}`,
+			);
 		}
 		const persisted = await this.contractExecutionRepository.findOne({
 			where: {
@@ -547,6 +542,17 @@ export class EscrowsContractsService {
 				"Execution not found after update",
 			);
 		}
+		if (!contract.arkAddress) {
+			throw new InternalServerErrorException(
+				`Contract ${contractId} has no arkAddress`,
+			);
+		}
+		this.events.emit(CONTRACT_EXECUTED_ID, {
+			eventId: randomUUID(),
+			contractId,
+			arkAddress: ArkAddress.decode(contract.arkAddress),
+			executedAt: new Date().toISOString(),
+		} satisfies ContractExecuted);
 		return {
 			...persisted,
 			createdAt: persisted.createdAt.getTime(),
@@ -565,13 +571,7 @@ export class EscrowsContractsService {
 	}) {
 		const finalTxId = await this.arkService.executeEscrowTransaction({
 			arkTx: input.signedTx,
-			// Transaction.fromPSBT(base64.decode(input.signedTx), {
-			// 	allowUnknown: true,
-			// }),
 			checkpoints: input.signedCheckpoints,
-			//     .map((c) =>
-			// 	Transaction.fromPSBT(base64.decode(c), { allowUnknown: true }),
-			// ),
 			requiredSigners: input.requiredSigners,
 		});
 
@@ -579,18 +579,16 @@ export class EscrowsContractsService {
 			{ externalId: input.contractId },
 			{ status: "completed" },
 		);
-
 		await this.contractExecutionRepository.update(
 			{
 				externalId: input.executionId,
 				contract: { externalId: input.contractId },
-				arkServerData: { finalTxId },
 			},
 			{
 				status: "executed",
+				arkServerData: { finalTxId },
 			},
 		);
-
 		return finalTxId;
 	}
 
@@ -616,9 +614,6 @@ export class EscrowsContractsService {
 			throw new ForbiddenException("Only the receiver can execute this action");
 		}
 		const vtxo = contract.virtualCoins[0];
-		console.debug(
-			`Contract ${contract.externalId} direct settlement using vtxo ${vtxo.txid} value ${vtxo.value}`,
-		);
 		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
 				{

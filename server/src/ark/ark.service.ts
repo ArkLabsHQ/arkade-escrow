@@ -157,9 +157,6 @@ export class ArkService {
 			throw new Error(`Required signers not found for action ${input}`);
 		}
 
-		console.log("created tx --> ", base64.encode(arkTx.toPSBT()));
-		// console.log("created chkpoints --> ", checkpoints.map((_) => base64.encode(_.toPSBT())));
-
 		return {
 			arkTx: base64.encode(arkTx.toPSBT()),
 			checkpoints: checkpoints.map((_) => base64.encode(_.toPSBT())),
@@ -178,31 +175,17 @@ export class ArkService {
 		this.logger.log("Executing Ark transaction...");
 		// The Ark transaction has been signed by each required party when they approved
 		// Now we can submit the fully-signed transaction
-		const { arkTx, checkpoints } = transaction;
-
-		// const arkTxForSubmission = base64.encode(arkTx.toPSBT());
-		// const checkpointsForSubmission = checkpoints.map((_) =>
-		// 	base64.encode(_.toPSBT()),
-		// );
-
-		// const checkpointData = transaction.checkpoints.map((_) => _.toPSBT());
-		// console.log("SUBIMT     arkTx --> ", arkTxForSubmission);
-		// console.log("SUBIMT chkpoints --> ", checkpointsForSubmission);
-
 		try {
 			// TODO: we should send the unsigned checkpoints to prevent possible scams
-			const { arkTxid, signedCheckpointTxs, finalArkTx } =
-				await this.provider.submitTx(
-					transaction.arkTx,
-					transaction.checkpoints,
-				);
+			const { arkTxid, signedCheckpointTxs } = await this.provider.submitTx(
+				transaction.arkTx,
+				transaction.checkpoints,
+			);
 
 			this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
 
 			// Phase 2: Use the checkpoint transactions signed by each required party
 			// (each user signed their checkpoints when they approved)
-			// const finalCheckpoints = checkpointData.map((c) => base64.encode(c));
-
 			const decodedSignedCheckpointTxs = signedCheckpointTxs.map((_) =>
 				Transaction.fromPSBT(base64.decode(_)),
 			);

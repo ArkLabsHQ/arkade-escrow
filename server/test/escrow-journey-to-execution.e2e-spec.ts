@@ -36,9 +36,6 @@ async function createTestArkWallet(name: Uint8Array): Promise<TestArkWallet> {
 	};
 }
 function faucetOffchain(address: string, amount: number): void {
-	console.log(
-		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
-	);
 	execCommand(
 		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
 	);
@@ -226,7 +223,7 @@ describe("Escrow creation from Request to contract", () => {
 			alice,
 		);
 
-		const aliceSigns = await request(app.getHttpServer())
+		await request(app.getHttpServer())
 			.patch(
 				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
 			)
@@ -250,7 +247,7 @@ describe("Escrow creation from Request to contract", () => {
 			bob,
 		);
 
-		const bobSigns = await request(app.getHttpServer())
+		await request(app.getHttpServer())
 			.patch(
 				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
 			)
@@ -261,14 +258,12 @@ describe("Escrow creation from Request to contract", () => {
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
 
-		/**
-		 * TODO: this is where the code fails with
-		 * [Nest] 2965347  - 10/14/2025, 4:22:10 PM   ERROR [ExceptionsHandler] INVALID_PSBT_INPUT: INVALID_PSBT_INPUT (5): missing taptree on input 0
-		 */
-		const contractSignedByBob = await request(app.getHttpServer())
+		const finalContract = await request(app.getHttpServer())
 			.get(`/api/v1/escrows/contracts/${contractId}`)
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(200);
+
+		expect(finalContract.body.data.status).toBe("completed");
 	}, 20000);
 });
 
