@@ -2,7 +2,7 @@ import * as request from "supertest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import { hashes, utils as secpUtils } from "@noble/secp256k1";
-import { sha256 } from "@noble/hashes/sha2";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { AppModule } from "../src/app.module";
 import { signupAndGetJwt } from "./utils";
 import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
