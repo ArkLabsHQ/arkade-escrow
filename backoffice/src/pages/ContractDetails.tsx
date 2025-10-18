@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Header from "@/components/Header";
 import StatusBadge from "@/components/StatusBadge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
+import Config from "@/Config.ts";
 
 interface Contract {
 	externalId: string;
@@ -69,14 +70,10 @@ const ContractDetails = () => {
 	const [executionsOpen, setExecutionsOpen] = useState(false);
 	const [disputesOpen, setDisputesOpen] = useState(true);
 
-	useEffect(() => {
-		fetchContract();
-	}, [externalId]);
-
-	const fetchContract = async () => {
+	const fetchContract = useCallback(async () => {
 		try {
 			const response = await fetch(
-				`http://localhost:3002/api/admin/v1/contracts/${externalId}`,
+				`${Config.apiBaseUrl}/admin/v1/contracts/${externalId}`,
 			);
 			const result = await response.json();
 			setContract(result.data);
@@ -86,31 +83,35 @@ const ContractDetails = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [externalId]);
 
-    // SSE listener for contract updates
-    useEffect(() => {
-        const eventSource = new EventSource(
-            "http://localhost:3002/api/admin/v1/contracts/sse",
-        );
+	useEffect(() => {
+		fetchContract();
+	}, [fetchContract]);
 
-        eventSource.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                fetchContract()
-            } catch (error) {
-                console.error("Error parsing SSE event:", error);
-            }
-        };
+	// SSE listener for contract updates
+	useEffect(() => {
+		const eventSource = new EventSource(
+			"${Config.apiBaseUrl}/admin/v1/contracts/sse",
+		);
 
-        eventSource.onerror = (error) => {
-            console.error("SSE connection error:", error);
-        };
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				fetchContract();
+			} catch (error) {
+				console.error("Error parsing SSE event:", error);
+			}
+		};
 
-        return () => {
-            eventSource.close();
-        };
-    }, []);
+		eventSource.onerror = (error) => {
+			console.error("SSE connection error:", error);
+		};
+
+		return () => {
+			eventSource.close();
+		};
+	}, [fetchContract]);
 
 	const handleArbitration = async (
 		disputeId: string,
@@ -118,7 +119,7 @@ const ContractDetails = () => {
 	) => {
 		try {
 			const response = await fetch(
-				`http://localhost:3002/api/admin/v1/contracts/${externalId}/arbitrate`,
+				`${Config.apiBaseUrl}/admin/v1/contracts/${externalId}/arbitrate`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -245,7 +246,7 @@ const ContractDetails = () => {
 			<Header />
 			<main className="container mx-auto px-6 py-8">
 				<Link
-					to="/admin/backoffice/contracts"
+					to="/backoffice/contracts"
 					className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
 				>
 					<ArrowLeft size={20} />

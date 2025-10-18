@@ -7,25 +7,32 @@ import Home from "./pages/Home";
 import Contracts from "./pages/Contracts";
 import ContractDetails from "./pages/ContractDetails";
 import NotFound from "./pages/NotFound";
+import Config from "@/Config.ts";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/admin/backoffice/contracts" element={<Contracts />} />
-          <Route path="/admin/backoffice/contracts/:externalId" element={<ContractDetails />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+	<QueryClientProvider client={queryClient}>
+		<TooltipProvider>
+			<Toaster />
+			<Sonner />
+			<BrowserRouter>
+				<Routes>
+					<Route path={Config.appRootUrl} element={<Home />} />
+					<Route
+						path={`${Config.appRootUrl}/contracts`}
+						element={<Contracts />}
+					/>
+					<Route
+						path={`${Config.appRootUrl}/contracts/:externalId`}
+						element={<ContractDetails />}
+					/>
+					{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+					<Route path="*" element={<NotFound />} />
+				</Routes>
+			</BrowserRouter>
+		</TooltipProvider>
+	</QueryClientProvider>
 );
 
 export default App;

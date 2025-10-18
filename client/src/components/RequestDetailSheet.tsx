@@ -13,6 +13,7 @@ import { Separator } from "./ui/separator";
 import { GetEscrowRequestDto } from "@/types/api";
 import { Me } from "@/types/me";
 import { Link } from "react-router-dom";
+import Config from "@/Config";
 
 interface RequestDetailSheetProps {
 	me: Me;
@@ -144,7 +145,7 @@ export const RequestDetailSheet = ({
 									Find them in{" "}
 									<Link
 										className="text-base font-medium text-foreground underline hover:text-primary transition-colors"
-										to="/contracts"
+										to={`${Config.appRootUrl}/contracts`}
 									>
 										My Contracts page
 									</Link>

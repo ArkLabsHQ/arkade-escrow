@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { ServeStaticModule } from "@nestjs/serve-static";
+import { join } from "node:path";
 
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health.module";
@@ -20,6 +22,24 @@ const isDev = process.env.NODE_ENV === "development";
 
 @Module({
 	imports: [
+		ServeStaticModule.forRoot(
+			{
+				rootPath: join(process.cwd(), "client", "dist"),
+				serveRoot: "/client",
+			},
+			{
+				rootPath: join(process.cwd(), "backoffice", "dist"),
+				serveRoot: "/backoffice",
+			},
+			{
+				rootPath: join(process.cwd(), "client", "dist", "assets"),
+				serveRoot: "/client/assets",
+			},
+			{
+				rootPath: join(process.cwd(), "backoffice", "dist", "assets"),
+				serveRoot: "/backoffice/assets",
+			},
+		),
 		EventEmitterModule.forRoot({
 			// optional: wildcard: true, delimiter: '.', etc.
 		}),

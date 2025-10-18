@@ -7,7 +7,7 @@ COPY package*.json ./
 ARG DEPS_CACHE_BUST=0
 RUN echo "deps cache bust=$DEPS_CACHE_BUST"
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm_config_build_from_source=sqlite3 \
+    npm_config_build_from_source=better-sqlite3 \
     npm ci --no-audit --fund=false
 
 # ---- build ----
