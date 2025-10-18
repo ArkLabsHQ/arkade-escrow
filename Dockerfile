@@ -32,8 +32,9 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm npm ci --omit=dev --no-aud
 
 # App code and builds
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/client/dist ./client
-COPY --from=build /app/backoffice/dist ./backoffice
+# Keep dist folders inside their app dirs so ServeStatic can find them
+COPY --from=build /app/client/dist ./client/dist
+COPY --from=build /app/backoffice/dist ./backoffice/dist
 
 # Run as root
 EXPOSE 3000
