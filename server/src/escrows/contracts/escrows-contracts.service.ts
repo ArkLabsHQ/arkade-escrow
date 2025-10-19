@@ -31,7 +31,6 @@ import {
 	ContractDrafted,
 	ContractExecuted,
 	ContractFunded,
-	ContractId,
 	ContractVoided,
 } from "../../common/contract-address.event";
 import { GetEscrowContractDto } from "./dto/get-escrow-contract.dto";
@@ -47,12 +46,9 @@ import {
 	ExecutionTransaction,
 } from "./contract-execution.entity";
 import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
-
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
-import { ArbitrationService } from "../arbitration/arbitration.service";
 import { Signers } from "../../ark/escrow";
-import { Subject } from "rxjs";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -64,11 +60,6 @@ type DraftContractInput = {
 
 type ContractQueryFilter = {
 	status?: ContractStatus;
-};
-
-type ContractEvent = {
-	type: "updated_contract";
-	externalId: string;
 };
 
 @Injectable()
@@ -449,7 +440,8 @@ export class EscrowsContractsService {
 		try {
 			this.logger.debug("verifying tapscript signatures");
 			const txBytes = base64.decode(signature.arkTx);
-			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
+			const _tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
+			// TODO: verify again
 			// verifyTapscriptSignatures(tx, 0, [signerPubKey]);
 			this.logger.debug("OK tapscript signatures");
 		} catch (e) {

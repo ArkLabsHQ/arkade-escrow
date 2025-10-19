@@ -54,7 +54,6 @@ function timingSafeEqual(a: string, b: string): boolean {
 			);
 		} catch {}
 		return false;
-		return false;
 	}
 	try {
 		return require("node:crypto").timingSafeEqual(ab, bb);

@@ -8,7 +8,8 @@ import {
 	hashes,
 } from "@noble/secp256k1";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import { sha256 } from "@noble/hashes/sha2.js"
+import { sha256 } from "@noble/hashes/sha2.js";
+
 import { AppModule } from "../src/app.module";
 
 hashes.sha256 = sha256;

@@ -15,7 +15,6 @@ import {
 	Controller,
 	DefaultValuePipe,
 	Get,
-	HttpCode,
 	NotFoundException,
 	Param,
 	ParseIntPipe,
@@ -41,7 +40,6 @@ import { User } from "../../users/user.entity";
 import { GetArbitrationDto } from "./dto/get-arbitration.dto";
 import { ExecuteArbitrationResultInDto } from "../contracts/dto/execute-arbitration-result.dto";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
-import { GetExecutionByContractDto } from "../contracts/dto/get-execution-by-contract";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 
 @ApiTags("3 - Arbitrations")

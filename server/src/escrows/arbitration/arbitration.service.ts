@@ -1,5 +1,4 @@
 import {
-	ConflictException,
 	ForbiddenException,
 	Injectable,
 	InternalServerErrorException,
@@ -29,7 +28,6 @@ import {
 import { GetExecutionByContractDto } from "../contracts/dto/get-execution-by-contract";
 import { ArkAddress } from "@arkade-os/sdk";
 import { ArkService } from "../../ark/ark.service";
-import { base64 } from "@scure/base";
 import { ContractExecution } from "../contracts/contract-execution.entity";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 
@@ -67,7 +65,7 @@ export class ArbitrationService {
 		reason: string;
 		claimantPublicKey: string;
 	}) {
-		console.log(input);
+		this.logger.log(`createArbitration: ${JSON.stringify(input)}`);
 		const contract = await this.getOneForPartyAndStatus(
 			input.contractId,
 			input.claimantPublicKey,

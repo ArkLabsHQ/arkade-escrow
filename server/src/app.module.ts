@@ -19,7 +19,6 @@ import { AdminModule } from "./admin/api/admin.module";
 import { BasicAuthMiddleware } from "./basic-auth.middleware";
 
 const isTest = process.env.NODE_ENV === "test";
-const isDev = process.env.NODE_ENV === "development";
 
 @Module({
 	imports: [

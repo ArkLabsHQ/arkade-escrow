@@ -10,6 +10,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import type { Request } from "express";
 import { Repository } from "typeorm";
 import { User } from "../users/user.entity";
+import { AuthUser } from "../common/AuthUser";
 
 /**
  * Includes validation against pending challenges.
@@ -45,7 +46,10 @@ export class AuthGuard implements CanActivate {
 		if (!user || user.pendingChallenge) {
 			throw new UnauthorizedException("User has pending challenge");
 		}
-		(req as any).user = { userId: user.id, publicKey: user.publicKey };
+		(req as unknown as AuthUser).user = {
+			userId: user.id,
+			publicKey: user.publicKey,
+		};
 		return true;
 	}
 }

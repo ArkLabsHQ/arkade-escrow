@@ -6,7 +6,6 @@ import {
 	Delete,
 	ForbiddenException,
 	Get,
-	Logger,
 	NotFoundException,
 	Param,
 	ParseIntPipe,
@@ -51,7 +50,6 @@ import { User } from "../../users/user.entity";
 import { OrderbookItemDto } from "./dto/orderbook.dto";
 import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
-import { EscrowsContractsService } from "../contracts/escrows-contracts.service";
 
 @ApiTags("1 - Escrow Requests")
 @ApiExtraModels(
@@ -62,12 +60,7 @@ import { EscrowsContractsService } from "../contracts/escrows-contracts.service"
 )
 @Controller("api/v1/escrows/requests")
 export class EscrowRequestsController {
-	private readonly logger = new Logger(EscrowRequestsController.name);
-
-	constructor(
-		private readonly requestsService: EscrowRequestsService,
-		private readonly contractsService: EscrowsContractsService,
-	) {}
+	constructor(private readonly requestsService: EscrowRequestsService) {}
 
 	@Get("orderbook")
 	@ApiQuery({

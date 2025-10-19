@@ -113,7 +113,7 @@ export class ArkService {
 		}
 
 		const serverUnrollScript = CSVMultisigTapscript.decode(
-			hex.decode((this.arkInfo as any).checkpointTapscript),
+			hex.decode(this.arkInfo.checkpointTapscript),
 		);
 
 		const outputs = ArkService.createOutputsForAction(

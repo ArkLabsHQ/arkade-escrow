@@ -1,5 +1,4 @@
 import {
-	ConflictException,
 	ForbiddenException,
 	Injectable,
 	InternalServerErrorException,
@@ -7,20 +6,20 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { type Repository, Brackets, EntityManager } from "typeorm";
+import { type Repository, Brackets } from "typeorm";
 import { customAlphabet } from "nanoid";
+import { ConfigService } from "@nestjs/config";
+
 import { EscrowRequest } from "./escrow-request.entity";
 import type {
 	CreateEscrowRequestInDto,
 	CreateEscrowRequestOutDto,
 } from "./dto/create-escrow-request.dto";
-import { ConfigService } from "@nestjs/config";
 import { OrderbookItemDto } from "./dto/orderbook.dto";
 import { GetEscrowRequestDto } from "./dto/get-escrow-request.dto";
 import {
 	Cursor,
 	emptyCursor,
-	cursorFromString,
 	cursorToString,
 } from "../../common/dto/envelopes";
 
@@ -44,10 +43,6 @@ export class EscrowRequestsService {
 		this.shareBase =
 			this.config.get<string>("SHARE_BASE_URL") ??
 			"http://localhost:3000/escrows/requests";
-	}
-
-	private repoFor(manager?: EntityManager) {
-		return manager ? manager.getRepository(EscrowRequest) : this.repo;
 	}
 
 	async create(

@@ -24,15 +24,16 @@ async function bootstrap() {
 		if (req.url.startsWith("/assets/")) {
 			// Detect referring page path to infer scope from the URL the browser is requesting from
 			// If the current request path begins with an app scope, rewrite accordingly.
-			// @ts-ignore
-			if (req.headers["referer"]?.includes("/client/")) {
-				// @ts-ignore
+
+			// @ts-expect-error
+			if (req.headers.referer?.includes("/client/")) {
+				// @ts-expect-error
 				req.url = `/client${req.url}`;
 			}
 
-			// @ts-ignore
-			if (req.headers["referer"]?.includes("/backoffice/")) {
-				// @ts-ignore
+			// @ts-expect-error
+			if (req.headers.referer?.includes("/backoffice/")) {
+				// @ts-expect-error
 				req.url = `/backoffice${req.url}`;
 			}
 			// If neither matches, leave as-is (you may choose a default if desired)

@@ -4,7 +4,6 @@ import {
 	Injectable,
 	Logger,
 	NotFoundException,
-	NotImplementedException,
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -249,24 +248,25 @@ export class AdminService {
 		}
 	}
 
-	private async executeSettlement(contract: EscrowContract) {
-		// try {
-		// 	const escrowTransaction = await this.arkService.createEscrowTransaction(
-		// 		{
-		// 			action: "release-funds",
-		// 			// TODO: get the ark address of the receiver!
-		// 			receiverAddress: ArkAddress.decode(),
-		// 			receiverPublicKey: contract.receiverPubkey,
-		// 			senderPublicKey: contract.senderPubkey,
-		// 			arbitratorPublicKey: this.arbitratorPublicKey,
-		// 			contractNonce: `${contract.externalId}${contract.request.externalId}`,
-		// 		},
-		// 		vtxo,
-		// 	);
-		// } catch (e) {}
-	}
-
-	private executeRefund() {
-		throw new NotImplementedException();
-	}
+	// TODO: implement arbitration
+	// private async executeSettlement(contract: EscrowContract) {
+	// 	// try {
+	// 	// 	const escrowTransaction = await this.arkService.createEscrowTransaction(
+	// 	// 		{
+	// 	// 			action: "release-funds",
+	// 	// 			// TODO: get the ark address of the receiver!
+	// 	// 			receiverAddress: ArkAddress.decode(),
+	// 	// 			receiverPublicKey: contract.receiverPubkey,
+	// 	// 			senderPublicKey: contract.senderPubkey,
+	// 	// 			arbitratorPublicKey: this.arbitratorPublicKey,
+	// 	// 			contractNonce: `${contract.externalId}${contract.request.externalId}`,
+	// 	// 		},
+	// 	// 		vtxo,
+	// 	// 	);
+	// 	// } catch (e) {}
+	// }
+	//
+	// private executeRefund() {
+	// 	throw new NotImplementedException();
+	// }
 }
