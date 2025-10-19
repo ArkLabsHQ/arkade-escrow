@@ -90,6 +90,7 @@ export class EscrowsContractsService {
 		if (!arbitratorPubKey) {
 			throw new Error("ARBITRATOR_PUB_KEY is not set");
 		}
+		this.logger.log(`ARBITRATOR_PUB_KEY=${arbitratorPubKey}`);
 		this.arbitratorPublicKey = arbitratorPubKey;
 	}
 

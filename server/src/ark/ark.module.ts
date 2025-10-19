@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { RestArkProvider } from "@arkade-os/sdk";
 import { ArkService } from "./ark.service";
@@ -13,7 +13,7 @@ import { ArkFundingWatcher } from "./funding-watcher.service";
 			inject: [ConfigService],
 			useFactory: (cfg: ConfigService) => {
 				const arkServerUrl = cfg.get<string>("ARK_SERVER_URL");
-				console.log("ARK_SERVER_URL", arkServerUrl);
+				Logger.log(`ARK_SERVER_URL=${arkServerUrl}`);
 				return new RestArkProvider(
 					arkServerUrl ?? "https://mutinynet.arkade.sh",
 				);

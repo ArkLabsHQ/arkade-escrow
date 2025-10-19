@@ -32,7 +32,6 @@ async function bootstrap() {
 
 			// @ts-ignore
 			if (req.headers["referer"]?.includes("/backoffice/")) {
-				console.log("backoffice!", req.url);
 				// @ts-ignore
 				req.url = `/backoffice${req.url}`;
 			}
