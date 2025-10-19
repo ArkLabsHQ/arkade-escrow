@@ -8,7 +8,7 @@ import { EscrowRequest } from "../../escrows/requests/escrow-request.entity";
 import { User } from "../../users/user.entity";
 import { ContractExecution } from "../../escrows/contracts/contract-execution.entity";
 import { ArkModule } from "../../ark/ark.module";
-import {ServerSentEventsService} from "../../common/server-sent-events.service";
+import { ServerSentEventsService } from "../../common/server-sent-events.service";
 
 @Module({
 	imports: [
@@ -22,6 +22,6 @@ import {ServerSentEventsService} from "../../common/server-sent-events.service";
 		ArkModule,
 	],
 	controllers: [AdminController],
-	providers: [AdminService,ServerSentEventsService],
+	providers: [AdminService, ServerSentEventsService],
 })
 export class AdminModule {}

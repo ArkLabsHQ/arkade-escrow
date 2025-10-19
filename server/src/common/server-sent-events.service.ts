@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import {filter, Subject} from "rxjs";
+import { filter, Subject } from "rxjs";
 import {
 	CONTRACT_CREATED_ID,
 	CONTRACT_DRAFTED_ID,
@@ -13,7 +13,7 @@ import {
 	type ContractFunded,
 	type ContractVoided,
 } from "./contract-address.event";
-import {User} from "../users/user.entity";
+import { User } from "../users/user.entity";
 
 type ArkSse =
 	| { type: "new_contract"; externalId: string }
@@ -21,9 +21,8 @@ type ArkSse =
 
 // biome-ignore lint/suspicious/noExplicitAny: just anything remotely JSON-serializable
 export type SseEvent<T = any> = {
-    data: T;
-}
-
+	data: T;
+};
 
 @Injectable()
 export class ServerSentEventsService {
@@ -33,10 +32,10 @@ export class ServerSentEventsService {
 		return this.events$.asObservable();
 	}
 
-    userEvents(/* user: User */) {
-        // TODO: filter events by user
-        return this.events$.asObservable()
-    }
+	userEvents(/* user: User */) {
+		// TODO: filter events by user
+		return this.events$.asObservable();
+	}
 
 	@OnEvent(CONTRACT_DRAFTED_ID)
 	onContractDrafted(evt: ContractDrafted) {

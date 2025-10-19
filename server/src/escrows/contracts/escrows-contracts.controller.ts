@@ -1,20 +1,21 @@
 import {
-    BadRequestException,
-    Body,
-    ConflictException,
-    Controller,
-    DefaultValuePipe,
-    ForbiddenException,
-    Get,
-    HttpCode,
-    Logger,
-    NotFoundException,
-    Param,
-    ParseIntPipe,
-    Patch,
-    Post,
-    Query, Sse,
-    UseGuards,
+	BadRequestException,
+	Body,
+	ConflictException,
+	Controller,
+	DefaultValuePipe,
+	ForbiddenException,
+	Get,
+	HttpCode,
+	Logger,
+	NotFoundException,
+	Param,
+	ParseIntPipe,
+	Patch,
+	Post,
+	Query,
+	Sse,
+	UseGuards,
 } from "@nestjs/common";
 import {
 	ApiBearerAuth,
@@ -61,8 +62,11 @@ import {
 } from "./dto/create-escrow-contract.dto";
 import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 import { SignExecutionInDto } from "./dto/sign-execution.dto";
-import {ServerSentEventsService, SseEvent} from "../../common/server-sent-events.service";
-import {map, Observable} from "rxjs";
+import {
+	ServerSentEventsService,
+	SseEvent,
+} from "../../common/server-sent-events.service";
+import { map, Observable } from "rxjs";
 
 @ApiTags("2 - Escrow Contracts")
 @Controller("api/v1/escrows/contracts")
@@ -72,7 +76,7 @@ export class EscrowsContractsController {
 	constructor(
 		private readonly service: EscrowsContractsService,
 		private readonly requestsService: EscrowRequestsService,
-        private readonly sseService: ServerSentEventsService
+		private readonly sseService: ServerSentEventsService,
 	) {}
 
 	@Get("")
@@ -184,22 +188,22 @@ export class EscrowsContractsController {
 		}
 	}
 
-    @Sse("sse")
-    @ApiOperation({
-        summary: "Subscribe to all contract events",
-    })
-    // TODO: implement authentication via cookies or ad-hoc token
-    // @UseGuards(AuthGuard)
-    // @ApiBearerAuth()
-    sse(
-        // @UserFromJwt() user: User,
-    ): Observable<SseEvent> {
-        return this.sseService.userEvents().pipe(
-            map((event) => ({
-                data: event,
-            })),
-        );
-    }
+	@Sse("sse")
+	@ApiOperation({
+		summary: "Subscribe to all contract events",
+	})
+	// TODO: implement authentication via cookies or ad-hoc token
+	// @UseGuards(AuthGuard)
+	// @ApiBearerAuth()
+	sse(
+		// @UserFromJwt() user: User,
+	): Observable<SseEvent> {
+		return this.sseService.userEvents().pipe(
+			map((event) => ({
+				data: event,
+			})),
+		);
+	}
 
 	@Post(":contractId/execute")
 	@UseGuards(AuthGuard)

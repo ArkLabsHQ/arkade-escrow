@@ -14,7 +14,7 @@ import { ContractExecution } from "./contracts/contract-execution.entity";
 import { ContractArbitration } from "./arbitration/contract-arbitration.entity";
 import { ArbitrationService } from "./arbitration/arbitration.service";
 import { ArbitrationController } from "./arbitration/arbitration.controller";
-import {ServerSentEventsService} from "../common/server-sent-events.service";
+import { ServerSentEventsService } from "../common/server-sent-events.service";
 
 @Module({
 	imports: [
@@ -32,7 +32,7 @@ import {ServerSentEventsService} from "../common/server-sent-events.service";
 		EscrowsContractsService,
 		EscrowRequestsService,
 		ArbitrationService,
-        ServerSentEventsService,
+		ServerSentEventsService,
 	],
 	controllers: [
 		EscrowsContractsController,
