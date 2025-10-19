@@ -18,7 +18,7 @@ export async function createTestArkWallet(
 
 	const wallet = await Wallet.create({
 		identity,
-		arkServerUrl: "http://localhost:7070",
+		arkServerUrl: process.env.ARK_SERVER_URL ?? "http://localhost:7070",
 	});
 
 	return {

@@ -28,6 +28,10 @@ function execCommand(command: string): string {
 // before each test check if the ark's cli running in the test env has at least 20_000 offchain balance
 // if not, fund it with 100.000
 function beforeEachFaucet(): void {
+	// On the CI we don't have access to arkd CLI for now
+	if (process.env.CI) {
+		return;
+	}
 	const balanceOutput = execCommand(`${arkdExec} ark balance`);
 	const balance = JSON.parse(balanceOutput);
 	const offchainBalance = balance.offchain_balance.total;

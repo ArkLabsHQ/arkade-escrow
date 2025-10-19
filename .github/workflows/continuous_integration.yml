@@ -47,4 +47,8 @@ jobs:
       run: npm ci
       
     - name: Run tests
+      env:
+        JWT_SECRET: g4GeyzuHXVBb
+        ARBITRATOR_PUB_KEY: 61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
+        ARK_SERVER_URL: https://mutinynet.arkade.sh
       run: npm run test
