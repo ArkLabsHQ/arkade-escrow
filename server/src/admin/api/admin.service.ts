@@ -8,7 +8,7 @@ import {
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Brackets, Repository } from "typeorm";
+import { Brackets, In, Repository } from "typeorm";
 import { ContractArbitration } from "../../escrows/arbitration/contract-arbitration.entity";
 import {
 	Cursor,
@@ -22,6 +22,7 @@ import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-de
 import { Subject } from "rxjs";
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
 import { ArkService } from "../../ark/ark.service";
+import GetAdminStatsDto from "./get-admin-stats";
 
 type AdminEvent = {
 	type: "updated_contract";
@@ -43,6 +44,23 @@ export class AdminService {
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
 		private readonly arkService: ArkService,
 	) {}
+
+	async getContractStats(): Promise<GetAdminStatsDto["contracts"]> {
+		const [total, active, disputed, settled] = await Promise.all([
+			this.contractRepository.count(),
+			this.contractRepository.count({
+				where: { status: In(["created", "funded", "pending-execution"]) },
+			}),
+			this.contractRepository.count({ where: { status: "under-arbitration" } }),
+			this.contractRepository.count({ where: { status: "completed" } }),
+		]);
+		return {
+			total,
+			active,
+			disputed,
+			settled,
+		};
+	}
 
 	async findAll(
 		limit: number,

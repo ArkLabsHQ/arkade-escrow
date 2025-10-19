@@ -92,7 +92,7 @@ const ContractDetails = () => {
 	// SSE listener for contract updates
 	useEffect(() => {
 		const eventSource = new EventSource(
-			"${Config.apiBaseUrl}/admin/v1/contracts/sse",
+			`${Config.apiBaseUrl}/admin/v1/contracts/sse`,
 		);
 
 		eventSource.onmessage = (event) => {
@@ -246,7 +246,7 @@ const ContractDetails = () => {
 			<Header />
 			<main className="container mx-auto px-6 py-8">
 				<Link
-					to="/backoffice/contracts"
+					to={`${Config.appRootUrl}/contracts`}
 					className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
 				>
 					<ArrowLeft size={20} />

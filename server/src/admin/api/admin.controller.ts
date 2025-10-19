@@ -2,7 +2,6 @@ import {
 	Controller,
 	Get,
 	Param,
-	Patch,
 	Query,
 	Body,
 	ParseIntPipe,
@@ -13,7 +12,6 @@ import {
 import {
 	ApiTags,
 	ApiQuery,
-	ApiParam,
 	ApiOperation,
 	ApiOkResponse,
 	ApiBody,
@@ -21,6 +19,7 @@ import {
 import { AdminService } from "./admin.service";
 import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 import {
+	ApiEnvelopeShellDto,
 	ApiPaginatedEnvelope,
 	Cursor,
 	envelope,
@@ -30,18 +29,24 @@ import {
 } from "../../common/dto/envelopes";
 import { GetAdminEscrowContractDto } from "./get-admin-escrow-contract.dto";
 import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-details.dto";
-import { interval, map, Observable } from "rxjs";
+import { map, Observable } from "rxjs";
 import {
 	ArbitrateDisputeInDto,
 	ArbitrateDisputeOutDto,
 } from "./arbitrate-dispute-in.dto";
-import {ServerSentEventsService, SseEvent} from "../../common/server-sent-events.service";
-
+import {
+	ServerSentEventsService,
+	SseEvent,
+} from "../../common/server-sent-events.service";
+import GetAdminStatsDto from "./get-admin-stats";
 
 @ApiTags("Admin")
 @Controller("api/admin/v1")
 export class AdminController {
-	constructor(private readonly adminService: AdminService, private readonly sseService: ServerSentEventsService) {}
+	constructor(
+		private readonly adminService: AdminService,
+		private readonly sseService: ServerSentEventsService,
+	) {}
 
 	@ApiOperation({ summary: "List all contracts paginated" })
 	@ApiQuery({
@@ -70,6 +75,17 @@ export class AdminController {
 			cursor,
 		);
 		return paginatedEnvelope(items, { total, nextCursor });
+	}
+
+	@ApiOperation({ summary: "Statistics for the escrow" })
+	@ApiOkResponse({
+		description: "Statistics for the escrow",
+		schema: getSchemaPathForDto(GetAdminStatsDto),
+	})
+	@Get("stats")
+	async stats(): Promise<ApiEnvelopeShellDto<GetAdminStatsDto>> {
+		const contractsStas = await this.adminService.getContractStats();
+		return envelope({ contracts: contractsStas });
 	}
 
 	@Sse("contracts/sse")

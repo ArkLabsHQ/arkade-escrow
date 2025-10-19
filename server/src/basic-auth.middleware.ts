@@ -1,8 +1,11 @@
 import { Injectable, NestMiddleware } from "@nestjs/common";
 import type { NextFunction, Request, Response } from "express";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class BasicAuthMiddleware implements NestMiddleware {
+	constructor(private readonly config: ConfigService) {}
+
 	use(req: Request, res: Response, next: NextFunction) {
 		const header = req.header("authorization");
 		if (!header || !header.startsWith("Basic ")) {
@@ -23,8 +26,8 @@ export class BasicAuthMiddleware implements NestMiddleware {
 		const username = sep >= 0 ? decoded.slice(0, sep) : "";
 		const password = sep >= 0 ? decoded.slice(sep + 1) : "";
 
-		const expectedUser = process.env.BACKOFFICE_BASIC_USER || "";
-		const expectedPass = process.env.BACKOFFICE_BASIC_PASS || "";
+		const expectedUser = this.config.get<string>("BACKOFFICE_BASIC_USER") ?? "";
+		const expectedPass = this.config.get<string>("BACKOFFICE_BASIC_PASS") ?? "";
 
 		const ok =
 			timingSafeEqual(username, expectedUser) &&
@@ -45,16 +48,16 @@ function timingSafeEqual(a: string, b: string): boolean {
 		// Compare with same length to avoid leak
 		const pad = Buffer.alloc(Math.max(ab.length, bb.length), 0);
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			require("crypto").timingSafeEqual(
+			require("node:crypto").timingSafeEqual(
 				ab.length > bb.length ? ab : pad,
 				ab.length > bb.length ? ab : pad,
 			);
 		} catch {}
 		return false;
+		return false;
 	}
 	try {
-		return require("crypto").timingSafeEqual(ab, bb);
+		return require("node:crypto").timingSafeEqual(ab, bb);
 	} catch {
 		return a === b;
 	}

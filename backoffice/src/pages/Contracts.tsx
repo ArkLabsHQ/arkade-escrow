@@ -90,7 +90,7 @@ const Contracts = () => {
 	// SSE listener for contract updates
 	useEffect(() => {
 		const eventSource = new EventSource(
-			"${Config.apiBaseUrl}/admin/v1/contracts/sse",
+			`${Config.apiBaseUrl}/admin/v1/contracts/sse`,
 		);
 
 		eventSource.onmessage = (event) => {
