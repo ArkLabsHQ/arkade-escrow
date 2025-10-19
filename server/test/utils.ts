@@ -1,17 +1,30 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import * as request from "supertest";
 import type { INestApplication } from "@nestjs/common";
-import { Point } from "@noble/secp256k1";
-import { Identity } from "@arkade-os/sdk";
+import { Identity, SingleKey, Wallet } from "@arkade-os/sdk";
 import { hex } from "@scure/base";
 
-export function normalizeToXOnly(pubHex: string): string {
-	const h = pubHex.toLowerCase();
-	if (h.length === 64) return h;
-	const point = Point.fromHex(h);
-	const compressed = point.toBytes(true);
-	const x = compressed.slice(1);
-	return Buffer.from(x).toString("hex");
+export interface TestArkWallet {
+	wallet: Wallet;
+	identity: SingleKey;
+}
+function createTestIdentity(name: Uint8Array): SingleKey {
+	return SingleKey.fromPrivateKey(name);
+}
+export async function createTestArkWallet(
+	name: Uint8Array,
+): Promise<TestArkWallet> {
+	const identity = createTestIdentity(name);
+
+	const wallet = await Wallet.create({
+		identity,
+		arkServerUrl: "http://localhost:7070",
+	});
+
+	return {
+		wallet,
+		identity,
+	};
 }
 
 export async function signupAndGetJwt(
@@ -19,8 +32,6 @@ export async function signupAndGetJwt(
 	identity: Identity,
 ) {
 	const pubCompressedHex = await identity.xOnlyPublicKey().then(hex.encode);
-	// .compressedPublicKey()
-	// .then((x) => normalizeToXOnly(hex.encode(x)));
 
 	const chalRes = await request(app.getHttpServer())
 		.post("/api/v1/auth/signup/challenge")

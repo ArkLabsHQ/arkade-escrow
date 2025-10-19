@@ -46,7 +46,7 @@ export class AuthGuard implements CanActivate {
 		if (!user || user.pendingChallenge) {
 			throw new UnauthorizedException("User has pending challenge");
 		}
-		(req as unknown as AuthUser).user = {
+		(req as unknown as { user: AuthUser }).user = {
 			userId: user.id,
 			publicKey: user.publicKey,
 		};

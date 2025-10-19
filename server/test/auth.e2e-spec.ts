@@ -1,19 +1,20 @@
 import * as request from "supertest";
 import { Test, type TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
-import {
-	schnorr,
-	utils as secpUtils,
-	getPublicKey,
-	hashes,
-} from "@noble/secp256k1";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { utils as secpUtils, hashes } from "@noble/secp256k1";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
 import { AppModule } from "../src/app.module";
+import { createTestArkWallet } from "./utils";
+import { hex } from "@scure/base";
 
 hashes.sha256 = sha256;
 
+/**
+ * This test is redundant because ./utils/signupAndGetJwt does exactly the same things,
+ * but here we perform specific assertions about the API and it will help in debugging when things go south.
+ */
 describe("Auth E2E (signup)", () => {
 	let app: INestApplication;
 
@@ -31,23 +32,25 @@ describe("Auth E2E (signup)", () => {
 	});
 
 	it("should create challenge and verify signature to return a JWT", async () => {
-		// Generate a keypair
-		const priv = secpUtils.randomSecretKey();
-		const pubXOnlyHex = Buffer.from(getPublicKey(priv, true)).toString("hex"); // compressed
+		const alice = await createTestArkWallet(secpUtils.randomSecretKey());
+		const pubCompressedHex = await alice.identity
+			.xOnlyPublicKey()
+			.then(hex.encode);
+
 		// 1) request challenge
 		const chalRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/signup/challenge")
 			.set("Origin", "http://localhost:test")
-			.send({ publicKey: pubXOnlyHex })
+			.send({ publicKey: pubCompressedHex })
 			.expect(201);
 
 		expect(chalRes.body.challengeId).toBeDefined();
 		expect(chalRes.body.hashToSignHex).toHaveLength(64);
 
 		// 2) sign hash
-		const signatureHex = schnorr.sign(
+		const signatureBytes = await alice.identity.signMessage(
 			hexToBytes(chalRes.body.hashToSignHex),
-			priv,
+			"schnorr",
 		);
 
 		// 3) verify
@@ -55,8 +58,8 @@ describe("Auth E2E (signup)", () => {
 			.post("/api/v1/auth/signup/verify")
 			.set("Origin", "http://localhost:test")
 			.send({
-				publicKey: pubXOnlyHex,
-				signature: bytesToHex(signatureHex),
+				publicKey: pubCompressedHex,
+				signature: bytesToHex(signatureBytes),
 				challengeId: chalRes.body.challengeId,
 			})
 			.expect(201);

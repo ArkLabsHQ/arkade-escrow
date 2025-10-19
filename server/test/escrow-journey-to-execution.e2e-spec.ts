@@ -4,7 +4,7 @@ import type { INestApplication } from "@nestjs/common";
 import { hashes, utils as secpUtils } from "@noble/secp256k1";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { AppModule } from "../src/app.module";
-import { signupAndGetJwt } from "./utils";
+import { createTestArkWallet, signupAndGetJwt, TestArkWallet } from "./utils";
 import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
 import { execSync } from "node:child_process";
 import { base64 } from "@scure/base";
@@ -15,26 +15,6 @@ hashes.sha256 = sha256;
 const arkdExec =
 	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
 
-interface TestArkWallet {
-	wallet: Wallet;
-	identity: SingleKey;
-}
-function createTestIdentity(name: Uint8Array): SingleKey {
-	return SingleKey.fromPrivateKey(name);
-}
-async function createTestArkWallet(name: Uint8Array): Promise<TestArkWallet> {
-	const identity = createTestIdentity(name);
-
-	const wallet = await Wallet.create({
-		identity,
-		arkServerUrl: "http://localhost:7070",
-	});
-
-	return {
-		wallet,
-		identity,
-	};
-}
 function faucetOffchain(address: string, amount: number): void {
 	execCommand(
 		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
@@ -176,6 +156,11 @@ describe("Escrow creation from Request to contract", () => {
 		expect(getContractRes.body.data.externalId).toBe(contractId);
 		expect(getContractRes.body.data.status).toBe("created");
 		expect(getContractRes.body.data.arkAddress).toBe(accepted.arkAddress);
+
+		// On the CI we don't have access to arkd CLI for now
+		if (process.env.CI) {
+			return;
+		}
 
 		faucetOffchain(accepted.arkAddress, accepted.amount);
 
