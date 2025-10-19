@@ -66,7 +66,7 @@ const Home = () => {
 										Total contracts
 									</span>
 									<Badge variant="neutral" className="text-base px-3">
-										42
+										{stats?.contracts?.total || "-"}
 									</Badge>
 								</div>
 								<div className="flex items-center justify-between">
@@ -74,7 +74,7 @@ const Home = () => {
 										In progress
 									</span>
 									<Badge variant="success" className="text-base px-3">
-										28
+										{stats?.contracts?.active || "-"}
 									</Badge>
 								</div>
 								<div className="flex items-center justify-between">
@@ -82,7 +82,7 @@ const Home = () => {
 										Disputed
 									</span>
 									<Badge variant="warning" className="text-base px-3">
-										3
+										{stats?.contracts?.disputed || "-"}
 									</Badge>
 								</div>
 							</CardContent>
