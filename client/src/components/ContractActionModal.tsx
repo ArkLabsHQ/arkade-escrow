@@ -11,19 +11,12 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { AlertTriangle, CheckCircle, Shield } from "lucide-react";
-
-type ActionType =
-	| "settle"
-	| "accept"
-	| "approve"
-	| "reject"
-	| "recede"
-	| "dispute";
+import { ContractAction } from "@/components/ContractDetailSheet";
 
 interface ContractActionModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	actionType: ActionType;
+	actionType: ContractAction;
 	onConfirm: (data?: { reason?: string }) => void;
 }
 
@@ -61,14 +54,14 @@ export const ContractActionModal = ({
 					confirmText: "Accept Contract",
 					confirmVariant: "default" as const,
 				};
-			case "settle":
+			case "execute":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
-					title: "Settle Contract",
+					title: "Execute Contract",
 					description:
-						"You're about to initiate the settlement process. The counterparty will need to approve this settlement.",
+						"You're about to initiate the execution process. The counterparty will need to approve this execution.",
 					requiresInput: false,
-					confirmText: "Initiate Settlement",
+					confirmText: "Initiate Execution",
 					confirmVariant: "default" as const,
 				};
 			case "approve":
@@ -141,6 +134,7 @@ export const ContractActionModal = ({
 				{config.requiresInput && (
 					<div className="space-y-2 py-4">
 						<Label htmlFor="reason">{config.inputLabel}</Label>
+						{/** biome-ignore lint/correctness/useUniqueElementIds: is unique */}
 						<Textarea
 							id="reason"
 							placeholder={config.inputPlaceholder}

@@ -4,7 +4,7 @@ import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
 import { NewRequestSheet } from "@/components/NewRequestSheet";
 import { Button } from "@/components/ui/button";
-import { Inbox, FileSignature, Plus } from "lucide-react";
+import { Inbox, FileSignature, Plus, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
@@ -162,7 +162,7 @@ const Index = () => {
 						className="w-full sm:w-auto"
 					>
 						<Button variant="outline" className="gap-2 w-full sm:w-auto">
-							<Inbox className="h-4 w-4" />
+							<FileText className="h-4 w-4" />
 							My Requests
 						</Button>
 					</Link>

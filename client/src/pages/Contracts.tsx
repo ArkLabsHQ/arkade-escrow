@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { ContractCard } from "@/components/ContractCard";
-import { ContractDetailSheet } from "@/components/ContractDetailSheet";
+import {
+	ContractAction,
+	ContractDetailSheet,
+} from "@/components/ContractDetailSheet";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -26,6 +29,7 @@ import {
 import axios from "axios";
 import { toast } from "sonner";
 import { Transaction, useMessageBridge } from "@/components/MessageBus";
+
 import {
 	ApiEnvelope,
 	ApiEnvelopeShellDto,
@@ -369,6 +373,9 @@ const Contracts = () => {
 								</SelectItem>
 								<SelectItem value="completed">Completed</SelectItem>
 								<SelectItem value="canceled">Canceled</SelectItem>
+								<SelectItem value="under-arbitration">
+									Under Arbitration
+								</SelectItem>
 							</SelectContent>
 						</Select>
 
@@ -440,7 +447,7 @@ const Contracts = () => {
 				open={sheetOpen}
 				onOpenChange={setSheetOpen}
 				onContractAction={(
-					action: string,
+					action: ContractAction,
 					{ contractId, walletAddress, executionId, transaction, reason },
 				) => {
 					switch (action) {
@@ -457,7 +464,7 @@ const Contracts = () => {
 							});
 							return;
 						}
-						case "settle":
+						case "execute":
 							if (!walletAddress) {
 								return Promise.reject(
 									new Error("Wallet address is required for execution"),
@@ -489,12 +496,12 @@ const Contracts = () => {
 								},
 								{
 									onSuccess: (d) => {
-										toast.success("Settlement approved successfully");
+										toast.success("Execution approved successfully");
 										// setRefreshKey(refreshKey + 1);
 									},
 									onError: (error) => {
 										console.error(error);
-										toast.error("Failed to execute settlement");
+										toast.error("Failed to run execution");
 									},
 									onSettled: () => {},
 								},

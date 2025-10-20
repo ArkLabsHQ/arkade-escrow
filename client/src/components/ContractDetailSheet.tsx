@@ -23,6 +23,7 @@ import {
 	ChevronDown,
 	PauseCircle,
 	BadgeInfoIcon,
+	FileSignature,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "./ui/separator";
@@ -45,12 +46,20 @@ import axios from "axios";
 import Config from "@/Config";
 import { useMessageBridge } from "@/components/MessageBus";
 
+export type ContractAction =
+	| "accept"
+	| "execute"
+	| "approve"
+	| "reject"
+	| "recede"
+	| "dispute";
+
 interface ContractDetailSheetProps {
 	contract: GetEscrowContractDto | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onContractAction: (
-		action: "accept" | "settle" | "approve" | "reject" | "recede" | "dispute",
+		action: ContractAction,
 		data: {
 			contractId: string;
 			executionId?: string;
@@ -71,9 +80,7 @@ export const ContractDetailSheet = ({
 }: ContractDetailSheetProps) => {
 	const { fundAddress, walletAddress, xPublicKey } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
-	const [currentAction, setCurrentAction] = useState<
-		"accept" | "settle" | "approve" | "reject" | "recede" | "dispute"
-	>("settle");
+	const [currentAction, setCurrentAction] = useState<ContractAction>("execute");
 
 	const { data: dataExecutions, isError } = useQuery({
 		queryKey: ["contract-executions", contract?.externalId],
@@ -106,6 +113,9 @@ export const ContractDetailSheet = ({
 		},
 		enabled: !!contract?.externalId,
 	});
+
+	// Only one arbitration is supported for now
+	const currentArbitration = dataArbitrations?.data[0];
 
 	if (isError) {
 		console.error(isError);
@@ -155,6 +165,19 @@ export const ContractDetailSheet = ({
 				execution.status !== "executed",
 		) ?? [];
 
+	const handleCopyContractId = () => {
+		navigator.clipboard.writeText(contract.externalId);
+		toast.success("Contract ID copied to clipboard");
+	};
+	const handleCopyRequestId = () => {
+		navigator.clipboard.writeText(contract.requestId);
+		toast.success("Request ID copied to clipboard");
+	};
+	const handleCopyCounterparty = () => {
+		navigator.clipboard.writeText(counterParty);
+		toast.success("Counterparty copied to clipboard");
+	};
+
 	const handleCopyAddress = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (!contract.arkAddress) return;
@@ -176,8 +199,8 @@ export const ContractDetailSheet = ({
 	const handleActionConfirm = async (data?: { reason?: string }) => {
 		const messages = {
 			accept: "Contract accepted successfully",
-			settle: "Settlement initiated successfully",
-			approve: "Settlement approved successfully",
+			execute: "Execution initiated successfully",
+			approve: "Execution approved successfully",
 			reject: `Contract rejected ${data?.reason ? `: ${data.reason}` : ""}`,
 			recede: `Receded from contract ${data?.reason ? `: ${data.reason}` : ""}`,
 			dispute: `Dispute opened ${data?.reason ? `: ${data.reason}` : ""}`,
@@ -382,6 +405,14 @@ export const ContractDetailSheet = ({
 									{shortKey(counterParty)}
 								</p>
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleCopyCounterparty}
+								className="shrink-0"
+							>
+								<Copy className="h-4 w-4" />
+							</Button>
 						</div>
 
 						<Separator />
@@ -394,15 +425,31 @@ export const ContractDetailSheet = ({
 									{contract.requestId}
 								</p>
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleCopyRequestId}
+								className="shrink-0"
+							>
+								<Copy className="h-4 w-4" />
+							</Button>
 						</div>
 						<div className="flex items-start gap-3">
-							<FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+							<FileSignature className="h-5 w-5 text-muted-foreground mt-0.5" />
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Contract ID</p>
 								<p className="text-base font-medium text-foreground font-mono">
 									{contract.externalId}
 								</p>
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleCopyContractId}
+								className="shrink-0"
+							>
+								<Copy className="h-4 w-4" />
+							</Button>
 						</div>
 
 						<Separator />
@@ -447,7 +494,7 @@ export const ContractDetailSheet = ({
 							</div>
 						</div>
 
-						{/* Current Settlement - Collapsible */}
+						{/* Current Execution - Collapsible */}
 						{currentExecution && (
 							<>
 								<Separator />
@@ -456,7 +503,7 @@ export const ContractDetailSheet = ({
 										<div className="flex items-center gap-2">
 											<BadgeInfoIcon className="h-4 w-4 text-neutral" />
 											<p className="text-sm font-medium text-foreground">
-												Current Settlement Attempt
+												Current Execution Attempt
 											</p>
 										</div>
 										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
@@ -506,7 +553,76 @@ export const ContractDetailSheet = ({
 							</>
 						)}
 
-						{/* Past Settlements - Collapsible */}
+						{/* Arbitration Section - Non-collapsible */}
+
+						{/*{(contract.status === "under-arbitration" ||*/}
+						{/*	contract.status === "completed") &&*/}
+						{/*	contract.arbitration && (*/}
+						{/*		<>*/}
+						{/*			<Separator />*/}
+
+						{/*			<div className="space-y-3">*/}
+						{/*				<div className="flex items-center gap-2">*/}
+						{/*					<Scale className="h-5 w-5 text-destructive" />*/}
+
+						{/*					<p className="text-base font-semibold text-foreground">*/}
+						{/*						Arbitration*/}
+						{/*					</p>*/}
+						{/*				</div>*/}
+
+						{/*				<div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">*/}
+						{/*					<div className="flex items-start gap-3">*/}
+						{/*						<div className="flex-1">*/}
+						{/*							<p className="text-sm text-muted-foreground mb-1">*/}
+						{/*								Status*/}
+						{/*							</p>*/}
+
+						{/*							<Badge*/}
+						{/*								variant="outline"*/}
+						{/*								className={getArbitrationStatusColor(*/}
+						{/*									contract.arbitration.status,*/}
+						{/*								)}*/}
+						{/*							>*/}
+						{/*								{contract.arbitration.status}*/}
+						{/*							</Badge>*/}
+						{/*						</div>*/}
+
+						{/*						<div className="flex-1">*/}
+						{/*							<p className="text-sm text-muted-foreground mb-1">*/}
+						{/*								Initiated*/}
+						{/*							</p>*/}
+
+						{/*							<p className="text-sm text-foreground">*/}
+						{/*								{format(contract.arbitration.initiatedAt, "PPp")}*/}
+						{/*							</p>*/}
+						{/*						</div>*/}
+						{/*					</div>*/}
+
+						{/*					<div>*/}
+						{/*						<p className="text-sm text-muted-foreground mb-1">*/}
+						{/*							Claimant*/}
+						{/*						</p>*/}
+
+						{/*						<p className="text-sm font-medium text-foreground">*/}
+						{/*							{contract.arbitration.claimant}*/}
+						{/*						</p>*/}
+						{/*					</div>*/}
+
+						{/*					<div>*/}
+						{/*						<p className="text-sm text-muted-foreground mb-1">*/}
+						{/*							Reason*/}
+						{/*						</p>*/}
+
+						{/*						<p className="text-sm text-foreground italic">*/}
+						{/*							"{contract.arbitration.reason}"*/}
+						{/*						</p>*/}
+						{/*					</div>*/}
+						{/*				</div>*/}
+						{/*			</div>*/}
+						{/*		</>*/}
+						{/*	)}*/}
+
+						{/* Past Executions - Collapsible */}
 						{pastFailedExecutions.length > 0 && (
 							<>
 								<Separator />
@@ -515,15 +631,15 @@ export const ContractDetailSheet = ({
 										<div className="flex items-center gap-2">
 											<AlertCircle className="h-4 w-4 text-destructive" />
 											<p className="text-sm font-medium text-foreground">
-												Past Settlement Attempts ({pastFailedExecutions.length})
+												Past Execution Attempts ({pastFailedExecutions.length})
 											</p>
 										</div>
 										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
 									</CollapsibleTrigger>
 									<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-										{pastFailedExecutions.map((settlement) => (
+										{pastFailedExecutions.map((execution) => (
 											<div
-												key={settlement.externalId}
+												key={execution.externalId}
 												className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2 animate-fade-in"
 											>
 												<div className="flex items-start gap-2">
@@ -534,26 +650,26 @@ export const ContractDetailSheet = ({
 																variant="outline"
 																className="bg-destructive/10 text-destructive border-destructive/20"
 															>
-																{settlement.status}
+																{execution.status}
 															</Badge>
 															<span className="text-xs text-muted-foreground">
-																{format(settlement.createdAt, "PPp")}
+																{format(execution.createdAt, "PPp")}
 															</span>
 														</div>
 														<p className="text-sm text-foreground mt-1">
 															Initiated by{" "}
 															<span className="font-medium">
-																{shortKey(settlement.initiatedByPubKey)}
+																{shortKey(execution.initiatedByPubKey)}
 															</span>
 														</p>
-														{settlement.cancelationReason && (
+														{execution.cancelationReason && (
 															<p className="text-xs text-muted-foreground mt-1 italic">
-																"{settlement.cancelationReason}"
+																"{execution.cancelationReason}"
 															</p>
 														)}
-														{settlement.rejectionReason && (
+														{execution.rejectionReason && (
 															<p className="text-xs text-muted-foreground mt-1 italic">
-																"{settlement.rejectionReason}"
+																"{execution.rejectionReason}"
 															</p>
 														)}
 													</div>
@@ -600,13 +716,13 @@ export const ContractDetailSheet = ({
 							</Button>
 						)}
 
-						{/* Funded: Settle */}
+						{/* Funded: Execute */}
 						{contract.status === "funded" && (
 							<Button
 								className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-								onClick={() => handleActionClick("settle")}
+								onClick={() => handleActionClick("execute")}
 							>
-								{"Settle Contract"}
+								{"Execute Contract"}
 							</Button>
 						)}
 
@@ -619,7 +735,7 @@ export const ContractDetailSheet = ({
 									className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
 									onClick={() => handleActionClick("approve")}
 								>
-									{"Approve Settlement"}
+									{"Approve Execution"}
 								</Button>
 							)}
 
