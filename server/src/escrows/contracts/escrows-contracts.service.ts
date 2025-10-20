@@ -60,6 +60,7 @@ type DraftContractInput = {
 
 type ContractQueryFilter = {
 	status?: ContractStatus;
+	side?: DraftContractInput["initiator"];
 };
 
 @Injectable()
@@ -316,18 +317,28 @@ export class EscrowsContractsService {
 	}> {
 		const take = Math.min(limit, 100);
 
-		const qb = this.contractRepository.createQueryBuilder("r").where(
-			new Brackets((w) => {
+		const filteredBrackets = new Brackets((w) => {
+			if (filter?.side !== undefined) {
+				if (filter.side === "sender") {
+					w.where("r.senderPubkey = :pubKey", { pubKey });
+				} else {
+					w.where("r.receiverPubkey = :pubKey", { pubKey });
+				}
+			} else {
 				w.where("r.senderPubkey = :pubKey", { pubKey }).orWhere(
 					"r.receiverPubkey = :pubKey",
 					{ pubKey },
 				);
-			}),
-		);
+			}
+		});
+
+		const qb = this.contractRepository
+			.createQueryBuilder("r")
+			.where(filteredBrackets);
 
 		qb.leftJoinAndSelect("r.request", "request");
 
-		// apply status filter if provided
+		// apply  filters if provided
 		if (filter?.status) {
 			qb.andWhere("r.status = :status", { status: filter.status });
 		}
@@ -354,15 +365,17 @@ export class EscrowsContractsService {
 			.take(take)
 			.getMany();
 
-		// total respecting the same filters (including status if present)
-		const total = await this.contractRepository.count({
-			where: filter?.status
-				? [
-						{ senderPubkey: pubKey, status: filter.status },
-						{ receiverPubkey: pubKey, status: filter.status },
-					]
-				: [{ senderPubkey: pubKey }, { receiverPubkey: pubKey }],
-		});
+		// total respecting the same filters (including status/side if present)
+		const totalQb = this.contractRepository
+			.createQueryBuilder("r")
+			.leftJoin("r.request", "request")
+			.where(filteredBrackets);
+
+		if (filter?.status) {
+			totalQb.andWhere("r.status = :status", { status: filter.status });
+		}
+
+		const total = await totalQb.getCount();
 
 		let nextCursor: string | undefined;
 		if (rows.length === take) {

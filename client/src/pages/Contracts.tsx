@@ -68,6 +68,8 @@ const Contracts = () => {
 			const params = {
 				limit: pageParam?.limit ?? limit,
 				cursor: pageParam?.cursor,
+				status: statusFilter === "all" ? undefined : statusFilter,
+				side: sideFilter === "all" ? undefined : sideFilter,
 			};
 			const res = await axios.get<ApiPaginatedEnvelope<GetEscrowContractDto>>(
 				`${Config.apiBaseUrl}/escrows/contracts`,
@@ -258,6 +260,23 @@ const Contracts = () => {
 		},
 	});
 
+	const rejectContract = useMutation({
+		mutationFn: async (input: { contractId: string; reason: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const r = await axios.post(
+				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/reject`,
+				{
+					contractId: input.contractId,
+					reason: input.reason,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			console.log(r);
+		},
+	});
+
 	if (isError) {
 		console.error(error);
 		toast.error("Failed to load contracts");
@@ -331,7 +350,10 @@ const Contracts = () => {
 
 						<Select
 							value={statusFilter}
-							onValueChange={(value: any) => setStatusFilter(value)}
+							onValueChange={(value: any) => {
+								setStatusFilter(value);
+								setRefreshKey(refreshKey + 1);
+							}}
 						>
 							<SelectTrigger className="w-full sm:w-[200px]">
 								<Filter className="mr-2 h-4 w-4" />
@@ -352,7 +374,10 @@ const Contracts = () => {
 
 						<Select
 							value={sideFilter}
-							onValueChange={(value: any) => setSideFilter(value)}
+							onValueChange={(value: any) => {
+								setSideFilter(value);
+								setRefreshKey(refreshKey + 1);
+							}}
 						>
 							<SelectTrigger className="w-full sm:w-[180px]">
 								<Filter className="mr-2 h-4 w-4" />
@@ -481,6 +506,13 @@ const Contracts = () => {
 							}
 							disputeContract.mutate({ contractId, reason }, {});
 							return;
+						case "reject": {
+							if (!reason) {
+								throw new Error("Reason is required for rejection");
+							}
+							rejectContract.mutate({ contractId, reason }, {});
+							return;
+						}
 						default:
 							return Promise.reject(new Error(`Invalid action ${action}`));
 					}

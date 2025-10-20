@@ -4,7 +4,7 @@ import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
 import { NewRequestSheet } from "@/components/NewRequestSheet";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus } from "lucide-react";
+import { Inbox, FileSignature, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
@@ -156,21 +156,27 @@ const Index = () => {
 
 			<main className="container px-4 py-8 md:px-6">
 				{/* Quick Actions */}
-				<div className="mb-8 flex gap-3 animate-slide-up">
-					<Link to={`${Config.appRootUrl}/requests`}>
-						<Button variant="outline" className="gap-2">
-							<FileText className="h-4 w-4" />
+				<div className="mb-8 flex flex-col sm:flex-row gap-3 animate-slide-up">
+					<Link
+						to={`${Config.appRootUrl}/requests`}
+						className="w-full sm:w-auto"
+					>
+						<Button variant="outline" className="gap-2 w-full sm:w-auto">
+							<Inbox className="h-4 w-4" />
 							My Requests
 						</Button>
 					</Link>
-					<Link to={`${Config.appRootUrl}/contracts`}>
-						<Button variant="outline" className="gap-2">
-							<FileText className="h-4 w-4" />
+					<Link
+						to={`${Config.appRootUrl}/contracts`}
+						className="w-full sm:w-auto"
+					>
+						<Button variant="outline" className="gap-2 w-full sm:w-auto">
+							<FileSignature className="h-4 w-4" />
 							My Contracts
 						</Button>
 					</Link>
 					<Button
-						className="gap-2 bg-gradient-primary hover:opacity-90 transition-opacity"
+						className="gap-2 bg-gradient-primary hover:opacity-90 transition-opacity w-full sm:w-auto"
 						onClick={() => setNewRequestOpen(true)}
 					>
 						<Plus className="h-4 w-4" />

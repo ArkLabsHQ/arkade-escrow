@@ -102,6 +102,15 @@ export class EscrowsContractsController {
 			enum: CONTRACT_STATUS.slice(0),
 		},
 	})
+	@ApiQuery({
+		name: "side",
+		required: false,
+		description: "Filter by status",
+		schema: {
+			type: "string",
+			enum: ["sender", "receiver"],
+		},
+	})
 	@ApiOkResponse({
 		description: "A page of user's contracts",
 		schema: getSchemaPathForPaginatedDto(EscrowContract),
@@ -114,10 +123,11 @@ export class EscrowsContractsController {
 		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
 		@Query("cursor", ParseCursorPipe) cursor: Cursor,
 		@Query("status") status?: ContractStatus,
+		@Query("side") side?: "sender" | "receiver",
 	): Promise<ApiEnvelope<GetEscrowContractDto[]>> {
 		const { items, nextCursor, total } = await this.service.getByUser(
 			user.publicKey,
-			{ status },
+			{ status, side },
 			limit,
 			cursor,
 		);
