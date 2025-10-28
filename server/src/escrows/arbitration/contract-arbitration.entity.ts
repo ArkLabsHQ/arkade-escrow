@@ -37,6 +37,9 @@ export class ContractArbitration {
 	@Column({ type: "text" })
 	claimantPubkey!: string;
 
+	@Column({ type: "text" })
+	claimantAddress!: string;
+
 	@Index()
 	@Column({ type: "text" })
 	defendantPubkey!: string;
@@ -46,6 +49,9 @@ export class ContractArbitration {
 
 	@Column({ type: "text" })
 	status!: ArbitrationStatus;
+
+	@Column({ type: "text" })
+	arbitratorPubkey!: string;
 
 	@Column({ type: "text", nullable: true })
 	verdict?: Verdict;

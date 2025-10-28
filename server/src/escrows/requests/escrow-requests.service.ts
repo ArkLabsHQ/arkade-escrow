@@ -22,6 +22,14 @@ import {
 	emptyCursor,
 	cursorToString,
 } from "../../common/dto/envelopes";
+import {
+	CONTRACT_EXECUTED_ID,
+	ContractExecuted,
+} from "../../common/contract-address.event";
+import { randomUUID } from "node:crypto";
+import { ArkAddress } from "@arkade-os/sdk";
+import { REQUEST_CREATED_ID, RequestCreated } from "../../common/request.event";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 // TODO: from configuration?
 const generateNanoid = customAlphabet(
@@ -38,6 +46,7 @@ export class EscrowRequestsService {
 		@InjectRepository(EscrowRequest)
 		private readonly repo: Repository<EscrowRequest>,
 		private readonly config: ConfigService,
+		private readonly events: EventEmitter2,
 	) {
 		// SHARE_BASE_URL like: https://app.example/escrows/requests
 		this.shareBase =
@@ -60,6 +69,12 @@ export class EscrowRequestsService {
 				public: dto.public ?? false,
 			});
 			await this.repo.save(entity);
+			this.events.emit(REQUEST_CREATED_ID, {
+				eventId: randomUUID(),
+				requestId: entity.externalId,
+				creatorPubkey: entity.creatorPubkey,
+				createdAt: new Date().toISOString(),
+			} satisfies RequestCreated);
 			return {
 				externalId,
 				shareUrl: `${this.shareBase}/${externalId}`,

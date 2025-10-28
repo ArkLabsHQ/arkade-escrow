@@ -49,6 +49,8 @@ import { GetExecutionByContractDto } from "./dto/get-execution-by-contract";
 import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { Signers } from "../../ark/escrow";
+import * as signutils from "../../common/signatures";
+import { mergeTx } from "../../common/signatures";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -428,13 +430,13 @@ export class EscrowsContractsService {
 				"Execution in pending-server-confirmation",
 			);
 		}
-		if (execution.transaction.approvedByPubKeys.includes(signerPubKey)) {
+		if (execution.cleanTransaction.approvedByPubKeys.includes(signerPubKey)) {
 			throw new ConflictException("Signer has already signed");
 		}
-		if (execution.transaction.rejectedByPubKeys.includes(signerPubKey)) {
+		if (execution.cleanTransaction.rejectedByPubKeys.includes(signerPubKey)) {
 			throw new ConflictException("Signer has already rejected");
 		}
-		const requiredPubkeys = execution.transaction.requiredSigners.flatMap(
+		const requiredPubkeys = execution.cleanTransaction.requiredSigners.flatMap(
 			(s) => {
 				switch (s) {
 					case "sender":
@@ -500,14 +502,30 @@ export class EscrowsContractsService {
 			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus} by ${execution.initiatedByPubKey === signerPubKey ? "initiator" : "counterparty"}`,
 		);
 
-		const updatedExcutionTx: ExecutionTransaction = {
-			...execution.transaction,
-			arkTx: signature.arkTx,
-			checkpoints: signature.checkpoints,
+		const cleanTransaction: ExecutionTransaction = {
+			...execution.cleanTransaction,
 			approvedByPubKeys: [
 				signerPubKey,
-				...execution.transaction.approvedByPubKeys,
+				...execution.cleanTransaction.approvedByPubKeys,
 			],
+		};
+
+		const signedTransaction = {
+			arkTx: execution.signedTransaction
+				? base64.encode(
+						signutils
+							.mergeTx(signature.arkTx, execution.signedTransaction.arkTx)
+							.toPSBT(),
+					)
+				: signature.arkTx,
+			checkpoints: execution.signedTransaction
+				? signutils
+						.mergeCheckpoints(
+							signature.checkpoints,
+							execution.signedTransaction.checkpoints,
+						)
+						.map((_) => base64.encode(_.toPSBT()))
+				: signature.checkpoints,
 		};
 
 		await this.contractExecutionRepository.update(
@@ -517,7 +535,8 @@ export class EscrowsContractsService {
 			},
 			{
 				status: nextExecutionStatus,
-				transaction: updatedExcutionTx,
+				cleanTransaction: cleanTransaction,
+				signedTransaction,
 			},
 		);
 
@@ -526,9 +545,9 @@ export class EscrowsContractsService {
 				`execution ${executionId} is pending-server-confirmation`,
 			);
 			const finalTxId = await this.submitAndFinalizeExecutionTransaction({
-				signedTx: signature.arkTx,
-				signedCheckpoints: signature.checkpoints,
-				requiredSigners: execution.transaction.requiredSigners,
+				signedTx: signedTransaction.arkTx,
+				signedCheckpoints: signedTransaction.checkpoints,
+				requiredSigners: cleanTransaction.requiredSigners,
 				contractId,
 				executionId,
 			});
@@ -536,6 +555,7 @@ export class EscrowsContractsService {
 				`execution ${executionId} successfully submitted to ark with txid ${finalTxId}`,
 			);
 		}
+
 		const persisted = await this.contractExecutionRepository.findOne({
 			where: {
 				externalId: executionId,
@@ -559,9 +579,12 @@ export class EscrowsContractsService {
 			executedAt: new Date().toISOString(),
 		} satisfies ContractExecuted);
 		return {
-			...persisted,
+			externalId: persisted.externalId,
+			initiatedByPubKey: persisted.initiatedByPubKey,
+			status: persisted.status,
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
+			transaction: persisted.cleanTransaction,
 		};
 	}
 
@@ -574,10 +597,36 @@ export class EscrowsContractsService {
 		contractId: string;
 		executionId: string;
 	}) {
-		const finalTxId = await this.arkService.executeEscrowTransaction({
+		const execution = await this.contractExecutionRepository.findOne({
+			where: {
+				externalId: input.executionId,
+				contract: { externalId: input.contractId },
+			},
+		});
+		if (!execution) {
+			return new NotFoundException(
+				`contract execution ${input.executionId} not found`,
+			);
+		}
+		if (!execution.signedTransaction) {
+			return new InternalServerErrorException(
+				`Execution ${input.executionId} has no signedTransaction`,
+			);
+		}
+
+		const signedTransaction = {
 			arkTx: input.signedTx,
-			checkpoints: input.signedCheckpoints,
-			requiredSigners: input.requiredSigners,
+			checkpoints: signutils
+				.mergeCheckpoints(
+					input.signedCheckpoints,
+					execution.signedTransaction.checkpoints,
+				)
+				.map((_) => base64.encode(_.toPSBT())),
+		};
+
+		const finalTxId = await this.arkService.executeEscrowTransaction({
+			cleanTransaction: execution.cleanTransaction,
+			signedTransaction,
 		});
 
 		await this.contractRepository.update(
@@ -641,7 +690,7 @@ export class EscrowsContractsService {
 				>,
 				initiatedByPubKey: initiatorPubKey,
 				status: "pending-initiator-signature",
-				transaction: {
+				cleanTransaction: {
 					vtxo: {
 						txid: vtxo.txid,
 						vout: vtxo.vout,
@@ -664,9 +713,9 @@ export class EscrowsContractsService {
 			return {
 				externalId: persisted.externalId,
 				contractId: persisted.contract.externalId,
-				arkTx: persisted.transaction.arkTx,
-				checkpoints: persisted.transaction.checkpoints,
-				vtxo: persisted.transaction.vtxo,
+				arkTx: persisted.cleanTransaction.arkTx,
+				checkpoints: persisted.cleanTransaction.checkpoints,
+				vtxo: persisted.cleanTransaction.vtxo,
 			};
 		} catch (e) {
 			this.logger.error("Failed to create escrow transaction", e);
@@ -758,7 +807,7 @@ export class EscrowsContractsService {
 			status: e.status,
 			rejectionReason: e.rejectionReason,
 			cancelationReason: e.cancelationReason,
-			transaction: e.transaction,
+			transaction: e.cleanTransaction,
 			createdAt: e.createdAt.getTime(),
 			updatedAt: e.updatedAt.getTime(),
 		}));

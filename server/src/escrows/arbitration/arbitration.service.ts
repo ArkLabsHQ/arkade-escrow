@@ -64,8 +64,8 @@ export class ArbitrationService {
 		contractId: string;
 		reason: string;
 		claimantPublicKey: string;
-	}) {
-		this.logger.log(`createArbitration: ${JSON.stringify(input)}`);
+		claimantArkAddress: string;
+	}): Promise<GetArbitrationDto> {
 		const contract = await this.getOneForPartyAndStatus(
 			input.contractId,
 			input.claimantPublicKey,
@@ -83,11 +83,13 @@ export class ArbitrationService {
 				"externalId"
 			>,
 			claimantPubkey: input.claimantPublicKey,
+			claimantAddress: input.claimantArkAddress,
 			defendantPubkey:
 				contract.senderPubkey === input.claimantPublicKey
 					? contract.receiverPubkey
 					: contract.senderPubkey,
 			reason: input.reason,
+			arbitratorPubkey: this.arbitratorPublicKey,
 			status: "pending",
 		});
 		const newArbitration = await this.arbitrationRepository.save(entity);
@@ -270,7 +272,7 @@ export class ArbitrationService {
 					>,
 					initiatedByPubKey: this.arbitratorPublicKey,
 					status: "pending-counterparty-signature",
-					transaction: {
+					cleanTransaction: {
 						vtxo: {
 							txid: vtxo.txid,
 							vout: vtxo.vout,
@@ -287,9 +289,9 @@ export class ArbitrationService {
 				return {
 					externalId: persisted.externalId,
 					contractId: persisted.contract.externalId,
-					arkTx: persisted.transaction.arkTx,
-					checkpoints: persisted.transaction.checkpoints,
-					vtxo: persisted.transaction.vtxo,
+					arkTx: persisted.cleanTransaction.arkTx,
+					checkpoints: persisted.cleanTransaction.checkpoints,
+					vtxo: persisted.cleanTransaction.vtxo,
 				};
 			}
 			case "refund": {

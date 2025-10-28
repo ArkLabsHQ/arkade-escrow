@@ -35,6 +35,8 @@ export class GetArbitrationDto {
 	})
 	status!: ArbitrationStatus;
 
+	// TODO: same as entity
+
 	@ApiProperty({
 		description: "Verdict of the dispute",
 		enum: VERDICT,

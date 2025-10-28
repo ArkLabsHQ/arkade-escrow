@@ -110,7 +110,7 @@ export class AdminController {
 		return envelope(data);
 	}
 
-	@ApiOperation({ summary: "Retrieve all details for the given contract" })
+	@ApiOperation({ summary: "Create an arbitration for the given contract" })
 	@ApiBody({ type: ArbitrateDisputeInDto })
 	@ApiOkResponse({
 		description: "The arbitration result",

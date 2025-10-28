@@ -33,11 +33,14 @@ export type ExecutionTransaction = {
 		vout: number;
 		value: number;
 	};
-	arkTx: string; // The Ark transaction as PSBT
-	checkpoints: string[]; // Checkpoint transactions as PSBTs
 	requiredSigners: Signers[];
 	approvedByPubKeys: PublicKey[]; // List of pubkeys who have approved
 	rejectedByPubKeys: PublicKey[]; // List of pubkeys who have rejected
+} & ArkTransaction;
+
+export type ArkTransaction = {
+	arkTx: string; // The Ark transaction as PSBT
+	checkpoints: string[]; // Checkpoint transactions as PSBTs
 };
 
 export type ArkServerData = {
@@ -79,7 +82,13 @@ export class ContractExecution {
 	cancelationReason?: string;
 
 	@Column({ type: "simple-json" })
-	transaction!: ExecutionTransaction;
+	cleanTransaction!: ExecutionTransaction;
+
+	/**
+	 * This containst all the available signatures and MUST NOT be shared anyone.
+	 */
+	@Column({ type: "simple-json", nullable: true })
+	signedTransaction?: ArkTransaction;
 
 	@Column({ type: "simple-json", nullable: true })
 	arkServerData?: ArkServerData;

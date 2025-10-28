@@ -11,4 +11,12 @@ export class DisputeEscrowContractInDto {
 	@IsString()
 	@IsNotEmpty()
 	reason!: string;
+
+	@ApiProperty({
+		description: "Ark address to send the funds to",
+		required: true,
+	})
+	@IsString()
+	@IsNotEmpty()
+	arkAddress!: string;
 }

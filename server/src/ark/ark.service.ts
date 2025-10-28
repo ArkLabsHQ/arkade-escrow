@@ -19,6 +19,7 @@ import { TransactionOutput } from "@scure/btc-signer/psbt";
 import { ARK_PROVIDER } from "./ark.constants";
 import { Contract } from "../common/Contract.type";
 import { ActionType } from "../common/Action.type";
+import * as signutils from "../common/signatures";
 
 export type EscrowTransactionForAction = {
 	action: ActionType;
@@ -164,56 +165,60 @@ export class ArkService {
 		};
 	}
 
-	async executeEscrowTransaction(transaction: {
-		arkTx: string;
-		checkpoints: string[];
-		requiredSigners: Signers[];
+	async executeEscrowTransaction(txData: {
+		cleanTransaction: { arkTx: string; checkpoints: string[] };
+		signedTransaction: { arkTx: string; checkpoints: string[] };
 	}): Promise<string> {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
 		}
-		this.logger.log("Executing Ark transaction...");
+		this.logger.debug("Executing Ark transaction...");
 		// The Ark transaction has been signed by each required party when they approved
 		// Now we can submit the fully-signed transaction
 		try {
 			// TODO: we should send the unsigned checkpoints to prevent possible scams
 			const { arkTxid, signedCheckpointTxs } = await this.provider.submitTx(
-				transaction.arkTx,
-				transaction.checkpoints,
+				txData.signedTransaction.arkTx,
+				txData.signedTransaction.checkpoints,
 			);
 
 			this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
 
-			// Phase 2: Use the checkpoint transactions signed by each required party
-			// (each user signed their checkpoints when they approved)
-			const decodedSignedCheckpointTxs = signedCheckpointTxs.map((_) =>
-				Transaction.fromPSBT(base64.decode(_)),
-			);
-			// this is the one that we mutate and then submit
-			const decodedMyCheckpointTx = transaction.checkpoints.map((_) =>
-				Transaction.fromPSBT(base64.decode(_)),
-			);
+			// // Phase 2: Use the checkpoint transactions signed by each required party
+			// // (each user signed their checkpoints when they approved)
+			// const decodedSignedCheckpointTxs = signedCheckpointTxs.map((_) =>
+			// 	Transaction.fromPSBT(base64.decode(_)),
+			// );
+			// // this is the one that we mutate and then submit
+			// const decodedMyCheckpointTx = transaction.checkpoints.map((_) =>
+			// 	Transaction.fromPSBT(base64.decode(_)),
+			// );
+			//
+			// for (let i = 0; i < decodedMyCheckpointTx.length; i++) {
+			// 	const myCheckpointTx = decodedMyCheckpointTx[i];
+			// 	const signedCheckpointTx = decodedSignedCheckpointTxs.find(
+			// 		(_) => _.id === myCheckpointTx.id,
+			// 	);
+			// 	if (!signedCheckpointTx) {
+			// 		throw new Error("Signed checkpoint not found");
+			// 	}
+			// 	// for every input, concatenate its signatures with the signature from the server
+			// 	for (let j = 0; j < myCheckpointTx.inputsLength; j++) {
+			// 		const input = myCheckpointTx.getInput(j);
+			// 		const inputFromServer = signedCheckpointTx.getInput(j);
+			// 		if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
+			// 		myCheckpointTx.updateInput(i, {
+			// 			tapScriptSig: input.tapScriptSig?.concat(
+			// 				inputFromServer.tapScriptSig,
+			// 			),
+			// 		});
+			// 	}
+			// }
 
-			for (let i = 0; i < decodedMyCheckpointTx.length; i++) {
-				const myCheckpointTx = decodedMyCheckpointTx[i];
-				const signedCheckpointTx = decodedSignedCheckpointTxs.find(
-					(_) => _.id === myCheckpointTx.id,
-				);
-				if (!signedCheckpointTx) {
-					throw new Error("Signed checkpoint not found");
-				}
-				// for every input, concatenate its signatures with the signature from the server
-				for (let j = 0; j < myCheckpointTx.inputsLength; j++) {
-					const input = myCheckpointTx.getInput(j);
-					const inputFromServer = signedCheckpointTx.getInput(j);
-					if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
-					myCheckpointTx.updateInput(i, {
-						tapScriptSig: input.tapScriptSig?.concat(
-							inputFromServer.tapScriptSig,
-						),
-					});
-				}
-			}
+			const decodedMyCheckpointTx = signutils.mergeCheckpoints(
+				signedCheckpointTxs,
+				txData.signedTransaction.checkpoints,
+			);
 
 			// Finalize the transaction
 			await this.provider.finalizeTx(

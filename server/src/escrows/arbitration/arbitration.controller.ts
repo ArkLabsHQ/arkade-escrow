@@ -65,6 +65,7 @@ export class ArbitrationController {
 		const pendingDispute = await this.service.createArbitration({
 			contractId: dto.contractId,
 			claimantPublicKey: user.publicKey,
+			claimantArkAddress: dto.arkAddress,
 			reason: dto.reason,
 		});
 		return envelope(pendingDispute);

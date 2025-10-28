@@ -4,6 +4,7 @@ import {
 	Injectable,
 	Logger,
 	NotFoundException,
+	NotImplementedException,
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -22,6 +23,7 @@ import { Subject } from "rxjs";
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
 import { ArkService } from "../../ark/ark.service";
 import GetAdminStatsDto from "./get-admin-stats";
+import { ArkAddress } from "@arkade-os/sdk";
 
 type AdminEvent = {
 	type: "updated_contract";
@@ -149,7 +151,10 @@ export class AdminService {
 			arkAddress: contract.arkAddress,
 			virtualCoins: contract.virtualCoins ?? [],
 			executions: executions.map((e) => ({
-				...e,
+				externalId: e.externalId,
+				initiatedByPubKey: e.initiatedByPubKey,
+				status: e.status,
+				transaction: e.cleanTransaction,
 				contract: undefined,
 				contractId: e.contract.externalId,
 				createdAt: e.createdAt.getTime(),
@@ -230,6 +235,7 @@ export class AdminService {
 
 		switch (input.action) {
 			case "settle": {
+				// TODO: sign
 				return await this.arbitrationRepository.save({
 					...arbitration,
 					status: "resolved",
@@ -247,26 +253,30 @@ export class AdminService {
 				throw new BadRequestException(`Unsupported action ${input.action}`);
 		}
 	}
+	/*
+    rec ---> dispute
+    arb ---> release ---> ask address from rec
+     */
 
 	// TODO: implement arbitration
 	// private async executeSettlement(contract: EscrowContract) {
-	// 	// try {
-	// 	// 	const escrowTransaction = await this.arkService.createEscrowTransaction(
-	// 	// 		{
-	// 	// 			action: "release-funds",
-	// 	// 			// TODO: get the ark address of the receiver!
-	// 	// 			receiverAddress: ArkAddress.decode(),
-	// 	// 			receiverPublicKey: contract.receiverPubkey,
-	// 	// 			senderPublicKey: contract.senderPubkey,
-	// 	// 			arbitratorPublicKey: this.arbitratorPublicKey,
-	// 	// 			contractNonce: `${contract.externalId}${contract.request.externalId}`,
-	// 	// 		},
-	// 	// 		vtxo,
-	// 	// 	);
-	// 	// } catch (e) {}
+	// 	try {
+	// 		const escrowTransaction = await this.arkService.createEscrowTransaction(
+	// 			{
+	// 				action: "release-funds",
+	// 				// TODO: get the ark address of the receiver!
+	// 				receiverAddress: ArkAddress.decode(),
+	// 				receiverPublicKey: contract.receiverPubkey,
+	// 				senderPublicKey: contract.senderPubkey,
+	// 				arbitratorPublicKey: this.arbitratorPublicKey,
+	// 				contractNonce: `${contract.externalId}${contract.request.externalId}`,
+	// 			},
+	// 			vtxo,
+	// 		);
+	// 	} catch (e) {}
 	// }
-	//
-	// private executeRefund() {
-	// 	throw new NotImplementedException();
-	// }
+
+	private executeRefund() {
+		throw new NotImplementedException();
+	}
 }
