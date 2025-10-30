@@ -123,3 +123,15 @@ export type ExecuteEscrowContractOutDto = {
 		value: number;
 	};
 };
+
+export type GetArbitrationDto = {
+	externalId: string;
+	contractId: string;
+	claimantPublicKey: string;
+	arbitratorPublicKey: string;
+	reason: string;
+	status: "pending" | "resolved" | "executed";
+	verdict: "refund" | "release";
+	createdAt: number;
+	updatedAt: number;
+};

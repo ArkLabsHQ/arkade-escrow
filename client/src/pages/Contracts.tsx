@@ -248,7 +248,11 @@ const Contracts = () => {
 	});
 
 	const disputeContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
+		mutationFn: async (input: {
+			contractId: string;
+			reason: string;
+			arkAddress: string;
+		}) => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
@@ -257,6 +261,7 @@ const Contracts = () => {
 				{
 					contractId: input.contractId,
 					reason: input.reason,
+					arkAddress: input.arkAddress,
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
@@ -511,7 +516,10 @@ const Contracts = () => {
 							if (!reason) {
 								throw new Error("Reason is required for dispute");
 							}
-							disputeContract.mutate({ contractId, reason }, {});
+							disputeContract.mutate(
+								{ contractId, reason, arkAddress: walletAddress },
+								{},
+							);
 							return;
 						case "reject": {
 							if (!reason) {

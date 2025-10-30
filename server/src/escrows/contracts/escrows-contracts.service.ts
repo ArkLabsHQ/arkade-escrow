@@ -50,7 +50,6 @@ import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
-import { mergeTx } from "../../common/signatures";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";

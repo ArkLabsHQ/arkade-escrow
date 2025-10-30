@@ -96,9 +96,11 @@ export class ArbitrationController {
 		@UserFromJwt() user: User,
 		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
 		@Query("cursor", ParseCursorPipe) cursor: Cursor,
+		@Query("contract") contractId: string,
 	): Promise<ApiPaginatedEnvelope<GetArbitrationDto[]>> {
 		const { items, total, nextCursor } = await this.service.getByUser(
 			user.publicKey,
+			{ contractId },
 			limit,
 			cursor,
 		);

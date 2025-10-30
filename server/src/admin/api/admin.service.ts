@@ -20,10 +20,20 @@ import { ContractExecution } from "../../escrows/contracts/contract-execution.en
 import { GetAdminEscrowContractDto } from "./get-admin-escrow-contract.dto";
 import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-details.dto";
 import { Subject } from "rxjs";
+import { schnorr } from "@noble/secp256k1";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import { ConfigService } from "@nestjs/config";
+import { base64 } from "@scure/base";
+
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
 import { ArkService } from "../../ark/ark.service";
 import GetAdminStatsDto from "./get-admin-stats";
-import { ArkAddress } from "@arkade-os/sdk";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+	ARBITRATION_RESOLVED,
+	ArbitrationResolved,
+} from "../../common/arbitration.event";
+import { nanoid } from "nanoid";
 
 type AdminEvent = {
 	type: "updated_contract";
@@ -35,6 +45,8 @@ export class AdminService {
 	private readonly logger = new Logger(AdminService.name);
 	// Subject that acts as an event emitter
 	private readonly events$ = new Subject<AdminEvent>();
+	private readonly arbitratorPublicKey: string;
+	private readonly arbitratorPrivateKey: string;
 
 	constructor(
 		@InjectRepository(EscrowContract)
@@ -44,7 +56,20 @@ export class AdminService {
 		@InjectRepository(ContractArbitration)
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
 		private readonly arkService: ArkService,
-	) {}
+		private readonly configService: ConfigService,
+		private readonly events: EventEmitter2,
+	) {
+		const pubKey = configService.get<string>("ARBITRATOR_PUB_KEY");
+		if (pubKey === undefined) {
+			throw new Error("ARBITRATOR_PUB_KEY is not set");
+		}
+		this.arbitratorPublicKey = pubKey;
+		const privKey = configService.get<string>("ARBITRATOR_PRIV_KEY");
+		if (privKey === undefined) {
+			throw new Error("ARBITRATOR_PRIV_KEY is not set");
+		}
+		this.arbitratorPrivateKey = privKey;
+	}
 
 	async getContractStats(): Promise<GetAdminStatsDto["contracts"]> {
 		const [total, active, disputed, settled] = await Promise.all([
@@ -229,30 +254,45 @@ export class AdminService {
 				],
 			})
 			.execute();
+
 		this.logger.log(
 			`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
 		);
 
-		switch (input.action) {
-			case "settle": {
-				// TODO: sign
-				return await this.arbitrationRepository.save({
-					...arbitration,
-					status: "resolved",
-					verdict: "release",
-				});
-			}
-			case "refund": {
-				return await this.arbitrationRepository.save({
-					...arbitration,
-					status: "resolved",
-					verdict: "refund",
-				});
-			}
+		const persisted = await this.arbitrationRepository.save({
+			...arbitration,
+			status: "resolved",
+			verdict: this.verdictFromAction(input.action),
+		});
+
+		this.events.emit(ARBITRATION_RESOLVED, {
+			eventId: nanoid(16),
+			contractId: input.contractId,
+			arbitrationId: persisted.externalId,
+			resolvedAt: new Date().toISOString(),
+		} satisfies ArbitrationResolved);
+
+		return persisted;
+	}
+
+	private verdictFromAction(action: ArbitrateDisputeInDto["action"]) {
+		switch (action) {
+			case "settle":
+				return "release";
+			case "refund":
+				return "refund";
 			default:
-				throw new BadRequestException(`Unsupported action ${input.action}`);
+				throw new BadRequestException(`Unsupported action ${action}`);
 		}
 	}
+
+	private signTx(tx: string): string {
+		const txBytes = base64.decode(tx);
+		const privKey = hexToBytes(this.arbitratorPrivateKey);
+		const sigBytes = schnorr.sign(txBytes, privKey);
+		return base64.encode(sigBytes);
+	}
+
 	/*
     rec ---> dispute
     arb ---> release ---> ask address from rec

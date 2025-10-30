@@ -1,11 +1,11 @@
-- Tests for controllers and services
-- API definitions generation (for client/backoffice)
-- Security audit: review signature logic
-- Disputes: finish release/refund
-- Disputes: add support partial resolution (funds split among participants)
-- Monorepo consolidation (dependencies, CI)
-- DX: working docker-compose for local development
-- Backoffice features? (auth, requests and contracts management)
-- Client usable as drop-in component for third party integrations? (requires work on the RPC interface and some UI)
-- Client chat? (nostr)
-- Check and review domain-specific semantics (ie: contracts, settlement, execution, ...) to match the one used at Ark
+- [ ] Tests for controllers and services
+- [ ] API definitions generation (for client/backoffice)
+- [x] Security audit: review signature logic - persisting both _clean_ and _signed_ data
+- [ ] Disputes: finish release/refund
+- [ ] Disputes: add support partial resolution (funds split among participants)
+- [ ] Monorepo consolidation (dependencies, CI)
+- [ ] DX: working docker-compose for local development
+- [ ] Backoffice features? (auth, requests and contracts management)
+- [ ] Client usable as drop-in component for third party integrations? (requires work on the RPC interface and some UI)
+- [ ] Client chat? (nostr)
+- [ ] Check and review domain-specific semantics (ie: contracts, settlement, execution, ...) to match the one used at Ark

@@ -24,6 +24,7 @@ import {
 	PauseCircle,
 	BadgeInfoIcon,
 	FileSignature,
+	Scale,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "./ui/separator";
@@ -36,6 +37,7 @@ import {
 } from "./ui/collapsible";
 import {
 	ApiPaginatedEnvelope,
+	GetArbitrationDto,
 	GetEscrowContractDto,
 	GetExecutionByContractDto,
 } from "@/types/api";
@@ -101,9 +103,7 @@ export const ContractDetailSheet = ({
 	const { data: dataArbitrations } = useQuery({
 		queryKey: ["contract-arbitrations", contract?.externalId],
 		queryFn: async () => {
-			const res = await axios.get<
-				ApiPaginatedEnvelope<GetExecutionByContractDto>
-			>(
+			const res = await axios.get<ApiPaginatedEnvelope<GetArbitrationDto>>(
 				`${Config.apiBaseUrl}/escrows/arbitrations/?contract=${contract?.externalId}`,
 				{
 					headers: { authorization: `Bearer ${me.getAccessToken()}` },
@@ -241,6 +241,19 @@ export const ContractDetailSheet = ({
 			case "canceled-by-arbiter":
 			case "under-arbitration":
 				return "bg-destructive/10 text-destructive border-destructive/20";
+			default:
+				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
+		}
+	};
+
+	const getArbitrationStatusColor = (status: GetArbitrationDto["status"]) => {
+		switch (status) {
+			case "pending":
+				return "bg-warning/10 text-warning border-warning/20";
+			case "resolved":
+				return "bg-success/10 text-success border-success/20";
+			case "executed":
+				return "bg-primary/10 text-primary border-primary/20";
 			default:
 				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
 		}
@@ -555,72 +568,80 @@ export const ContractDetailSheet = ({
 
 						{/* Arbitration Section - Non-collapsible */}
 
-						{/*{(contract.status === "under-arbitration" ||*/}
-						{/*	contract.status === "completed") &&*/}
-						{/*	contract.arbitration && (*/}
-						{/*		<>*/}
-						{/*			<Separator />*/}
+						{contract.status === "under-arbitration" && currentArbitration && (
+							<>
+								<Separator />
 
-						{/*			<div className="space-y-3">*/}
-						{/*				<div className="flex items-center gap-2">*/}
-						{/*					<Scale className="h-5 w-5 text-destructive" />*/}
+								<div className="space-y-3">
+									<div className="flex items-center gap-2">
+										<Scale className="h-5 w-5 text-destructive" />
 
-						{/*					<p className="text-base font-semibold text-foreground">*/}
-						{/*						Arbitration*/}
-						{/*					</p>*/}
-						{/*				</div>*/}
+										<p className="text-base font-semibold text-foreground">
+											Arbitration
+										</p>
+									</div>
 
-						{/*				<div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">*/}
-						{/*					<div className="flex items-start gap-3">*/}
-						{/*						<div className="flex-1">*/}
-						{/*							<p className="text-sm text-muted-foreground mb-1">*/}
-						{/*								Status*/}
-						{/*							</p>*/}
+									<div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">
+										<div className="flex items-start gap-3">
+											<div className="flex-1">
+												<p className="text-sm text-muted-foreground mb-1">
+													Status
+												</p>
 
-						{/*							<Badge*/}
-						{/*								variant="outline"*/}
-						{/*								className={getArbitrationStatusColor(*/}
-						{/*									contract.arbitration.status,*/}
-						{/*								)}*/}
-						{/*							>*/}
-						{/*								{contract.arbitration.status}*/}
-						{/*							</Badge>*/}
-						{/*						</div>*/}
+												<Badge
+													variant="outline"
+													className={getArbitrationStatusColor(
+														currentArbitration.status,
+													)}
+												>
+													{currentArbitration.status}
+												</Badge>
+											</div>
 
-						{/*						<div className="flex-1">*/}
-						{/*							<p className="text-sm text-muted-foreground mb-1">*/}
-						{/*								Initiated*/}
-						{/*							</p>*/}
+											<div className="flex-1">
+												<p className="text-sm text-muted-foreground mb-1">
+													Initiated
+												</p>
 
-						{/*							<p className="text-sm text-foreground">*/}
-						{/*								{format(contract.arbitration.initiatedAt, "PPp")}*/}
-						{/*							</p>*/}
-						{/*						</div>*/}
-						{/*					</div>*/}
+												<p className="text-sm text-foreground">
+													{format(currentArbitration.createdAt, "PPp")}
+												</p>
+											</div>
+										</div>
 
-						{/*					<div>*/}
-						{/*						<p className="text-sm text-muted-foreground mb-1">*/}
-						{/*							Claimant*/}
-						{/*						</p>*/}
+										<div>
+											<p className="text-sm text-muted-foreground mb-1">
+												Claimant
+											</p>
 
-						{/*						<p className="text-sm font-medium text-foreground">*/}
-						{/*							{contract.arbitration.claimant}*/}
-						{/*						</p>*/}
-						{/*					</div>*/}
+											<p className="text-sm font-medium text-foreground">
+												{shortKey(currentArbitration.claimantPublicKey)}
+											</p>
+										</div>
 
-						{/*					<div>*/}
-						{/*						<p className="text-sm text-muted-foreground mb-1">*/}
-						{/*							Reason*/}
-						{/*						</p>*/}
+										<div>
+											<p className="text-sm text-muted-foreground mb-1">
+												Verdict
+											</p>
 
-						{/*						<p className="text-sm text-foreground italic">*/}
-						{/*							"{contract.arbitration.reason}"*/}
-						{/*						</p>*/}
-						{/*					</div>*/}
-						{/*				</div>*/}
-						{/*			</div>*/}
-						{/*		</>*/}
-						{/*	)}*/}
+											<p className="text-sm font-medium text-foreground">
+												{currentArbitration.verdict ?? "-"}
+											</p>
+										</div>
+
+										<div>
+											<p className="text-sm text-muted-foreground mb-1">
+												Reason
+											</p>
+
+											<p className="text-sm text-foreground italic">
+												"{currentArbitration.reason}"
+											</p>
+										</div>
+									</div>
+								</div>
+							</>
+						)}
 
 						{/* Past Executions - Collapsible */}
 						{pastFailedExecutions.length > 0 && (

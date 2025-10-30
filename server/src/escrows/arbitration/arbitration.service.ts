@@ -31,6 +31,10 @@ import { ArkService } from "../../ark/ark.service";
 import { ContractExecution } from "../contracts/contract-execution.entity";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 
+type ArbitrationQueryFilter = {
+	contractId?: string;
+};
+
 @Injectable()
 export class ArbitrationService {
 	private readonly logger = new Logger(ArbitrationService.name);
@@ -113,6 +117,7 @@ export class ArbitrationService {
 
 	async getByUser(
 		pubKey: string,
+		filter: ArbitrationQueryFilter,
 		limit: number,
 		cursor: Cursor = emptyCursor,
 	): Promise<{
@@ -124,6 +129,11 @@ export class ArbitrationService {
 
 		const qb = this.arbitrationRepository.createQueryBuilder("r").where(
 			new Brackets((w) => {
+				if (filter.contractId) {
+					w.andWhere("r.contract.externalId = :contractId", {
+						contractId: filter.contractId,
+					});
+				}
 				w.where("r.claimantPubkey = :pubKey", { pubKey }).orWhere(
 					"r.defendantPubkey = :pubKey",
 					{ pubKey },
