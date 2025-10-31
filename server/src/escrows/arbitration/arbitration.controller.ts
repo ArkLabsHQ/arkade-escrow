@@ -65,7 +65,6 @@ export class ArbitrationController {
 		const pendingDispute = await this.service.createArbitration({
 			contractId: dto.contractId,
 			claimantPublicKey: user.publicKey,
-			claimantArkAddress: dto.arkAddress,
 			reason: dto.reason,
 		});
 		return envelope(pendingDispute);
@@ -131,12 +130,12 @@ export class ArbitrationController {
 		return envelope(arbitration);
 	}
 
-	@Patch(":arbitrationId")
+	@Post(":arbitrationId/execute")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({
 		summary:
-			"Update arbitration with ARK address for final transaction, returns a partially signed transaction",
+			"Create the execution for the arbitration, returns a transaction to be signed",
 	})
 	@ApiBody({ type: ExecuteArbitrationResultInDto })
 	@ApiParam({

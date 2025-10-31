@@ -67,11 +67,11 @@ export const ContractActionModal = ({
 			case "approve":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
-					title: "Approve Settlement",
+					title: "Approve Execution",
 					description:
-						"You're about to approve the settlement. This will complete the contract and release the funds.",
+						"You're about to approve the execution. This will complete the contract and release the funds.",
 					requiresInput: false,
-					confirmText: "Approve Settlement",
+					confirmText: "Approve Execution",
 					confirmVariant: "default" as const,
 				};
 			case "reject":
@@ -109,6 +109,16 @@ export const ContractActionModal = ({
 					inputPlaceholder: "Describe the issue in detail...",
 					confirmText: "Open Dispute",
 					confirmVariant: "destructive" as const,
+				};
+			case "create-execution-for-dispute":
+				return {
+					icon: <CheckCircle className="h-12 w-12 text-success" />,
+					title: "Approve Dispute Execution",
+					description:
+						"You're about to approve the execution of this dispute. This will complete the contract and move the funds.",
+					requiresInput: false,
+					confirmText: "Approve Dispute Execution",
+					confirmVariant: "default" as const,
 				};
 			default:
 				throw new Error(`Invalid action type ${actionType}`);

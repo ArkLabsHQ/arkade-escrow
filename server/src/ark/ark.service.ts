@@ -297,6 +297,17 @@ export class ArkService {
 				];
 			}
 
+			case "release-funds": {
+				return [
+					{
+						amount: BigInt(amount),
+						script: ArkService.addressToScript(
+							transactionInput.receiverAddress,
+						),
+					},
+				];
+			}
+
 			default:
 				throw new Error(`Unknown action: ${transactionInput.action}`);
 		}

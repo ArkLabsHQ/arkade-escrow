@@ -241,23 +241,22 @@ export class AdminService {
 			);
 		}
 
-		// 4. invalidate all contract executions
-		const invalidationResult = await this.contractExecutionRepository
-			.createQueryBuilder()
-			.update(ContractExecution)
-			.set({ status: "canceled-by-arbitrator" })
-			.where("status IN :statuses", {
-				statuses: [
-					"pending-initiator-signature",
-					"pending-counterparty-signature",
-					"pending-server-confirmation",
-				],
-			})
-			.execute();
-
-		this.logger.log(
-			`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
-		);
+		// TODO 4. invalidate all contract executions
+		// const invalidationResult = await this.contractExecutionRepository
+		// 	.createQueryBuilder()
+		// 	.update(ContractExecution)
+		// 	.set({ status: "canceled-by-arbitrator" })
+		// 	.where("status IN :statuses", {
+		// 		statuses: [
+		// 			"pending-initiator-signature",
+		// 			"pending-counterparty-signature",
+		// 			"pending-server-confirmation",
+		// 		],
+		// 	})
+		// 	.execute();
+		// this.logger.log(
+		// 	`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
+		// );
 
 		const persisted = await this.arbitrationRepository.save({
 			...arbitration,
@@ -284,13 +283,6 @@ export class AdminService {
 			default:
 				throw new BadRequestException(`Unsupported action ${action}`);
 		}
-	}
-
-	private signTx(tx: string): string {
-		const txBytes = base64.decode(tx);
-		const privKey = hexToBytes(this.arbitratorPrivateKey);
-		const sigBytes = schnorr.sign(txBytes, privKey);
-		return base64.encode(sigBytes);
 	}
 
 	/*

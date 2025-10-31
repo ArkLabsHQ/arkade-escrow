@@ -5,8 +5,8 @@
 	"scripts": {
 		"start": "nest start",
 		"dev": "concurrently -k -n SERVER,CLIENT,BACKOFFICE -c yellow,cyan,magenta \"nest start --watch\" \"npm run watch:client\" \"npm run watch:backoffice\"",
-		"watch:client": "cd client && vite build --watch",
-		"watch:backoffice": "cd backoffice && vite build --watch",
+		"watch:client": "cd client && vite build --watch --mode development",
+		"watch:backoffice": "cd backoffice && vite build --watch --mode development",
 		"clean": "rm -rf dist node_modules",
 		"test": "jest",
 		"test:watch": "jest --watch",

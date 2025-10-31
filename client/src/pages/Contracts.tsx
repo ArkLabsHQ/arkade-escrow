@@ -204,9 +204,7 @@ const Contracts = () => {
 				});
 			}
 			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
-			console.log(`TEST!!! -> ${arkTx}`);
 			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
-			console.log(`TEST!! SIGNED -> ${signed}`);
 
 			const r = await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
@@ -216,8 +214,6 @@ const Contracts = () => {
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
-
-			console.log(r);
 		},
 	});
 
@@ -248,24 +244,52 @@ const Contracts = () => {
 	});
 
 	const disputeContract = useMutation({
+		mutationFn: async (input: { contractId: string; reason: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			await axios.post(
+				`${Config.apiBaseUrl}/escrows/arbitrations`,
+				{
+					contractId: input.contractId,
+					reason: input.reason,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+		},
+	});
+
+	const createExecutionForDispute = useMutation({
 		mutationFn: async (input: {
 			contractId: string;
-			reason: string;
+			disputeId: string;
 			arkAddress: string;
 		}) => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const r = await axios.post(
-				`${Config.apiBaseUrl}/escrows/arbitrations`,
+			const res = await axios.post<ApiEnvelope<ExecuteEscrowContractOutDto>>(
+				`${Config.apiBaseUrl}/escrows/arbitrations/${input.disputeId}/execute`,
+				{ arkAddress: input.arkAddress },
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+
+			if (res.status !== 201) {
+				throw new Error("Failed to execute arbitration", {
+					cause: new Error(`${res.status} - ${res.statusText}`),
+				});
+			}
+			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
+			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
+
+			await axios.patch(
+				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
 				{
-					contractId: input.contractId,
-					reason: input.reason,
-					arkAddress: input.arkAddress,
+					arkTx: signed.tx,
+					checkpoints: signed.checkpoints,
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
-			console.log(r);
 		},
 	});
 
@@ -453,7 +477,14 @@ const Contracts = () => {
 				onOpenChange={setSheetOpen}
 				onContractAction={(
 					action: ContractAction,
-					{ contractId, walletAddress, executionId, transaction, reason },
+					{
+						contractId,
+						walletAddress,
+						executionId,
+						disputeId,
+						transaction,
+						reason,
+					},
 				) => {
 					switch (action) {
 						case "accept": {
@@ -516,10 +547,7 @@ const Contracts = () => {
 							if (!reason) {
 								throw new Error("Reason is required for dispute");
 							}
-							disputeContract.mutate(
-								{ contractId, reason, arkAddress: walletAddress },
-								{},
-							);
+							disputeContract.mutate({ contractId, reason }, {});
 							return;
 						case "reject": {
 							if (!reason) {
@@ -528,6 +556,16 @@ const Contracts = () => {
 							rejectContract.mutate({ contractId, reason }, {});
 							return;
 						}
+						case "create-execution-for-dispute":
+							if (!disputeId || !walletAddress) {
+								throw new Error("Wallet address is required for dispute");
+							}
+							createExecutionForDispute.mutate({
+								contractId,
+								disputeId,
+								arkAddress: walletAddress,
+							});
+							return;
 						default:
 							return Promise.reject(new Error(`Invalid action ${action}`));
 					}

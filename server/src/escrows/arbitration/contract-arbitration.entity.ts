@@ -37,9 +37,6 @@ export class ContractArbitration {
 	@Column({ type: "text" })
 	claimantPubkey!: string;
 
-	@Column({ type: "text" })
-	claimantAddress!: string;
-
 	@Index()
 	@Column({ type: "text" })
 	defendantPubkey!: string;

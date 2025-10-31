@@ -54,7 +54,8 @@ export type ContractAction =
 	| "approve"
 	| "reject"
 	| "recede"
-	| "dispute";
+	| "dispute"
+	| "create-execution-for-dispute";
 
 interface ContractDetailSheetProps {
 	contract: GetEscrowContractDto | null;
@@ -65,6 +66,7 @@ interface ContractDetailSheetProps {
 		data: {
 			contractId: string;
 			executionId?: string;
+			disputeId?: string;
 			walletAddress: string | null;
 			transaction: GetExecutionByContractDto["transaction"] | null;
 			reason?: string;
@@ -197,23 +199,15 @@ export const ContractDetailSheet = ({
 	};
 
 	const handleActionConfirm = async (data?: { reason?: string }) => {
-		const messages = {
-			accept: "Contract accepted successfully",
-			execute: "Execution initiated successfully",
-			approve: "Execution approved successfully",
-			reject: `Contract rejected ${data?.reason ? `: ${data.reason}` : ""}`,
-			recede: `Receded from contract ${data?.reason ? `: ${data.reason}` : ""}`,
-			dispute: `Dispute opened ${data?.reason ? `: ${data.reason}` : ""}`,
-		};
 		try {
 			onContractAction(currentAction, {
 				contractId: contract.externalId,
 				walletAddress,
 				executionId: currentExecution?.externalId,
+				disputeId: currentArbitration?.externalId,
 				transaction: currentExecution?.transaction ?? null,
 				reason: data?.reason,
 			});
-			// toast.success(messages[currentAction]);
 			onOpenChange(false);
 			setActionModalOpen(false);
 		} catch (error) {
@@ -615,7 +609,7 @@ export const ContractDetailSheet = ({
 											</p>
 
 											<p className="text-sm font-medium text-foreground">
-												{shortKey(currentArbitration.claimantPublicKey)}
+												{me.pubkeyAsMe(currentArbitration.claimantPublicKey)}
 											</p>
 										</div>
 
@@ -757,6 +751,23 @@ export const ContractDetailSheet = ({
 									onClick={() => handleActionClick("approve")}
 								>
 									{"Approve Execution"}
+								</Button>
+							)}
+
+						{/* under-arbitration, with a verdict: create an execution if your side has won */}
+						{contract.status === "under-arbitration" &&
+							currentArbitration?.verdict &&
+							((yourSide === "sender" &&
+								currentArbitration.verdict === "refund") ||
+								(yourSide === "receiver" &&
+									currentArbitration.verdict === "release")) && (
+								<Button
+									className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+									onClick={() =>
+										handleActionClick("create-execution-for-dispute")
+									}
+								>
+									{"Create Execution"}
 								</Button>
 							)}
 

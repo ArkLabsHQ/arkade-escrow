@@ -414,7 +414,7 @@ export class EscrowsContractsService {
 		const contract = await this.getOneForPartyAndStatus(
 			contractId,
 			signerPubKey,
-			"pending-execution",
+			["pending-execution", "under-arbitration"],
 		);
 		const execution = await this.contractExecutionRepository.findOne({
 			where: { externalId: executionId, contract: { externalId: contractId } },
@@ -615,12 +615,13 @@ export class EscrowsContractsService {
 
 		const signedTransaction = {
 			arkTx: input.signedTx,
-			checkpoints: signutils
-				.mergeCheckpoints(
-					input.signedCheckpoints,
-					execution.signedTransaction.checkpoints,
-				)
-				.map((_) => base64.encode(_.toPSBT())),
+			checkpoints: input.signedCheckpoints,
+			// signutils
+			// 	.mergeCheckpoints(
+			// 		input.signedCheckpoints,
+			// 		execution.signedTransaction.checkpoints,
+			// 	)
+			// 	.map((_) => base64.encode(_.toPSBT())),
 		};
 
 		const finalTxId = await this.arkService.executeEscrowTransaction({

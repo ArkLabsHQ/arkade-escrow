@@ -26,10 +26,19 @@ import {
 	emptyCursor,
 } from "../../common/dto/envelopes";
 import { GetExecutionByContractDto } from "../contracts/dto/get-execution-by-contract";
-import { ArkAddress } from "@arkade-os/sdk";
+import {
+	ArkAddress,
+	Identity,
+	SingleKey,
+	Transaction,
+	verifyTapscriptSignatures,
+} from "@arkade-os/sdk";
 import { ArkService } from "../../ark/ark.service";
 import { ContractExecution } from "../contracts/contract-execution.entity";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
+import { base64 } from "@scure/base";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import { schnorr } from "@noble/secp256k1";
 
 type ArbitrationQueryFilter = {
 	contractId?: string;
@@ -39,6 +48,7 @@ type ArbitrationQueryFilter = {
 export class ArbitrationService {
 	private readonly logger = new Logger(ArbitrationService.name);
 	private readonly arbitratorPublicKey: string;
+	private readonly identity: Identity;
 
 	constructor(
 		private readonly configService: ConfigService,
@@ -50,12 +60,16 @@ export class ArbitrationService {
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		private readonly arkService: ArkService,
 	) {
-		const arbitratorPubKey =
-			this.configService.get<string>("ARBITRATOR_PUB_KEY");
-		if (!arbitratorPubKey) {
+		const pubKey = configService.get<string>("ARBITRATOR_PUB_KEY");
+		if (pubKey === undefined) {
 			throw new Error("ARBITRATOR_PUB_KEY is not set");
 		}
-		this.arbitratorPublicKey = arbitratorPubKey;
+		this.arbitratorPublicKey = pubKey;
+		const privKey = configService.get<string>("ARBITRATOR_PRIV_KEY");
+		if (privKey === undefined) {
+			throw new Error("ARBITRATOR_PRIV_KEY is not set");
+		}
+		this.identity = SingleKey.fromPrivateKey(hexToBytes(privKey));
 	}
 
 	getByContract(contractId: string): Promise<ContractArbitration[]> {
@@ -68,7 +82,6 @@ export class ArbitrationService {
 		contractId: string;
 		reason: string;
 		claimantPublicKey: string;
-		claimantArkAddress: string;
 	}): Promise<GetArbitrationDto> {
 		const contract = await this.getOneForPartyAndStatus(
 			input.contractId,
@@ -87,7 +100,6 @@ export class ArbitrationService {
 				"externalId"
 			>,
 			claimantPubkey: input.claimantPublicKey,
-			claimantAddress: input.claimantArkAddress,
 			defendantPubkey:
 				contract.senderPubkey === input.claimantPublicKey
 					? contract.receiverPubkey
@@ -229,7 +241,7 @@ export class ArbitrationService {
 		});
 		if (!arbitration) throw new NotFoundException("Arbitration not found");
 		if (
-			arbitration.claimantPubkey !== user.publicKey ||
+			arbitration.claimantPubkey !== user.publicKey &&
 			arbitration.defendantPubkey !== user.publicKey
 		) {
 			throw new ForbiddenException("Unauthorized");
@@ -273,6 +285,20 @@ export class ArbitrationService {
 					},
 					vtxo,
 				);
+				// TODO try/catch
+				const signedTx = await this.identity.sign(
+					Transaction.fromPSBT(base64.decode(escrowTransaction.arkTx), {
+						allowUnknown: true,
+					}),
+				);
+				const signedCheckpoints = await Promise.all(
+					escrowTransaction.checkpoints.map((_) =>
+						this.identity.sign(Transaction.fromPSBT(base64.decode(_))),
+					),
+				);
+				verifyTapscriptSignatures(signedTx, 0, [this.arbitratorPublicKey]);
+				this.logger.debug("arbitrator signature ok");
+
 				const entity = this.contractExecutionRepository.create({
 					action: "release-funds",
 					externalId: nanoid(16),
@@ -294,6 +320,12 @@ export class ArbitrationService {
 						approvedByPubKeys: [this.arbitratorPublicKey],
 						rejectedByPubKeys: [],
 					},
+					signedTransaction: {
+						arkTx: base64.encode(signedTx.toPSBT()),
+						checkpoints: signedCheckpoints.map((_) =>
+							base64.encode(_.toPSBT()),
+						),
+					},
 				});
 				const persisted = await this.contractExecutionRepository.save(entity);
 				return {
@@ -314,15 +346,12 @@ export class ArbitrationService {
 		}
 	}
 
-	async signExecution(input: {
-		externalId: string;
-	}): Promise<GetExecutionByContractDto> {
-		const arbitration = await this.arbitrationRepository.findOne({
-			where: [{ externalId: input.externalId }],
-		});
-		if (!arbitration) throw new NotFoundException("Arbitration not found");
-		throw new Error("Not implemented");
-	}
+	// private signTx(tx: string): string {
+	// 	const txBytes = base64.decode(tx);
+	// 	const privKey = hexToBytes(this.arbitratorPrivateKey);
+	// 	const sigBytes = schnorr.sign(txBytes, privKey);
+	// 	return base64.encode(sigBytes);
+	// }
 
 	// TODO: check same method in ContractsService
 	private getOneForPartyAndStatus(
