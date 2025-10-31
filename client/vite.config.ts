@@ -8,6 +8,7 @@ export default defineConfig(() => ({
 		host: "::",
 		port: 3001,
 	},
+	root: path.resolve(__dirname),
 	plugins: [react()],
 	resolve: {
 		alias: {

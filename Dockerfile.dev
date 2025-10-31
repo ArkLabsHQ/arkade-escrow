@@ -1,13 +1,13 @@
-FROM node:24 AS base
+FROM node:22 AS base
 WORKDIR /app
 ENV NODE_ENV=development
 
 FROM base AS deps
-# often avoids mirror flakiness; still set python explicitly
+# ensure Python for node-gyp
 RUN npm config set python /usr/bin/python3 || true
 COPY package*.json ./
-# Force build from source for better-sqlite3 (skip prebuilt download),
-# and make sure npm uses python3 for node-gyp.
+
+# install all deps, including devDependencies
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
     npm ci --no-audit --fund=false --build-from-source=better-sqlite3
 
@@ -16,4 +16,4 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 EXPOSE 3002
-CMD ["npm","run","dev"]
+CMD ["npm", "run", "dev"]

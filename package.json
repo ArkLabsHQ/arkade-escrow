@@ -3,9 +3,10 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"api:start": "nest start",
-		"api:dev": "nest start --watch",
-		"web:dev": "next dev client-old",
+		"start": "nest start",
+		"dev": "concurrently -k -n SERVER,CLIENT,BACKOFFICE -c yellow,cyan,magenta \"nest start --watch\" \"npm run watch:client\" \"npm run watch:backoffice\"",
+		"watch:client": "cd client && vite build --watch",
+		"watch:backoffice": "cd backoffice && vite build --watch",
 		"clean": "rm -rf dist node_modules",
 		"test": "jest",
 		"test:watch": "jest --watch",
@@ -13,6 +14,8 @@
 		"test:e2e": "jest  server/test/escrow-journey-to-execution.e2e-spec.ts",
 		"---------------------------- Production build ---------------------------------------------": "",
 		"build": "nest build",
+		"build:client": "vite build --config ./client/vite.config.ts",
+		"build:backoffice": "vite build --config ./backoffice/vite.config.ts",
 		"---------------------------- Static checks ------------------------------------------------": "",
 		"lint": "biome lint server/src",
 		"typecheck": "tsc --noEmit",
@@ -65,12 +68,14 @@
 		"@types/react-dom": "^19.1.9",
 		"@types/supertest": "^6.0.3",
 		"autoprefixer": "^10.4.21",
+		"concurrently": "^9.2.1",
 		"jest": "^30.0.5",
 		"postcss": "^8.5.6",
 		"supertest": "^7.1.4",
 		"tailwindcss": "^4.1.13",
 		"ts-jest": "^29.4.1",
 		"ts-node": "^10.9.2",
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.2",
+		"vite": "^7.1.12"
 	}
 }

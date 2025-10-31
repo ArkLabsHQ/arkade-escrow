@@ -1,33 +1,5 @@
 services:
-#  api:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#      target: production
-#      args:
-#        DEPS_CACHE_BUST: "2025-09-15-1"
-#    expose:
-#      - "3000"
-#    environment:
-#      - PORT=3000
-#      - NODE_ENV=production
-#      - SQLITE_DB_PATH=/app/data/db.sqlite
-#      - ARK_SERVER_URL=https://mutinynet.arkade.sh
-#      - JWT_SECRET=dev_super_secret_change_me
-#      - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
-#    volumes:
-#      - sqlite-data:/app/data
-#    networks:
-#      - dokploy-network
-#    restart: unless-stopped
-#    healthcheck:
-#      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
-#      start_period: 10s
-
-  api-dev:
+  ark-escrow:
     profiles:
       - dev
     build:
@@ -43,19 +15,17 @@ services:
       - ARK_SERVER_URL=http://ark:7070
       - JWT_SECRET=dev_super_secret_change_me
       - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
+      - ARBITRATOR_PRIV_KEY=67b4f9c22402116a4eb1ac9a6d6ceb8b67b75bd1e7165078f8bc0b6f6ece30b0 # change it for anything different than local dev
     networks:
       - default
       - nigiri
     volumes:
       - .:/app
-      - /app/node_modules
     command: npm run dev
 
 networks:
   nigiri:
     external: true
-#  dokploy-network:
-#    external: true
 
 volumes:
   sqlite-data:
