@@ -22,12 +22,36 @@ import * as signutils from "../common/signatures";
 
 export type EscrowTransactionForAction = {
 	action: ActionType;
-	receiverAddress: ArkAddress;
 	receiverPublicKey: string;
 	senderPublicKey: string;
 	arbitratorPublicKey: string;
 	contractNonce: string;
-};
+} & (
+	| {
+			action: "direct-settle";
+			receiverAddress: ArkAddress;
+			receiverPublicKey: string;
+			senderPublicKey: string;
+			arbitratorPublicKey: string;
+			contractNonce: string;
+	  }
+	| {
+			action: "release-funds";
+			receiverAddress: ArkAddress;
+			receiverPublicKey: string;
+			senderPublicKey: string;
+			arbitratorPublicKey: string;
+			contractNonce: string;
+	  }
+	| {
+			action: "return-funds";
+			receiverPublicKey: string;
+			senderPublicKey: string;
+			senderAddress: ArkAddress;
+			arbitratorPublicKey: string;
+			contractNonce: string;
+	  }
+);
 export type EscrowTransaction = {
 	// base64
 	arkTx: string;
@@ -157,6 +181,7 @@ export class ArkService {
 			throw new Error(`Required signers not found for action ${input}`);
 		}
 
+		console.log(requiredSigners);
 		return {
 			arkTx: base64.encode(arkTx.toPSBT()),
 			checkpoints: checkpoints.map((_) => base64.encode(_.toPSBT())),
@@ -177,9 +202,13 @@ export class ArkService {
 		// Now we can submit the fully-signed transaction
 
 		try {
+			this.logger.log("Submitting Ark transaction...");
+			console.log(
+				`submitting ${txData.signedTransaction.arkTx} with checkpoints ${txData.signedTransaction.checkpoints.length} and ${txData.cleanTransaction.checkpoints.length} checkpoints`,
+			);
 			const { arkTxid, signedCheckpointTxs } = await this.provider.submitTx(
 				txData.signedTransaction.arkTx,
-				txData.signedTransaction.checkpoints,
+				txData.cleanTransaction.checkpoints,
 			);
 
 			this.logger.log(`Successfully submitted Transaction ID:`, arkTxid);
@@ -189,6 +218,7 @@ export class ArkService {
 				txData.signedTransaction.checkpoints,
 			);
 
+			this.logger.log("Finalizing Ark transaction...");
 			// Finalize the transaction
 			await this.provider.finalizeTx(
 				arkTxid,
@@ -197,6 +227,7 @@ export class ArkService {
 			this.logger.log(`Successfully finalized tx with ID: ${arkTxid}`);
 			return arkTxid;
 		} catch (cause) {
+			// TODO: handle VTXO_NOT_FOUND properly
 			this.logger.error("Failed to execute transaction", { cause });
 			throw new Error("Failed to execute transaction", { cause });
 		}
@@ -285,7 +316,8 @@ export class ArkService {
 		transactionInput: EscrowTransactionForAction,
 		amount: number,
 	): TransactionOutput[] {
-		switch (transactionInput.action) {
+		const action = transactionInput.action;
+		switch (action) {
 			case "direct-settle": {
 				return [
 					{
@@ -308,8 +340,18 @@ export class ArkService {
 				];
 			}
 
+			case "return-funds": {
+				return [
+					{
+						amount: BigInt(amount),
+						script: ArkService.addressToScript(transactionInput.senderAddress),
+					},
+				];
+			}
+
 			default:
-				throw new Error(`Unknown action: ${transactionInput.action}`);
+				// the typesystem protects us from this, but better safe than sorry
+				throw new Error(`Unknown action: ${action}`);
 		}
 	}
 

@@ -4,43 +4,16 @@ import type { INestApplication } from "@nestjs/common";
 import { hashes, utils as secpUtils } from "@noble/secp256k1";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { AppModule } from "../src/app.module";
-import { createTestArkWallet, signupAndGetJwt, TestArkWallet } from "./utils";
+import {
+	beforeEachFaucet,
+	createTestArkWallet,
+	faucetOffchain,
+	signupAndGetJwt,
+	TestArkWallet,
+} from "./utils";
 import { SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
 import { execSync } from "node:child_process";
 import { base64 } from "@scure/base";
-
-hashes.sha256 = sha256;
-
-/** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
-const arkdExec =
-	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
-
-function faucetOffchain(address: string, amount: number): void {
-	execCommand(
-		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
-	);
-}
-function execCommand(command: string): string {
-	command += " | grep -v WARN";
-	const result = execSync(command).toString().trim();
-	return result;
-}
-// before each test check if the ark's cli running in the test env has at least 20_000 offchain balance
-// if not, fund it with 100.000
-function beforeEachFaucet(): void {
-	// On the CI we don't have access to arkd CLI for now
-	if (process.env.CI) {
-		return;
-	}
-	const balanceOutput = execCommand(`${arkdExec} ark balance`);
-	const balance = JSON.parse(balanceOutput);
-	const offchainBalance = balance.offchain_balance.total;
-
-	if (offchainBalance <= 20_000) {
-		const noteStr = execCommand(`${arkdExec} arkd note --amount 100000`);
-		execCommand(`${arkdExec} ark redeem-notes -n ${noteStr} --password secret`);
-	}
-}
 
 /* -------------- */
 
@@ -190,15 +163,42 @@ describe("Escrow creation from Request to contract", () => {
 			),
 		]);
 
-		const aliceAddress = await alice.wallet.getAddress();
-
-		// funded, now the signatures
-		const executionRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/execute`)
+		// funded, now the dispute can be initiated
+		const disputeRes = await request(app.getHttpServer())
+			.post(`/api/v1/escrows/arbitrations`)
 			.send({
 				contractId: accepted.externalId,
-				arkAddress: aliceAddress,
+				reason: "e2e test dispute",
 			})
+			.set("Authorization", `Bearer ${receiverToken}`)
+			.expect(201);
+
+		expect(disputeRes.body).toBeDefined();
+		expect(disputeRes.body.data).toBeDefined();
+		expect(disputeRes.body.data.externalId).toBeDefined();
+
+		const disputeId = disputeRes.body.data.externalId;
+
+		// admin declares a release
+		const resolutionRes = await request(app.getHttpServer())
+			.post(`/api/admin/v1/contracts/${contractId}/arbitrate`)
+			.send({
+				disputeId,
+				action: "release",
+			})
+			.set("Authorization", `Bearer ${receiverToken}`)
+			.expect(200);
+
+		expect(disputeRes.body).toBeDefined();
+		expect(disputeRes.body.data).toBeDefined();
+		expect(disputeRes.body.data.externalId).toBeDefined();
+
+		// Alice (receiver) who disputed the contract can now execute the arbitration resolution
+		const aliceAddress = await alice.wallet.getAddress();
+
+		const executionRes = await request(app.getHttpServer())
+			.post(`/api/v1/escrows/arbitrations/${disputeId}/execute`)
+			.send({ arkAddress: aliceAddress })
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(201);
 
@@ -206,13 +206,21 @@ describe("Escrow creation from Request to contract", () => {
 		expect(executionRes.body.data).toBeDefined();
 		expect(executionRes.body.data.externalId).toBeDefined();
 
+		console.log("Clean signature");
+		console.log(`   tx -> ${executionRes.body.data.arkTx}`);
+		console.log(
+			`   checkpoints -> ${executionRes.body.data.checkpoints.join(", ")}`,
+		);
+
 		const aliceSignature = await signTx(
 			executionRes.body.data.arkTx,
 			executionRes.body.data.checkpoints,
 			alice,
 		);
 
-		console.log(aliceSignature.checkpoints);
+		console.log("Alice signature");
+		console.log(`   tx -> ${aliceSignature.arkTx}`);
+		console.log(`   checkpoints -> ${aliceSignature.checkpoints.join(", ")}`);
 
 		await request(app.getHttpServer())
 			.patch(
@@ -229,23 +237,6 @@ describe("Escrow creation from Request to contract", () => {
 			.get(
 				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
 			)
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
-
-		const bobSignature = await signTx(
-			executionSignedByAlice.body.data.transaction.arkTx,
-			executionSignedByAlice.body.data.transaction.checkpoints,
-			bob,
-		);
-
-		await request(app.getHttpServer())
-			.patch(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.send({
-				arkTx: bobSignature.arkTx,
-				checkpoints: bobSignature.checkpoints,
-			})
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
 

@@ -230,10 +230,7 @@ export class AdminService {
 			);
 		}
 		const successfulExecutions = await this.contractExecutionRepository.find({
-			where: [
-				{ contract: { externalId: input.contractId } },
-				{ status: "executed" },
-			],
+			where: { contract: { externalId: input.contractId }, status: "executed" },
 		});
 		if (successfulExecutions.length > 0) {
 			throw new ConflictException(
@@ -276,7 +273,7 @@ export class AdminService {
 
 	private verdictFromAction(action: ArbitrateDisputeInDto["action"]) {
 		switch (action) {
-			case "settle":
+			case "release":
 				return "release";
 			case "refund":
 				return "refund";

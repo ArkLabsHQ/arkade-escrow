@@ -1,5 +1,5 @@
 const { schnorr, utils, getPublicKey, hashes } = require("@noble/secp256k1");
-const { bytesToHex, hexToBytes } = require("@noble/hashes/utils");
+const { bytesToHex, hexToBytes } = require("@noble/hashes/utils.js");
 const { sha256 } = require("@noble/hashes/sha2.js");
 
 // CRITICAL: Set up hashing exactly like E2E test
@@ -35,6 +35,8 @@ async function debugFlow() {
 		const pubXOnly = normalizeToXOnly(pubCompressed);
 		console.log("Public key (x-only):", pubXOnly);
 		console.log("X-only length:", pubXOnly.length);
+
+		return;
 
 		console.log("\n2. Requesting challenge...");
 		const challengeResponse = await fetch(`${baseUrl}/auth/signup/challenge`, {

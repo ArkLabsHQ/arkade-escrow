@@ -33,12 +33,13 @@ import {
 	Transaction,
 	verifyTapscriptSignatures,
 } from "@arkade-os/sdk";
-import { ArkService } from "../../ark/ark.service";
+import { ArkService, EscrowTransaction } from "../../ark/ark.service";
 import { ContractExecution } from "../contracts/contract-execution.entity";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 import { base64 } from "@scure/base";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/secp256k1";
+import { toError } from "../../common/errors";
 
 type ArbitrationQueryFilter = {
 	contractId?: string;
@@ -211,7 +212,7 @@ export class ArbitrationService {
 		});
 		if (!arbitration) throw new NotFoundException("Arbitration not found");
 		if (
-			arbitration.claimantPubkey !== user.publicKey ||
+			arbitration.claimantPubkey !== user.publicKey &&
 			arbitration.defendantPubkey !== user.publicKey
 		) {
 			throw new ForbiddenException("Unauthorized");
@@ -236,6 +237,7 @@ export class ArbitrationService {
 		},
 		user: User,
 	): Promise<ExecuteEscrowContractOutDto> {
+		console.log(`arb ${input.externalId}`);
 		const arbitration = await this.arbitrationRepository.findOne({
 			where: [{ externalId: input.externalId }],
 		});
@@ -271,7 +273,7 @@ export class ArbitrationService {
 			case "release": {
 				if (contract.receiverPubkey !== user.publicKey) {
 					throw new ForbiddenException(
-						"Use is not the receiver, cannot release funds",
+						"User is not the receiver, cannot release funds",
 					);
 				}
 				const escrowTransaction = await this.arkService.createEscrowTransaction(
@@ -281,24 +283,12 @@ export class ArbitrationService {
 						receiverPublicKey: contract.receiverPubkey,
 						senderPublicKey: contract.senderPubkey,
 						arbitratorPublicKey: this.arbitratorPublicKey,
-						contractNonce: `${contract.externalId}${arbitration.externalId}`,
+						contractNonce: `${contract.externalId}${contract.request.externalId}`,
 					},
 					vtxo,
 				);
-				// TODO try/catch
-				const signedTx = await this.identity.sign(
-					Transaction.fromPSBT(base64.decode(escrowTransaction.arkTx), {
-						allowUnknown: true,
-					}),
-				);
-				const signedCheckpoints = await Promise.all(
-					escrowTransaction.checkpoints.map((_) =>
-						this.identity.sign(Transaction.fromPSBT(base64.decode(_))),
-					),
-				);
-				verifyTapscriptSignatures(signedTx, 0, [this.arbitratorPublicKey]);
-				this.logger.debug("arbitrator signature ok");
-
+				const { signedTx, signedCheckpoints } =
+					await this.signArbitrationTx(escrowTransaction);
 				const entity = this.contractExecutionRepository.create({
 					action: "release-funds",
 					externalId: nanoid(16),
@@ -321,12 +311,11 @@ export class ArbitrationService {
 						rejectedByPubKeys: [],
 					},
 					signedTransaction: {
-						arkTx: base64.encode(signedTx.toPSBT()),
-						checkpoints: signedCheckpoints.map((_) =>
-							base64.encode(_.toPSBT()),
-						),
+						arkTx: signedTx,
+						checkpoints: signedCheckpoints,
 					},
 				});
+
 				const persisted = await this.contractExecutionRepository.save(entity);
 				return {
 					externalId: persisted.externalId,
@@ -337,12 +326,97 @@ export class ArbitrationService {
 				};
 			}
 			case "refund": {
-				throw new NotImplementedException("adf");
+				if (contract.senderPubkey !== user.publicKey) {
+					throw new ForbiddenException(
+						"User is not the sender, cannot return funds",
+					);
+				}
+				const escrowTransaction = await this.arkService.createEscrowTransaction(
+					{
+						action: "return-funds",
+						receiverPublicKey: contract.receiverPubkey,
+						senderPublicKey: contract.senderPubkey,
+						senderAddress: ArkAddress.decode(input.arkAddress),
+						arbitratorPublicKey: this.arbitratorPublicKey,
+						contractNonce: `${contract.externalId}${contract.request.externalId}`,
+					},
+					vtxo,
+				);
+				const { signedTx, signedCheckpoints } =
+					await this.signArbitrationTx(escrowTransaction);
+				const entity = this.contractExecutionRepository.create({
+					action: "return-funds",
+					externalId: nanoid(16),
+					contract: { externalId: contract.externalId } as Pick<
+						EscrowContract,
+						"externalId"
+					>,
+					initiatedByPubKey: this.arbitratorPublicKey,
+					status: "pending-counterparty-signature",
+					cleanTransaction: {
+						vtxo: {
+							txid: vtxo.txid,
+							vout: vtxo.vout,
+							value: vtxo.value,
+						},
+						arkTx: escrowTransaction.arkTx,
+						checkpoints: escrowTransaction.checkpoints,
+						requiredSigners: escrowTransaction.requiredSigners,
+						approvedByPubKeys: [this.arbitratorPublicKey],
+						rejectedByPubKeys: [],
+					},
+					signedTransaction: {
+						arkTx: signedTx,
+						checkpoints: signedCheckpoints,
+					},
+				});
+
+				const persisted = await this.contractExecutionRepository.save(entity);
+				return {
+					externalId: persisted.externalId,
+					contractId: persisted.contract.externalId,
+					arkTx: persisted.cleanTransaction.arkTx,
+					checkpoints: persisted.cleanTransaction.checkpoints,
+					vtxo: persisted.cleanTransaction.vtxo,
+				};
 			}
 			default:
 				throw new InternalServerErrorException(
 					`Verdict ${arbitration.verdict} not supported`,
 				);
+		}
+	}
+
+	private async signArbitrationTx(
+		escrowTransaction: EscrowTransaction,
+	): Promise<{
+		signedTx: string;
+		signedCheckpoints: string[];
+	}> {
+		try {
+			const signedTx = await this.identity.sign(
+				Transaction.fromPSBT(base64.decode(escrowTransaction.arkTx), {
+					allowUnknown: true,
+				}),
+			);
+			const signedCheckpoints = await Promise.all(
+				escrowTransaction.checkpoints.map((_) =>
+					this.identity.sign(Transaction.fromPSBT(base64.decode(_))),
+				),
+			);
+			return {
+				signedTx: base64.encode(signedTx.toPSBT()),
+				signedCheckpoints: signedCheckpoints.map((_) =>
+					base64.encode(_.toPSBT()),
+				),
+			};
+		} catch (e) {
+			const error = toError(e);
+			this.logger.error(
+				`Error signing arbitration transaction: ${error.message}`,
+				error,
+			);
+			throw error;
 		}
 	}
 

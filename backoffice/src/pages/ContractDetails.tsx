@@ -115,7 +115,7 @@ const ContractDetails = () => {
 
 	const handleArbitration = async (
 		disputeId: string,
-		action: "settle" | "refund",
+		action: "release" | "refund",
 	) => {
 		try {
 			const response = await fetch(
@@ -130,7 +130,7 @@ const ContractDetails = () => {
 			if (!response.ok) throw new Error("Arbitration failed");
 
 			toast.success(
-				`Dispute ${action === "settle" ? "settled" : "refunded"} successfully`,
+				`Dispute ${action === "release" ? "released" : "refunded"} successfully`,
 			);
 			fetchContract();
 		} catch (error) {
@@ -568,7 +568,7 @@ const ContractDetails = () => {
 																onClick={() =>
 																	handleArbitration(
 																		dispute.externalId,
-																		"settle",
+																		"release",
 																	)
 																}
 																variant="default"

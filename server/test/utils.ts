@@ -3,6 +3,42 @@ import * as request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { Identity, SingleKey, Wallet } from "@arkade-os/sdk";
 import { hex } from "@scure/base";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { hashes } from "@noble/secp256k1";
+import { execSync } from "node:child_process";
+
+hashes.sha256 = sha256;
+
+/** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
+export const arkdExec =
+	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
+
+export function faucetOffchain(address: string, amount: number): void {
+	execCommand(
+		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
+	);
+}
+export function execCommand(command: string): string {
+	command += " | grep -v WARN";
+	const result = execSync(command).toString().trim();
+	return result;
+}
+// before each test check if the ark's cli running in the test env has at least 20_000 offchain balance
+// if not, fund it with 100.000
+export function beforeEachFaucet(): void {
+	// On the CI we don't have access to arkd CLI for now
+	if (process.env.CI) {
+		return;
+	}
+	const balanceOutput = execCommand(`${arkdExec} ark balance`);
+	const balance = JSON.parse(balanceOutput);
+	const offchainBalance = balance.offchain_balance.total;
+
+	if (offchainBalance <= 20_000) {
+		const noteStr = execCommand(`${arkdExec} arkd note --amount 100000`);
+		execCommand(`${arkdExec} ark redeem-notes -n ${noteStr} --password secret`);
+	}
+}
 
 export interface TestArkWallet {
 	wallet: Wallet;

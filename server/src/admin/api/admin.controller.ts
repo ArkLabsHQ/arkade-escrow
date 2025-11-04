@@ -8,6 +8,8 @@ import {
 	DefaultValuePipe,
 	Sse,
 	Post,
+	HttpCode,
+	HttpStatus,
 } from "@nestjs/common";
 import {
 	ApiTags,
@@ -110,12 +112,13 @@ export class AdminController {
 		return envelope(data);
 	}
 
-	@ApiOperation({ summary: "Create an arbitration for the given contract" })
+	@ApiOperation({ summary: "Resolves an arbitration for the given contract" })
 	@ApiBody({ type: ArbitrateDisputeInDto })
 	@ApiOkResponse({
 		description: "The arbitration result",
 		schema: getSchemaPathForDto(GetAdminEscrowContractDetailsDto),
 	})
+	@HttpCode(HttpStatus.OK)
 	@Post("contracts/:externalId/arbitrate")
 	async arbitrateDispute(
 		@Param("externalId") externalId: string,

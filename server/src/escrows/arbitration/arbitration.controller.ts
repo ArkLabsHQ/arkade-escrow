@@ -151,7 +151,7 @@ export class ArbitrationController {
 	async executeArbitrationResult(
 		@UserFromJwt() user: User,
 		@Body() dto: ExecuteArbitrationResultInDto,
-		@Param("disputeId") arbitrationId: string,
+		@Param("arbitrationId") arbitrationId: string,
 	): Promise<ApiEnvelope<ExecuteEscrowContractOutDto>> {
 		const result = await this.service.createArbitrationExecution(
 			{

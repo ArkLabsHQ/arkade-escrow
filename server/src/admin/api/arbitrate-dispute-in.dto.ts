@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
 
-const ARBITRATOR_ACTION_TYPE = ["settle", "refund"] as const;
+const ARBITRATOR_ACTION_TYPE = ["release", "refund"] as const;
 type ArbitratorActionType = (typeof ARBITRATOR_ACTION_TYPE)[number];
 
 export class ArbitrateDisputeInDto {

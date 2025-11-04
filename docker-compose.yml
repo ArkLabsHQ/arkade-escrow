@@ -14,7 +14,7 @@ services:
       - SQLITE_DB_PATH=/app/data/db.sqlite
       - ARK_SERVER_URL=https://mutinynet.arkade.sh
       - JWT_SECRET=dev_super_secret_change_me
-      - ARBITRATOR_PUB_KEY=61d8b7526b6d5a46a57a01fcab370acaad1bff309da342bf4acc9077db6b4ac2
+      - ARBITRATOR_PUB_KEY=adf
     volumes:
       - sqlite-data:/app/data
     networks:
