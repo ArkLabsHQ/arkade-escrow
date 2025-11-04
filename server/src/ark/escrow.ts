@@ -169,8 +169,6 @@ export namespace VEscrow {
 		 * (receiver + arbitrator + server)
 		 */
 		releaseFunds(): TapLeafScript {
-			console.log(this.releaseFundsScript);
-			console.log(this.findLeaf(this.releaseFundsScript));
 			return this.findLeaf(this.releaseFundsScript);
 		}
 

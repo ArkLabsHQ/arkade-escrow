@@ -4,7 +4,6 @@ import {
 	InternalServerErrorException,
 	Logger,
 	NotFoundException,
-	NotImplementedException,
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -25,20 +24,12 @@ import {
 	cursorToString,
 	emptyCursor,
 } from "../../common/dto/envelopes";
-import { GetExecutionByContractDto } from "../contracts/dto/get-execution-by-contract";
-import {
-	ArkAddress,
-	Identity,
-	SingleKey,
-	Transaction,
-	verifyTapscriptSignatures,
-} from "@arkade-os/sdk";
+import { ArkAddress, Identity, SingleKey, Transaction } from "@arkade-os/sdk";
 import { ArkService, EscrowTransaction } from "../../ark/ark.service";
 import { ContractExecution } from "../contracts/contract-execution.entity";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 import { base64 } from "@scure/base";
 import { hexToBytes } from "@noble/hashes/utils.js";
-import { schnorr } from "@noble/secp256k1";
 import { toError } from "../../common/errors";
 
 type ArbitrationQueryFilter = {
@@ -52,6 +43,7 @@ export class ArbitrationService {
 	private readonly identity: Identity;
 
 	constructor(
+		// biome-ignore lint/correctness/noUnusedPrivateClassMembers: may be used in tests
 		private readonly configService: ConfigService,
 		@InjectRepository(ContractArbitration)
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
@@ -71,12 +63,6 @@ export class ArbitrationService {
 			throw new Error("ARBITRATOR_PRIV_KEY is not set");
 		}
 		this.identity = SingleKey.fromPrivateKey(hexToBytes(privKey));
-	}
-
-	getByContract(contractId: string): Promise<ContractArbitration[]> {
-		return this.arbitrationRepository.find({
-			where: { contract: { externalId: contractId } },
-		});
 	}
 
 	async createArbitration(input: {
@@ -237,7 +223,6 @@ export class ArbitrationService {
 		},
 		user: User,
 	): Promise<ExecuteEscrowContractOutDto> {
-		console.log(`arb ${input.externalId}`);
 		const arbitration = await this.arbitrationRepository.findOne({
 			where: [{ externalId: input.externalId }],
 		});
@@ -420,14 +405,6 @@ export class ArbitrationService {
 		}
 	}
 
-	// private signTx(tx: string): string {
-	// 	const txBytes = base64.decode(tx);
-	// 	const privKey = hexToBytes(this.arbitratorPrivateKey);
-	// 	const sigBytes = schnorr.sign(txBytes, privKey);
-	// 	return base64.encode(sigBytes);
-	// }
-
-	// TODO: check same method in ContractsService
 	private getOneForPartyAndStatus(
 		contractId: string,
 		party: PublicKey,

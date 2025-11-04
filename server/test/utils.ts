@@ -1,8 +1,8 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import * as request from "supertest";
 import type { INestApplication } from "@nestjs/common";
-import { Identity, SingleKey, Wallet } from "@arkade-os/sdk";
-import { hex } from "@scure/base";
+import { Identity, SingleKey, Transaction, Wallet } from "@arkade-os/sdk";
+import { base64, hex } from "@scure/base";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { hashes } from "@noble/secp256k1";
 import { execSync } from "node:child_process";
@@ -92,3 +92,32 @@ export async function signupAndGetJwt(
 
 	return verifyRes.body.accessToken as string;
 }
+
+export async function signTx(
+	base64Tx: string,
+	checkpoints: string[],
+	wallet: TestArkWallet,
+) {
+	const tx = Transaction.fromPSBT(base64.decode(base64Tx), {
+		allowUnknown: true,
+	});
+	const signedTx = await wallet.identity.sign(tx);
+	const ckpts = checkpoints.map(async (cp) => {
+		const signed = await wallet.identity.sign(
+			Transaction.fromPSBT(base64.decode(cp), { allowUnknown: true }),
+			[0],
+		);
+		return base64.encode(signed.toPSBT());
+	});
+	return {
+		arkTx: base64.encode(signedTx.toPSBT()),
+		checkpoints: await Promise.all(ckpts),
+	};
+}
+
+export const createEscrowRequestBody = {
+	side: "receiver",
+	amount: 12345,
+	description: "Test escrow creation",
+	public: true,
+};

@@ -181,7 +181,6 @@ export class ArkService {
 			throw new Error(`Required signers not found for action ${input}`);
 		}
 
-		console.log(requiredSigners);
 		return {
 			arkTx: base64.encode(arkTx.toPSBT()),
 			checkpoints: checkpoints.map((_) => base64.encode(_.toPSBT())),
@@ -203,9 +202,6 @@ export class ArkService {
 
 		try {
 			this.logger.log("Submitting Ark transaction...");
-			console.log(
-				`submitting ${txData.signedTransaction.arkTx} with checkpoints ${txData.signedTransaction.checkpoints.length} and ${txData.cleanTransaction.checkpoints.length} checkpoints`,
-			);
 			const { arkTxid, signedCheckpointTxs } = await this.provider.submitTx(
 				txData.signedTransaction.arkTx,
 				txData.cleanTransaction.checkpoints,
