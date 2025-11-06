@@ -1,8 +1,8 @@
 import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { RestArkProvider } from "@arkade-os/sdk";
+import { RestArkProvider, RestIndexerProvider } from "@arkade-os/sdk";
 import { ArkService } from "./ark.service";
-import { ARK_PROVIDER } from "./ark.constants";
+import { ARK_PROVIDER, INDEXER_PROVIDER } from "./ark.constants";
 import { ArkFundingWatcher } from "./funding-watcher.service";
 
 @Module({
@@ -15,6 +15,16 @@ import { ArkFundingWatcher } from "./funding-watcher.service";
 				const arkServerUrl = cfg.get<string>("ARK_SERVER_URL");
 				Logger.log(`ARK_SERVER_URL=${arkServerUrl}`);
 				return new RestArkProvider(
+					arkServerUrl ?? "https://mutinynet.arkade.sh",
+				);
+			},
+		},
+		{
+			provide: INDEXER_PROVIDER,
+			inject: [ConfigService],
+			useFactory: (cfg: ConfigService) => {
+				const arkServerUrl = cfg.get<string>("ARK_SERVER_URL");
+				return new RestIndexerProvider(
 					arkServerUrl ?? "https://mutinynet.arkade.sh",
 				);
 			},

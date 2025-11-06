@@ -15,7 +15,7 @@ import {
 import { base64, hex } from "@scure/base";
 import { TransactionOutput } from "@scure/btc-signer/psbt";
 
-import { ARK_PROVIDER } from "./ark.constants";
+import { ARK_PROVIDER, INDEXER_PROVIDER } from "./ark.constants";
 import { Contract } from "../common/Contract.type";
 import { ActionType } from "../common/Action.type";
 import * as signutils from "../common/signatures";
@@ -64,10 +64,11 @@ export type EscrowTransaction = {
 export class ArkService {
 	private readonly logger = new Logger(ArkService.name);
 	private arkInfo: ArkInfo | undefined;
-	private indexerProvider?: RestIndexerProvider = undefined;
 
 	constructor(
 		@Inject(ARK_PROVIDER) private readonly provider: RestArkProvider,
+		@Inject(INDEXER_PROVIDER)
+		private readonly indexerProvider: RestIndexerProvider,
 	) {}
 
 	async onModuleInit() {
@@ -76,7 +77,6 @@ export class ArkService {
 			this.logger.log(
 				`ARK provider version ${this.arkInfo.version} connected to ${this.arkInfo.network}`,
 			);
-			this.indexerProvider = new RestIndexerProvider(this.provider.serverUrl);
 		} catch (cause) {
 			throw new Error("Failed to connect to Ark provider", { cause });
 		}
@@ -111,7 +111,7 @@ export class ArkService {
 		return vtxos.filter(
 			(_) =>
 				// spentBy can be an empty string
-				(_.spentBy?.length ?? 0) === 0,
+				(_.spentBy?.length ?? 0) === 0 && !_.isSpent,
 		);
 	}
 
