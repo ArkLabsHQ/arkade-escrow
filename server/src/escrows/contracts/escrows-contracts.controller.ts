@@ -4,6 +4,7 @@ import {
 	ConflictException,
 	Controller,
 	DefaultValuePipe,
+	Delete,
 	ForbiddenException,
 	Get,
 	HttpCode,
@@ -22,6 +23,7 @@ import {
 	ApiBody,
 	ApiConflictResponse,
 	ApiCreatedResponse,
+	ApiExtraModels,
 	ApiForbiddenResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
@@ -67,8 +69,17 @@ import {
 	SseEvent,
 } from "../../common/server-sent-events.service";
 import { map, Observable } from "rxjs";
+import { CancelRejectExcrowContractDto } from "./dto/cancel-reject-excrow-contract.dto";
 
 @ApiTags("2 - Escrow Contracts")
+@ApiExtraModels(
+	GetEscrowContractDto,
+	GetExecutionByContractDto,
+	SignExecutionInDto,
+	DraftEscrowContractOutDto,
+	ExecuteEscrowContractOutDto,
+	CancelRejectExcrowContractDto,
+)
 @Controller("api/v1/escrows/contracts")
 export class EscrowsContractsController {
 	private readonly logger = new Logger(EscrowsContractsController.name);
@@ -269,7 +280,7 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
-	@Post(":contractId/accept")
+	@Patch(":contractId/accept")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
 	@ApiOperation({ summary: "Enter a draft contract by externalId" })
@@ -292,20 +303,14 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
-	@Post(":contractId/reject")
+	@Patch(":contractId/reject")
 	@UseGuards(AuthGuard)
 	@ApiBearerAuth()
-	@ApiOperation({ summary: "Reject a draft contract by externalId" })
-	@ApiParam({ name: "contractId", description: "Contract external id" })
-	@ApiBody({
-		type: "object",
-		schema: {
-			properties: {
-				reason: { type: "string" },
-			},
-			required: ["reason"],
-		},
+	@ApiOperation({
+		summary: "Counterparty rejects a draft contract by externalId",
 	})
+	@ApiParam({ name: "contractId", description: "Contract external id" })
+	@ApiBody({ type: CancelRejectExcrowContractDto })
 	@ApiOkResponse({
 		description: "Contract rejected",
 		schema: getSchemaPathForDto(GetEscrowContractDto),
@@ -316,7 +321,61 @@ export class EscrowsContractsController {
 	async rejectContract(
 		@UserFromJwt() user: User,
 		@Param("contractId") contractId: string,
-		@Body() dto: { reason: string },
+		@Body() dto: CancelRejectExcrowContractDto,
+	): Promise<ApiEnvelope<GetEscrowContractDto>> {
+		const contract = await this.service.rejectDraftContract({
+			externalId: contractId,
+			rejectorPubkey: user.publicKey,
+			reason: dto.reason,
+		});
+		return envelope(contract);
+	}
+
+	@Patch(":contractId/recede")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({
+		summary: "Any party recedes from a contract without funds.",
+	})
+	@ApiParam({ name: "contractId", description: "Contract external id" })
+	@ApiBody({ type: CancelRejectExcrowContractDto })
+	@ApiOkResponse({
+		description: "Contract canceled",
+		schema: getSchemaPathForDto(GetEscrowContractDto),
+	})
+	@HttpCode(200)
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiNotFoundResponse({ description: "Escrow contract not found" })
+	async recedeFromContract(
+		@UserFromJwt() user: User,
+		@Param("contractId") contractId: string,
+		@Body() dto: CancelRejectExcrowContractDto,
+	): Promise<ApiEnvelope<GetEscrowContractDto>> {
+		const contract = await this.service.recedFromContract({
+			externalId: contractId,
+			rejectorPubkey: user.publicKey,
+			reason: dto.reason,
+		});
+		return envelope(contract);
+	}
+
+	@Patch(":contractId/cancel")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Creator cancels a draft contract by externalId" })
+	@ApiParam({ name: "contractId", description: "Contract external id" })
+	@ApiBody({ type: CancelRejectExcrowContractDto })
+	@ApiOkResponse({
+		description: "Contract rejected",
+		schema: getSchemaPathForDto(GetEscrowContractDto),
+	})
+	@HttpCode(200)
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiNotFoundResponse({ description: "Escrow contract not found" })
+	async cancelContract(
+		@UserFromJwt() user: User,
+		@Param("contractId") contractId: string,
+		@Body() dto: CancelRejectExcrowContractDto,
 	): Promise<ApiEnvelope<GetEscrowContractDto>> {
 		const contract = await this.service.rejectDraftContract({
 			externalId: contractId,

@@ -165,7 +165,7 @@ export function MessageProvider({
 										result.result,
 										event.origin,
 									),
-								5000,
+								2000,
 							);
 							break;
 						}

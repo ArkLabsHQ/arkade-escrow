@@ -106,7 +106,7 @@ describe("AuthGuard", () => {
 
 		await expect(
 			authGuard.canActivate(context as ExecutionContext),
-		).rejects.toThrow(new UnauthorizedException("User has pending challenge"));
+		).rejects.toThrow(new UnauthorizedException("User doesn't exist"));
 	});
 
 	it("should throw UnauthorizedException if the user has a pending challenge", async () => {
@@ -115,7 +115,7 @@ describe("AuthGuard", () => {
 		})) as unknown as typeof jwtService.verify;
 		userRepository.findOne.mockResolvedValue({
 			id: "123",
-			pendingChallenge: true,
+			pendingChallenge: "acbde",
 		} as unknown as User);
 
 		const context: Partial<ExecutionContext> = {
@@ -138,7 +138,6 @@ describe("AuthGuard", () => {
 		})) as unknown as typeof jwtService.verify;
 		userRepository.findOne.mockResolvedValue({
 			id: "123",
-			pendingChallenge: false,
 			publicKey: "public_key",
 		} as unknown as User);
 

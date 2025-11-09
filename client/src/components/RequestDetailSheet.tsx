@@ -97,7 +97,7 @@ export const RequestDetailSheet = ({
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Your Role</p>
 								<p className="text-base font-medium text-foreground">
-									You are the {myRole} in this escrow
+									You will be the {myRole} in this escrow
 								</p>
 							</div>
 						</div>

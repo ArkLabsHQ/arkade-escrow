@@ -49,6 +49,11 @@ export class GetEscrowContractDto {
 	virtualCoins?: VirtualCoin[];
 
 	@ApiProperty({
+		description: "Which side created the contract",
+	})
+	createdBy!: string;
+
+	@ApiProperty({
 		description: "Unix epoch in milliseconds",
 		example: 1732690234123,
 	})

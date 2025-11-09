@@ -6,9 +6,9 @@ import {
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-} from "./ui/sheet";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+} from "../ui/sheet";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
 	ArrowDownLeft,
 	ArrowUpRight,
@@ -27,37 +27,32 @@ import {
 	Scale,
 } from "lucide-react";
 import { format } from "date-fns";
-import { Separator } from "./ui/separator";
+import { Separator } from "../ui/separator";
 import { toast } from "sonner";
-import { ContractActionModal } from "./ContractActionModal";
+import { ContractActionModal } from "../ContractActionModal";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-} from "./ui/collapsible";
+} from "../ui/collapsible";
 import {
 	ApiPaginatedEnvelope,
 	GetArbitrationDto,
 	GetEscrowContractDto,
 	GetExecutionByContractDto,
+	Side,
 } from "@/types/api";
 import { Me } from "@/types/me";
-import { shortKey } from "@/lib/utils";
+import { getCounterParty, shortKey } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import Config from "@/Config";
 import { useMessageBridge } from "@/components/MessageBus";
+import ContractActions, {
+	ContractAction,
+} from "@/components/ContractDetailSheet/ContractActions";
 
-export type ContractAction =
-	| "accept"
-	| "execute"
-	| "approve"
-	| "reject"
-	| "recede"
-	| "dispute"
-	| "create-execution-for-dispute";
-
-interface ContractDetailSheetProps {
+type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -73,7 +68,7 @@ interface ContractDetailSheetProps {
 		},
 	) => void;
 	me: Me;
-}
+};
 
 export const ContractDetailSheet = ({
 	contract,
@@ -82,9 +77,11 @@ export const ContractDetailSheet = ({
 	onContractAction,
 	me,
 }: ContractDetailSheetProps) => {
-	const { fundAddress, walletAddress, xPublicKey } = useMessageBridge();
+	const { fundAddress, walletAddress } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
-	const [currentAction, setCurrentAction] = useState<ContractAction>("execute");
+	const [currentAction, setCurrentAction] = useState<
+		ContractAction | undefined
+	>();
 
 	const { data: dataExecutions, isError } = useQuery({
 		queryKey: ["contract-executions", contract?.externalId],
@@ -139,24 +136,7 @@ export const ContractDetailSheet = ({
 	const isFundingMet = fundedAmount ? fundedAmount >= contract.amount : false;
 	const fundingDifference = fundedAmount ? fundedAmount - contract.amount : 0;
 
-	const getCounterParty = () => {
-		switch (contract.side) {
-			case "receiver":
-				if (me.isMyPubkey(contract.receiverPublicKey)) {
-					return ["receiver", contract.senderPublicKey];
-				}
-				return ["sender", contract.receiverPublicKey];
-			case "sender":
-				if (me.isMyPubkey(contract.senderPublicKey)) {
-					return ["sender", contract.receiverPublicKey];
-				}
-				return ["receiver", contract.senderPublicKey];
-			default:
-				return ["Unknown", "unknown"];
-		}
-	};
-
-	const [yourSide, counterParty] = getCounterParty();
+	const { yourSide, counterParty, createdByMe } = getCounterParty(me, contract);
 	const currentExecution = dataExecutions?.data.find((execution) =>
 		execution.status.startsWith("pending-"),
 	);
@@ -193,12 +173,16 @@ export const ContractDetailSheet = ({
 		fundAddress(contract.arkAddress, contract.amount);
 	};
 
-	const handleActionClick = (action: typeof currentAction) => {
+	const handleActionClick = (action: ContractAction) => {
 		setCurrentAction(action);
 		setActionModalOpen(true);
 	};
 
 	const handleActionConfirm = async (data?: { reason?: string }) => {
+		if (!currentAction) {
+			console.warn("No current action selected");
+			return;
+		}
 		try {
 			onContractAction(currentAction, {
 				contractId: contract.externalId,
@@ -230,9 +214,9 @@ export const ContractDetailSheet = ({
 				return "bg-blue-500/10 text-blue-500 border-blue-500/20";
 			case "draft":
 				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-			case "canceled-by-sender":
-			case "canceled-by-receiver":
-			case "canceled-by-arbiter":
+			case "canceled-by-creator":
+			case "rejected-by-counterparty":
+			case "voided-by-arbiter":
 			case "under-arbitration":
 				return "bg-destructive/10 text-destructive border-destructive/20";
 			default:
@@ -276,9 +260,36 @@ export const ContractDetailSheet = ({
 				return "The initator has not signed the transaction yet";
 			}
 			case "created":
-				return "Created";
+				if (yourSide === "sender") {
+					return "Created, waiting for funds";
+				}
+				return "Created, waiting for funds";
 			case "draft":
-				return "Draft";
+				if (createdByMe) {
+					return "Draft, waiting for the counterparty to accept it";
+				}
+				return "Draft, waiting for you to accept it";
+			case "canceled-by-creator":
+				if (createdByMe) {
+					return "The contract was canceled by you";
+				}
+				return "The contract was canceled by the creator";
+			case "rejected-by-counterparty":
+				if (createdByMe) {
+					return "The contract was rejected by the counterparty";
+				}
+				return "The contract was rejected by you";
+			case "rescinded-by-creator":
+				if (createdByMe) {
+					return "You rescinded the contract";
+				}
+				return "The contract was rescinded by the creator";
+			case "rescinded-by-counterparty":
+				if (createdByMe) {
+					return "The contract was rescinded by the counterparty";
+				}
+				return "You rescinded the contract";
+
 			default:
 				return status;
 		}
@@ -309,9 +320,6 @@ export const ContractDetailSheet = ({
 							)}
 						</div>
 					</div>
-					<SheetDescription className="text-base">
-						Review your contract details and transaction information
-					</SheetDescription>
 				</SheetHeader>
 
 				<div className="mt-8 space-y-6">
@@ -371,12 +379,6 @@ export const ContractDetailSheet = ({
 					{/* Details Section */}
 					<div className="space-y-4">
 						<div className="flex items-start gap-3">
-							<Badge
-								className={getStatusColor(contract.status)}
-								variant="outline"
-							>
-								{contract.status}
-							</Badge>
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Status</p>
 								<p className="text-base font-medium text-foreground">
@@ -388,12 +390,6 @@ export const ContractDetailSheet = ({
 						<Separator />
 
 						<div className="flex items-start gap-3">
-							<Badge
-								variant={contract.side === "receiver" ? "default" : "secondary"}
-								className="mt-1"
-							>
-								{contract.side}
-							</Badge>
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Your Role</p>
 								<p className="text-base font-medium text-foreground">
@@ -406,12 +402,21 @@ export const ContractDetailSheet = ({
 
 						<div className="flex items-start gap-3">
 							<User className="h-5 w-5 text-muted-foreground mt-0.5" />
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Counterparty</p>
-								<p className="text-base font-medium text-foreground">
-									{shortKey(counterParty)}
-								</p>
-							</div>
+							{createdByMe ? (
+								<div className="flex-1">
+									<p className="text-sm text-muted-foreground">Counterparty</p>
+									<p className="text-base font-medium text-foreground">
+										{shortKey(counterParty)}
+									</p>
+								</div>
+							) : (
+								<div className="flex-1">
+									<p className="text-sm text-muted-foreground">Created By</p>
+									<p className="text-base font-medium text-foreground">
+										{shortKey(counterParty)}
+									</p>
+								</div>
+							)}
 							<Button
 								variant="ghost"
 								size="sm"
@@ -699,103 +704,16 @@ export const ContractDetailSheet = ({
 
 					{/* Actions */}
 					<div className="space-y-3 pt-4">
-						{/* Draft status: Accept */}
-						{contract.status === "draft" && (
-							<Button
-								className="w-full"
-								onClick={() => handleActionClick("accept")}
-							>
-								Accept Contract
-							</Button>
-						)}
-
-						{/* Draft status: Reject */}
-						{contract.status === "draft" && (
-							<Button
-								variant="destructive"
-								className="w-full"
-								onClick={() => handleActionClick("reject")}
-							>
-								Reject Contract
-							</Button>
-						)}
-
-						{/* Created status: Recede */}
-						{contract.status === "created" && (
-							<Button
-								variant="outline"
-								className="w-full"
-								onClick={() => handleActionClick("recede")}
-							>
-								Recede from Contract
-							</Button>
-						)}
-
-						{/* Funded: Execute */}
-						{contract.status === "funded" && (
-							<Button
-								className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-								onClick={() => handleActionClick("execute")}
-							>
-								{"Execute Contract"}
-							</Button>
-						)}
-
-						{/* Pending-execution and missing signer: Approve + Dispute */}
-						{contract.status === "pending-execution" &&
-							!currentExecution?.transaction.approvedByPubKeys.includes(
-								xPublicKey ?? "",
-							) && (
-								<Button
-									className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-									onClick={() => handleActionClick("approve")}
-								>
-									{"Approve Execution"}
-								</Button>
-							)}
-
-						{/* under-arbitration, with a verdict: create an execution if your side has won */}
-						{contract.status === "under-arbitration" &&
-							currentArbitration?.verdict &&
-							((yourSide === "sender" &&
-								currentArbitration.verdict === "refund") ||
-								(yourSide === "receiver" &&
-									currentArbitration.verdict === "release")) && (
-								<Button
-									className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-									onClick={() =>
-										handleActionClick("create-execution-for-dispute")
-									}
-								>
-									{"Create Execution"}
-								</Button>
-							)}
-
-						{/* Pending-execution from server: try again */}
-						{/*{contract.status === "pending-execution" &&*/}
-						{/*	!currentExecution?.status.startsWith(*/}
-						{/*		"pending-server-confirmation",*/}
-						{/*	) && (*/}
-						{/*		<Button*/}
-						{/*			className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"*/}
-						{/*			onClick={() => handleActionClick("approve")}*/}
-						{/*		>*/}
-						{/*			{"Execute again"}*/}
-						{/*		</Button>*/}
-						{/*	)}*/}
-
-						{/* Funded or Pending-execution: Dispute */}
-						{(contract.status === "funded" ||
-							contract.status === "pending-execution") && (
-							<Button
-								variant="destructive"
-								className="w-full"
-								onClick={() => handleActionClick("dispute")}
-							>
-								Open Dispute
-							</Button>
-						)}
-
+						<ContractActions
+							me={me}
+							contractStatus={contract.status}
+							createdBy={contract.createdBy}
+							yourSide={yourSide}
+							counterParty={counterParty}
+							currentExecution={currentExecution}
+							currentArbitration={currentArbitration}
+							onClick={handleActionClick}
+						/>
 						{/* Close button - always visible */}
 						<Button
 							variant="ghost"
@@ -808,12 +726,14 @@ export const ContractDetailSheet = ({
 				</div>
 			</SheetContent>
 
-			<ContractActionModal
-				open={actionModalOpen}
-				onOpenChange={setActionModalOpen}
-				actionType={currentAction}
-				onConfirm={handleActionConfirm}
-			/>
+			{currentAction && (
+				<ContractActionModal
+					open={actionModalOpen}
+					onOpenChange={setActionModalOpen}
+					actionType={currentAction}
+					onConfirm={handleActionConfirm}
+				/>
+			)}
 		</Sheet>
 	);
 };

@@ -50,12 +50,13 @@ type ContractStatus =
 	// receiver didn't sign the spending path
 	| "timed-out-receiver"
 
-	// canceled by the sender
-	| "canceled-by-sender"
-	// canceled by the receiver
-	| "canceled-by-receiver"
+	//
+	| "canceled-by-creator"
+	| "rejected-by-counterparty"
+	| "rescinded-by-creator"
+	| "rescinded-by-counterparty"
 	// canceled by the arbiter
-	| "canceled-by-arbiter"
+	| "voided-by-arbiter"
 
 	// dispute
 	| "under-arbitration";
@@ -72,6 +73,7 @@ export type GetEscrowContractDto = {
 	status: ContractStatus;
 	cancelationReason?: string;
 	virtualCoins?: VirtualCoin[];
+	createdBy: string;
 	createdAt: number;
 	updatedAt: number;
 };

@@ -10,7 +10,7 @@ const StatusBadge = ({ status, type = "contract" }: StatusBadgeProps) => {
     // Contract statuses
     if (type === "contract") {
       if (["completed"].includes(status)) return "success";
-      if (["under-arbitration", "canceled-by-arbiter"].includes(status)) return "destructive";
+      if (["under-arbitration", "voided-by-arbiter"].includes(status)) return "destructive";
       if (["canceled-by-creator", "rejected-by-counterparty"].includes(status)) return "warning";
       if (["pending-execution", "funded", "created"].includes(status)) return "default";
       return "secondary";

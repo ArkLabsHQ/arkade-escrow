@@ -82,7 +82,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
 			case "canceled-by-sender":
 			case "canceled-by-receiver":
-			case "canceled-by-arbiter":
+			case "voided-by-arbiter":
 			case "under-arbitration":
 				return "bg-destructive/10 text-destructive border-destructive/20";
 			default:

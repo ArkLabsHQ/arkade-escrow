@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { AlertTriangle, CheckCircle, Shield } from "lucide-react";
-import { ContractAction } from "@/components/ContractDetailSheet";
+import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
 interface ContractActionModalProps {
 	open: boolean;
@@ -29,22 +29,14 @@ export const ContractActionModal = ({
 	const [reason, setReason] = useState("");
 
 	const handleConfirm = () => {
-		if (
-			actionType === "reject" ||
-			actionType === "dispute" ||
-			actionType === "recede"
-		) {
-			onConfirm({ reason });
-		} else {
-			onConfirm();
-		}
+		onConfirm({ reason });
 		setReason("");
 		onOpenChange(false);
 	};
 
 	const getConfig = () => {
 		switch (actionType) {
-			case "accept":
+			case "accept-draft":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
 					title: "Accept Contract",
@@ -54,6 +46,31 @@ export const ContractActionModal = ({
 					confirmText: "Accept Contract",
 					confirmVariant: "default" as const,
 				};
+			case "reject-draft":
+				return {
+					icon: <AlertTriangle className="h-12 w-12 text-destructive" />,
+					title: "Reject Contract",
+					description:
+						"You're about to reject the contract. This action cannot be undone.",
+					requiresInput: true,
+					inputLabel: "Reason for rejecing",
+					inputPlaceholder: "Explain why you're rejecting this contract...",
+					confirmText: "Reject Contract",
+					confirmVariant: "destructive" as const,
+				};
+			case "cancel-draft":
+				return {
+					icon: <AlertTriangle className="h-12 w-12 text-destructive" />,
+					title: "Cancel Contract",
+					description:
+						"You're about to cancel the contract. This action cannot be undone.",
+					requiresInput: true,
+					inputLabel: "Reason for canceling",
+					inputPlaceholder: "Explain why you're canceling this contract...",
+					confirmText: "Cancel Contract",
+					confirmVariant: "destructive" as const,
+				};
+			// qui
 			case "execute":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
@@ -74,19 +91,7 @@ export const ContractActionModal = ({
 					confirmText: "Approve Execution",
 					confirmVariant: "default" as const,
 				};
-			case "reject":
-				return {
-					icon: <AlertTriangle className="h-12 w-12 text-destructive" />,
-					title: "Reject Contract",
-					description:
-						"Please provide a reason for rejecting this contract. This action cannot be undone.",
-					requiresInput: true,
-					inputLabel: "Reason for rejection",
-					inputPlaceholder: "Explain why you're rejecting this contract...",
-					confirmText: "Reject Contract",
-					confirmVariant: "destructive" as const,
-				};
-			case "recede":
+			case "recede-created":
 				return {
 					icon: <AlertTriangle className="h-12 w-12 text-muted-foreground" />,
 					title: "Recede from Contract",

@@ -131,6 +131,7 @@ export class EscrowsContractsService {
 			senderPubkey: input.senderPubkey,
 			receiverPubkey: input.receiverPubkey,
 			amount: input.amount ?? 0,
+			createdBy: input.initiator,
 		});
 		this.events.emit(CONTRACT_DRAFTED_ID, {
 			eventId: randomUUID(),
@@ -162,24 +163,28 @@ export class EscrowsContractsService {
 		if (!draft) {
 			throw new NotFoundException(`Contract ${externalId} not found`);
 		}
-		// if (draft.status !== "draft" || draft.status !== "funded") {
-		// 	throw new UnprocessableEntityException(
-		// 		`Contract ${externalId} is not in draft status`,
-		// 	);
-		// }
-		if (acceptorPubkey === this.arbitratorPublicKey) {
-			throw new ForbiddenException(
-				"Cannot create a contract with the arbitrator as sender",
+		if (draft.status !== "draft") {
+			throw new UnprocessableEntityException(
+				`Contract ${externalId} is not in draft status`,
 			);
 		}
-		// if (
-		// 	acceptorPubkey !== draft.senderPubkey ||
-		// 	acceptorPubkey !== draft.receiverPubkey
-		// ) {
-		// 	throw new ForbiddenException(
-		// 		"Only the sender or receiver can accept the contract",
-		// 	);
-		// }
+		if (
+			acceptorPubkey !== draft.senderPubkey &&
+			acceptorPubkey !== draft.receiverPubkey
+		) {
+			throw new ForbiddenException(
+				"Only the sender or receiver can accept the contract",
+			);
+		}
+		if (
+			(acceptorPubkey === draft.senderPubkey && draft.createdBy === "sender") ||
+			(acceptorPubkey === draft.receiverPubkey &&
+				draft.createdBy === "receiver")
+		) {
+			throw new ForbiddenException(
+				"Only the counterparty can accept the contract - you created this draft contrasct",
+			);
+		}
 
 		this.logger.debug(
 			`Creating contract from draft ${draft.externalId} with acceptor ${acceptorPubkey}`,
@@ -224,19 +229,10 @@ export class EscrowsContractsService {
 			description: persisted.request.description,
 			arkAddress: persisted.arkAddress,
 			status: persisted.status,
+			createdBy: persisted.createdBy,
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
 		};
-	}
-
-	static isContractParty(pubkey: string, contract: EscrowContract): boolean {
-		return (
-			pubkey === contract.senderPubkey || pubkey === contract.receiverPubkey
-		);
-	}
-
-	static isSender(pubkey: string, contract: EscrowContract): boolean {
-		return pubkey === contract.senderPubkey;
 	}
 
 	async rejectDraftContract({
@@ -297,6 +293,83 @@ export class EscrowsContractsService {
 			description: persisted.request.description,
 			arkAddress: persisted.arkAddress,
 			status: persisted.status,
+			createdBy: persisted.createdBy,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
+	}
+
+	async recedFromContract({
+		externalId,
+		rejectorPubkey,
+		reason,
+	}: {
+		externalId: string;
+		rejectorPubkey: string;
+		reason: string;
+	}): Promise<GetEscrowContractDto> {
+		const created = await this.getOneForPartyAndStatus(
+			externalId,
+			rejectorPubkey,
+			"created",
+		);
+
+		if (!created || !created.arkAddress) {
+			throw new NotFoundException(
+				`Contract ${externalId} with status 'created' not found for ${rejectorPubkey}`,
+			);
+		}
+
+		const coins = await this.arkService.getSpendableVtxoForContract(
+			ArkAddress.decode(created.arkAddress),
+		);
+
+		if (coins.length > 0) {
+			throw new ForbiddenException(
+				`Contract ${externalId} is funded, cannot reced from it`,
+			);
+		}
+
+		const isCreator = this.isContractCreator(rejectorPubkey, created);
+
+		await this.contractRepository.update(
+			{ externalId: created.externalId },
+			{
+				status: isCreator
+					? "rescinded-by-creator"
+					: "rescinded-by-counterparty",
+				cancelationReason: reason,
+			},
+		);
+
+		this.events.emit(CONTRACT_VOIDED_ID, {
+			eventId: randomUUID(),
+			contractId: created.externalId,
+			// there shouldn't be an arkAddress here
+			arkAddress: created.arkAddress
+				? ArkAddress.decode(created.arkAddress)
+				: undefined,
+			reason,
+			voidedAt: new Date().toISOString(),
+		} satisfies ContractVoided);
+
+		const persisted = await this.contractRepository.findOne({
+			where: { externalId: created.externalId },
+		});
+		if (!persisted) {
+			throw new InternalServerErrorException("Contract not found after update");
+		}
+		return {
+			externalId: persisted.externalId,
+			requestId: persisted.request.externalId,
+			senderPublicKey: persisted.senderPubkey,
+			receiverPublicKey: persisted.receiverPubkey,
+			amount: persisted.amount,
+			side: persisted.request.side,
+			description: persisted.request.description,
+			arkAddress: persisted.arkAddress,
+			status: persisted.status,
+			createdBy: persisted.createdBy,
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
 		};
@@ -395,6 +468,7 @@ export class EscrowsContractsService {
 			arkAddress: r.arkAddress,
 			virtualCoins: r.virtualCoins,
 			balance: r.virtualCoins?.reduce((a, _) => a + _.value, 0) ?? 0,
+			createdBy: r.createdBy,
 			createdAt: r.createdAt.getTime(),
 			updatedAt: r.updatedAt.getTime(),
 		}));
@@ -783,6 +857,7 @@ export class EscrowsContractsService {
 			description: contract.request.description,
 			cancelationReason: contract.cancelationReason,
 			virtualCoins: contract.virtualCoins,
+			createdBy: contract.createdBy,
 			createdAt: contract.createdAt.getTime(),
 			updatedAt: contract.updatedAt.getTime(),
 		};

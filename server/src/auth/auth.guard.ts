@@ -43,7 +43,10 @@ export class AuthGuard implements CanActivate {
 		}
 		// TODO: check if JWT has expired
 		const user = await this.users.findOne({ where: { id: payload?.sub } });
-		if (!user || user.pendingChallenge) {
+		if (!user) {
+			throw new UnauthorizedException("User doesn't exist");
+		}
+		if (user.pendingChallenge) {
 			throw new UnauthorizedException("User has pending challenge");
 		}
 		(req as unknown as { user: AuthUser }).user = {

@@ -23,13 +23,16 @@ export const CONTRACT_STATUS = [
 	// execution settled, all unspent VTXO have been spent
 	"completed",
 
-	// Cancelation occurs after `created` or 'funded'
-	// TODO:    How do we instruct the server to give the funds back in case of a cancellation?
-	//          Probably the exit delay will guarantee that the funds are returned if the contract is never settled.
+	// Cancelation possible only for `draft`
 	"canceled-by-creator",
 	"rejected-by-counterparty",
+
+	// Rescission possible only for `created`
+	"rescinded-by-creator",
+	"rescinded-by-counterparty",
+
 	// canceled by the arbiter
-	"canceled-by-arbiter",
+	"voided-by-arbiter",
 
 	"under-arbitration",
 
@@ -74,6 +77,9 @@ export class EscrowContract {
 
 	@Column({ type: "simple-json", nullable: true })
 	virtualCoins?: VirtualCoin[];
+
+	@Column({ type: "text" })
+	createdBy!: "sender" | "receiver";
 
 	@CreateDateColumn()
 	createdAt!: Date;

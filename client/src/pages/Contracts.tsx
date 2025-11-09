@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { ContractCard } from "@/components/ContractCard";
-import {
-	ContractAction,
-	ContractDetailSheet,
-} from "@/components/ContractDetailSheet";
+import { ContractDetailSheet } from "@/components/ContractDetailSheet";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -34,6 +31,7 @@ import {
 	ApiEnvelope,
 	ApiEnvelopeShellDto,
 } from "../../../server/src/common/dto/envelopes";
+import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
 const Contracts = () => {
 	const { signTransaction } = useMessageBridge();
@@ -178,7 +176,7 @@ const Contracts = () => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const res = await axios.post<GetEscrowContractDto>(
+			const res = await axios.patch<GetEscrowContractDto>(
 				`${Config.apiBaseUrl}/escrows/contracts/${contractId}/accept`,
 				{},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
@@ -298,10 +296,41 @@ const Contracts = () => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const r = await axios.post(
+			const r = await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/reject`,
 				{
-					contractId: input.contractId,
+					reason: input.reason,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			console.log(r);
+		},
+	});
+
+	const cancelContract = useMutation({
+		mutationFn: async (input: { contractId: string; reason: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const r = await axios.patch(
+				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/cancel`,
+				{
+					reason: input.reason,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			console.log(r);
+		},
+	});
+
+	const recedeFromContract = useMutation({
+		mutationFn: async (input: { contractId: string; reason: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const r = await axios.patch(
+				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/recede`,
+				{
 					reason: input.reason,
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
@@ -487,17 +516,31 @@ const Contracts = () => {
 					},
 				) => {
 					switch (action) {
-						case "accept": {
+						case "accept-draft": {
 							acceptContract.mutate(contractId, {
-								onSuccess: (d) => {
+								onSuccess: (_) => {
 									toast.success("Contract accepted successfully");
-									// setRefreshKey(refreshKey + 1);
 								},
-								onError: (error) => {
+								onError: (_) => {
+									console.error(error);
 									toast.error("Failed to accept contract");
 								},
 								onSettled: () => {},
 							});
+							return;
+						}
+						case "reject-draft": {
+							if (!reason) {
+								throw new Error("Reason is required for rejection");
+							}
+							rejectContract.mutate({ contractId, reason }, {});
+							return;
+						}
+						case "cancel-draft": {
+							if (!reason) {
+								throw new Error("Reason is required for rejection");
+							}
+							cancelContract.mutate({ contractId, reason }, {});
 							return;
 						}
 						case "execute":
@@ -549,13 +592,6 @@ const Contracts = () => {
 							}
 							disputeContract.mutate({ contractId, reason }, {});
 							return;
-						case "reject": {
-							if (!reason) {
-								throw new Error("Reason is required for rejection");
-							}
-							rejectContract.mutate({ contractId, reason }, {});
-							return;
-						}
 						case "create-execution-for-dispute":
 							if (!disputeId || !walletAddress) {
 								throw new Error("Wallet address is required for dispute");
@@ -565,6 +601,12 @@ const Contracts = () => {
 								disputeId,
 								arkAddress: walletAddress,
 							});
+							return;
+						case "recede-created":
+							if (!reason) {
+								throw new Error("Reason is required for receding");
+							}
+							recedeFromContract.mutate({ contractId, reason });
 							return;
 						default:
 							return Promise.reject(new Error(`Invalid action ${action}`));
