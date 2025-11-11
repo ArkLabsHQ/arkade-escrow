@@ -377,7 +377,7 @@ export class EscrowsContractsController {
 		@Param("contractId") contractId: string,
 		@Body() dto: CancelRejectExcrowContractDto,
 	): Promise<ApiEnvelope<GetEscrowContractDto>> {
-		const contract = await this.service.rejectDraftContract({
+		const contract = await this.service.cancelDraftContract({
 			externalId: contractId,
 			rejectorPubkey: user.publicKey,
 			reason: dto.reason,

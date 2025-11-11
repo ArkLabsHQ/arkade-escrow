@@ -256,12 +256,84 @@ export class EscrowsContractsService {
 			);
 		}
 
-		const isCreator = this.isContractCreator(rejectorPubkey, draft);
+		if (this.isContractCreator(rejectorPubkey, draft)) {
+			throw new ForbiddenException(
+				`Only the counterparty can reject a draft contract`,
+			);
+		}
 
 		await this.contractRepository.update(
 			{ externalId: draft.externalId },
 			{
-				status: isCreator ? "canceled-by-creator" : "rejected-by-counterparty",
+				status: "rejected-by-counterparty",
+				cancelationReason: reason,
+			},
+		);
+
+		this.events.emit(CONTRACT_VOIDED_ID, {
+			eventId: randomUUID(),
+			contractId: draft.externalId,
+			// there shouldn't be an arkAddress here
+			arkAddress: draft.arkAddress
+				? ArkAddress.decode(draft.arkAddress)
+				: undefined,
+			reason,
+			voidedAt: new Date().toISOString(),
+		} satisfies ContractVoided);
+
+		const persisted = await this.contractRepository.findOne({
+			where: { externalId: draft.externalId },
+		});
+		if (!persisted) {
+			throw new InternalServerErrorException("Contract not found after update");
+		}
+		return {
+			externalId: persisted.externalId,
+			requestId: persisted.request.externalId,
+			senderPublicKey: persisted.senderPubkey,
+			receiverPublicKey: persisted.receiverPubkey,
+			amount: persisted.amount,
+			side: persisted.request.side,
+			description: persisted.request.description,
+			arkAddress: persisted.arkAddress,
+			status: persisted.status,
+			createdBy: persisted.createdBy,
+			createdAt: persisted.createdAt.getTime(),
+			updatedAt: persisted.updatedAt.getTime(),
+		};
+	}
+
+	async cancelDraftContract({
+		externalId,
+		rejectorPubkey,
+		reason,
+	}: {
+		externalId: string;
+		rejectorPubkey: string;
+		reason: string;
+	}): Promise<GetEscrowContractDto> {
+		const draft = await this.getOneForPartyAndStatus(
+			externalId,
+			rejectorPubkey,
+			"draft",
+		);
+
+		if (!draft) {
+			throw new NotFoundException(
+				`Contract ${externalId} with status 'draft' not found for ${rejectorPubkey}`,
+			);
+		}
+
+		if (!this.isContractCreator(rejectorPubkey, draft)) {
+			throw new ForbiddenException(
+				`Only the creator can cancel a draft contract`,
+			);
+		}
+
+		await this.contractRepository.update(
+			{ externalId: draft.externalId },
+			{
+				status: "canceled-by-creator",
 				cancelationReason: reason,
 			},
 		);

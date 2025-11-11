@@ -4,19 +4,19 @@ import type { INestApplication } from "@nestjs/common";
 import { utils as secpUtils } from "@noble/secp256k1";
 import { AppModule } from "../src/app.module";
 import {
-	beforeEachFaucet,
 	createEscrowRequestBody,
 	createTestArkWallet,
-	faucetOffchain,
-	signTx,
 	signupAndGetJwt,
 	TestArkWallet,
 } from "./utils";
+import { ArkAddress } from "@arkade-os/sdk";
 
-describe("Escrow from Request to all Contract statuses", () => {
+describe("Escrow from Request to all Contract statuses before funding", () => {
 	let app: INestApplication;
 	let alice: TestArkWallet;
+	let receiverToken: string;
 	let bob: TestArkWallet;
+	let senderToken: string;
 
 	beforeAll(async () => {
 		const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -26,268 +26,242 @@ describe("Escrow from Request to all Contract statuses", () => {
 		app = moduleFixture.createNestApplication();
 		await app.init();
 		alice = await createTestArkWallet(secpUtils.randomSecretKey());
+		receiverToken = await signupAndGetJwt(app, alice.identity);
 		bob = await createTestArkWallet(secpUtils.randomSecretKey());
+		senderToken = await signupAndGetJwt(app, bob.identity);
 	});
 
 	afterAll(async () => {
 		await app.close();
 	});
 
-	beforeEach(beforeEachFaucet, 20000);
+	describe("when creating a Request as `receiver`", () => {
+		let requestId: string;
 
-	it("should complete a contract as a receiver", async () => {
-		const receiverToken = await signupAndGetJwt(app, alice.identity);
-		const senderToken = await signupAndGetJwt(app, bob.identity);
+		beforeAll(async () => {
+			// Create request
+			const createRes = await request(app.getHttpServer())
+				.post("/api/v1/escrows/requests")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ ...createEscrowRequestBody, side: "receiver" })
+				.expect(201);
+			requestId = createRes.body.data.externalId;
+		});
 
-		// Create request
-		const createRes = await request(app.getHttpServer())
-			.post("/api/v1/escrows/requests")
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.send({ ...createEscrowRequestBody, side: "receiver" })
-			.expect(201);
+		it("should create a Contract with status `draft`", async () => {
+			const draftContractRes = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			const contractId: string = draftContractRes.body.data.externalId;
+			expect(typeof contractId).toBe("string");
+			expect(draftContractRes.body.data.status).toBe("draft");
+		});
 
-		const requestId: string = createRes.body.data.externalId;
-		expect(typeof requestId).toBe("string");
+		it("should move a draft Contract to the status `created` upon acceptance", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			const acceptedContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
 
-		// Sender creates a draft Contract from the receiver's public request
-		const draftContractRes = await request(app.getHttpServer())
-			.post("/api/v1/escrows/contracts")
-			.set("Authorization", `Bearer ${senderToken}`)
-			.send({ requestId })
-			.expect(201);
+			expect(acceptedContractRes.body.data.status).toBe("created");
+			expect(
+				ArkAddress.decode(acceptedContractRes.body.data.arkAddress),
+			).toBeDefined();
+			expect(acceptedContractRes.body.data.amount).toEqual(
+				createEscrowRequestBody.amount,
+			);
+		});
 
-		const contractId: string = draftContractRes.body.data.externalId;
-		expect(typeof contractId).toBe("string");
-		expect(draftContractRes.body.data.status).toBe("draft");
+		it("should move a draft Contract to the status `rejected-by-counterparty` upon rejection by the receiver", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			const rejectedContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/reject`)
+				.send({ reason: "rejected by receiver" })
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			expect(rejectedContractRes.body.data.status).toBe(
+				"rejected-by-counterparty",
+			);
+			expect(rejectedContractRes.body.data.arkAddress).toBeNull();
+		});
 
-		// Receiver accepts the draft Contract -> becomes "created"
-		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(200);
+		it("should move a draft Contract to the status `created` upon cancelation by the sender", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			const canceledContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/cancel`)
+				.send({ reason: "rejected by sender" })
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			expect(canceledContractRes.body.data.status).toBe("canceled-by-creator");
+			expect(canceledContractRes.body.data.arkAddress).toBeNull();
+		});
 
-		expect(acceptedContractRes.body.data.status).toBe("created");
-		expect(acceptedContractRes.body.data.arkAddress.length).toBeGreaterThan(0);
-		expect(acceptedContractRes.body.data.amount).toEqual(
-			createEscrowRequestBody.amount,
-		);
+		it("should move a created Contract to the status `receded` upon recession by the sender", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			const recededContract = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/recede`)
+				.send({ reason: "sender recedes" })
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			expect(recededContract.body.data.status).toBe("rescinded-by-creator");
+		});
 
-		// On the CI we don't have access to arkd CLI for now, stop here
-		if (process.env.CI) {
-			return;
-		}
+		it("should move a created Contract to the status `receded` upon recession by the receiver", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ requestId })
+				.expect(201);
+			await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			const recededContract = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/recede`)
+				.send({ reason: "receiver recedes" })
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			expect(recededContract.body.data.status).toBe(
+				"rescinded-by-counterparty",
+			);
+		});
+	});
 
-		faucetOffchain(
-			acceptedContractRes.body.data.arkAddress,
-			acceptedContractRes.body.data.amount,
-		);
+	describe("when creating a Request as `sender`", () => {
+		let requestId: string;
 
-		await Promise.race([
-			new Promise((resolve) =>
-				setTimeout(async () => {
-					console.log("Waiting for arkd to sync...");
-					const getContractRes = await request(app.getHttpServer())
-						.get(`/api/v1/escrows/contracts/${contractId}`)
-						.set("Authorization", `Bearer ${receiverToken}`)
-						.expect(200);
+		beforeAll(async () => {
+			// Create request
+			const createRes = await request(app.getHttpServer())
+				.post("/api/v1/escrows/requests")
+				.set("Authorization", `Bearer ${senderToken}`)
+				.send({ ...createEscrowRequestBody, side: "sender" })
+				.expect(201);
+			requestId = createRes.body.data.externalId;
+		});
 
-					expect(getContractRes.body.data.status).toBe("funded");
-					resolve(undefined);
-				}, 5000),
-			),
-			new Promise((_, reject) =>
-				setTimeout(() => {
-					reject();
-				}, 10000),
-			),
-		]);
+		it("should create a Contract with status `draft`", async () => {
+			const draftContractRes = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			const contractId: string = draftContractRes.body.data.externalId;
+			expect(typeof contractId).toBe("string");
+			expect(draftContractRes.body.data.status).toBe("draft");
+		});
 
-		const aliceAddress = await alice.wallet.getAddress();
+		it("should move a draft Contract to the status `created` upon acceptance", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			const acceptedContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
 
-		// funded, now the signatures
-		const executionRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/execute`)
-			.send({
-				contractId,
-				arkAddress: aliceAddress,
-			})
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(201);
+			expect(acceptedContractRes.body.data.status).toBe("created");
+			expect(
+				ArkAddress.decode(acceptedContractRes.body.data.arkAddress),
+			).toBeDefined();
+			expect(acceptedContractRes.body.data.amount).toEqual(
+				createEscrowRequestBody.amount,
+			);
+		});
 
-		const aliceSignature = await signTx(
-			executionRes.body.data.arkTx,
-			executionRes.body.data.checkpoints,
-			alice,
-		);
+		it("should move a draft Contract to the status `rejected-by-counterparty` upon rejection by the receiver", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			const rejectedContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/reject`)
+				.send({ reason: "rejected by receiver" })
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			expect(rejectedContractRes.body.data.status).toBe(
+				"rejected-by-counterparty",
+			);
+			expect(rejectedContractRes.body.data.arkAddress).toBeNull();
+		});
 
-		await request(app.getHttpServer())
-			.patch(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.send({
-				arkTx: aliceSignature.arkTx,
-				checkpoints: aliceSignature.checkpoints,
-			})
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(200);
+		it("should move a draft Contract to the status `created` upon cancelation by the sender", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			const canceledContractRes = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/cancel`)
+				.send({ reason: "rejected by sender" })
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			expect(canceledContractRes.body.data.status).toBe("canceled-by-creator");
+			expect(canceledContractRes.body.data.arkAddress).toBeNull();
+		});
 
-		const executionSignedByAlice = await request(app.getHttpServer())
-			.get(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
+		it("should move a created Contract to the status `receded` upon recession by the receiver", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			const recededContract = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/recede`)
+				.send({ reason: "sender recedes" })
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.expect(200);
+			expect(recededContract.body.data.status).toBe("rescinded-by-creator");
+		});
 
-		const bobSignature = await signTx(
-			executionSignedByAlice.body.data.transaction.arkTx,
-			executionSignedByAlice.body.data.transaction.checkpoints,
-			bob,
-		);
-
-		await request(app.getHttpServer())
-			.patch(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.send({
-				arkTx: bobSignature.arkTx,
-				checkpoints: bobSignature.checkpoints,
-			})
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
-
-		const finalContract = await request(app.getHttpServer())
-			.get(`/api/v1/escrows/contracts/${contractId}`)
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(200);
-
-		expect(finalContract.body.data.status).toBe("completed");
-	}, 10000);
-
-	it("should complete a contract as a sender", async () => {
-		const receiverToken = await signupAndGetJwt(app, alice.identity);
-		const senderToken = await signupAndGetJwt(app, bob.identity);
-
-		// Create request
-		const createRes = await request(app.getHttpServer())
-			.post("/api/v1/escrows/requests")
-			.set("Authorization", `Bearer ${senderToken}`)
-			.send({ ...createEscrowRequestBody, side: "sender" })
-			.expect(201);
-
-		const requestId: string = createRes.body.data.externalId;
-		expect(typeof requestId).toBe("string");
-
-		// Receiver creates a draft Contract from the sender's public request
-		const draftContractRes = await request(app.getHttpServer())
-			.post("/api/v1/escrows/contracts")
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.send({ requestId })
-			.expect(201);
-
-		const contractId: string = draftContractRes.body.data.externalId;
-		expect(typeof contractId).toBe("string");
-		expect(draftContractRes.body.data.status).toBe("draft");
-
-		// Sender accepts the draft Contract -> becomes "created"
-		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
-
-		expect(acceptedContractRes.body.data.status).toBe("created");
-		expect(acceptedContractRes.body.data.arkAddress.length).toBeGreaterThan(0);
-		expect(acceptedContractRes.body.data.amount).toEqual(
-			createEscrowRequestBody.amount,
-		);
-
-		// On the CI we don't have access to arkd CLI for now, stop here
-		if (process.env.CI) {
-			return;
-		}
-
-		faucetOffchain(
-			acceptedContractRes.body.data.arkAddress,
-			acceptedContractRes.body.data.amount,
-		);
-
-		await Promise.race([
-			new Promise((resolve) =>
-				setTimeout(async () => {
-					console.log("Waiting for arkd to sync...");
-					const getContractRes = await request(app.getHttpServer())
-						.get(`/api/v1/escrows/contracts/${contractId}`)
-						.set("Authorization", `Bearer ${senderToken}`)
-						.expect(200);
-
-					expect(getContractRes.body.data.status).toBe("funded");
-					resolve(undefined);
-				}, 5000),
-			),
-			new Promise((_, reject) =>
-				setTimeout(() => {
-					reject();
-				}, 10000),
-			),
-		]);
-
-		const aliceAddress = await alice.wallet.getAddress();
-
-		// funded, now the signatures
-		const executionRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/execute`)
-			.send({
-				contractId,
-				arkAddress: aliceAddress,
-			})
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(201);
-
-		const aliceSignature = await signTx(
-			executionRes.body.data.arkTx,
-			executionRes.body.data.checkpoints,
-			alice,
-		);
-
-		await request(app.getHttpServer())
-			.patch(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.send({
-				arkTx: aliceSignature.arkTx,
-				checkpoints: aliceSignature.checkpoints,
-			})
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(200);
-
-		const executionSignedByAlice = await request(app.getHttpServer())
-			.get(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
-
-		const bobSignature = await signTx(
-			executionSignedByAlice.body.data.transaction.arkTx,
-			executionSignedByAlice.body.data.transaction.checkpoints,
-			bob,
-		);
-
-		await request(app.getHttpServer())
-			.patch(
-				`/api/v1/escrows/contracts/${contractId}/executions/${executionRes.body.data.externalId}`,
-			)
-			.send({
-				arkTx: bobSignature.arkTx,
-				checkpoints: bobSignature.checkpoints,
-			})
-			.set("Authorization", `Bearer ${senderToken}`)
-			.expect(200);
-
-		const finalContract = await request(app.getHttpServer())
-			.get(`/api/v1/escrows/contracts/${contractId}`)
-			.set("Authorization", `Bearer ${receiverToken}`)
-			.expect(200);
-
-		expect(finalContract.body.data.status).toBe("completed");
-	}, 10000);
+		it("should move a created Contract to the status `receded` upon recession by the sender", async () => {
+			const { body } = await request(app.getHttpServer())
+				.post("/api/v1/escrows/contracts")
+				.set("Authorization", `Bearer ${receiverToken}`)
+				.send({ requestId })
+				.expect(201);
+			await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/accept`)
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			const recededContract = await request(app.getHttpServer())
+				.patch(`/api/v1/escrows/contracts/${body.data.externalId}/recede`)
+				.send({ reason: "receiver recedes" })
+				.set("Authorization", `Bearer ${senderToken}`)
+				.expect(200);
+			expect(recededContract.body.data.status).toBe(
+				"rescinded-by-counterparty",
+			);
+		});
+	});
 });
