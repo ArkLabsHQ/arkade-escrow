@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
 import { NewRequestSheet } from "@/components/NewRequestSheet";
 import { Button } from "@/components/ui/button";
-import { Inbox, FileSignature, Plus, FileText } from "lucide-react";
+import { Inbox, FileSignature, Plus, FileText, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
@@ -20,6 +20,10 @@ const Index = () => {
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [newRequestOpen, setNewRequestOpen] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
+	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [pullDistance, setPullDistance] = useState(0);
+	const touchStartY = useRef<number>(0);
+	const containerRef = useRef<HTMLDivElement>(null);
 
 	const createContractFromRequest = useMutation({
 		mutationFn: async (requestId: string) => {
@@ -131,10 +135,8 @@ const Index = () => {
 	};
 
 	const handleNewRequest = (data: any) => {
-		console.log("New request data:", data);
-		// In production, this would create the request via API
 		createRequest.mutate(data, {
-			onSuccess: (newRequest) => {
+			onSuccess: (_) => {
 				toast.success("Request created successfully!", {
 					description: "Your request is now visible in the orderbook",
 				});
@@ -150,11 +152,90 @@ const Index = () => {
 		});
 	};
 
+	const handleRefresh = useCallback(async () => {
+		setIsRefreshing(true);
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+		setIsRefreshing(false);
+		setPullDistance(0);
+		toast.success("Orderbook refreshed", {
+			description: "Latest data loaded successfully",
+		});
+	}, []);
+
+	const handleTouchStart = useCallback((e: React.TouchEvent) => {
+		const scrollTop = containerRef.current?.scrollTop || 0;
+		if (scrollTop === 0) {
+			touchStartY.current = e.touches[0].clientY;
+		}
+	}, []);
+
+	const handleTouchMove = useCallback(
+		(e: React.TouchEvent) => {
+			const scrollTop = containerRef.current?.scrollTop || 0;
+			if (scrollTop === 0 && !isRefreshing) {
+				const touchY = e.touches[0].clientY;
+				const distance = touchY - touchStartY.current;
+				if (distance > 0) {
+					setPullDistance(Math.min(distance * 0.5, 80));
+				}
+			}
+		},
+		[isRefreshing],
+	);
+
+	const handleTouchEnd = useCallback(() => {
+		if (pullDistance > 60 && !isRefreshing) {
+			handleRefresh();
+		} else {
+			setPullDistance(0);
+		}
+	}, [pullDistance, isRefreshing, handleRefresh]);
+
 	return (
 		<div className="min-h-screen bg-gradient-subtle">
 			<Header notificationCount={3} />
 
-			<main className="container px-4 py-8 md:px-6">
+			<main
+				ref={containerRef}
+				className="container px-4 py-8 md:px-6"
+				onTouchStart={handleTouchStart}
+				onTouchMove={handleTouchMove}
+				onTouchEnd={handleTouchEnd}
+				style={{
+					paddingTop: `${Math.max(32, 32 + pullDistance)}px`,
+
+					transition:
+						isRefreshing || pullDistance === 0
+							? "padding-top 0.3s ease-out"
+							: "none",
+				}}
+			>
+				{/* Pull to Refresh Indicator */}
+				<div
+					className="fixed top-16 left-1/2 -translate-x-1/2 z-50 transition-all duration-300"
+					style={{
+						opacity: pullDistance > 0 ? 1 : 0,
+						transform: `translateX(-50%) translateY(${Math.min(pullDistance - 20, 40)}px)`,
+					}}
+				>
+					<div className="bg-background/95 backdrop-blur-sm border border-border rounded-full px-4 py-2 shadow-elegant flex items-center gap-2">
+						<RefreshCw
+							className={`h-4 w-4 text-primary ${isRefreshing || pullDistance > 60 ? "animate-spin" : ""}`}
+							style={{
+								transform: `rotate(${pullDistance * 4}deg)`,
+								transition: isRefreshing ? "none" : "transform 0.1s ease-out",
+							}}
+						/>
+						<span className="text-sm font-medium text-foreground">
+							{isRefreshing
+								? "Refreshing..."
+								: pullDistance > 60
+									? "Release to refresh"
+									: "Pull to refresh"}
+						</span>
+					</div>
+				</div>
+
 				{/* Quick Actions */}
 				<div className="mb-8 flex flex-col sm:flex-row gap-3 animate-slide-up">
 					<Link
@@ -225,7 +306,7 @@ const Index = () => {
 					{/* End of list message */}
 					{!hasNextPage && (data?.pages.length ?? 0) > 0 && (
 						<div className="text-center py-8 text-muted-foreground text-sm">
-							No more contracts to load
+							No more requests to load
 						</div>
 					)}
 				</div>

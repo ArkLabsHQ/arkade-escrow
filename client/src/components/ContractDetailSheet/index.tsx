@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
-import { Contract } from "@/types/escrow";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "../ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
@@ -21,7 +14,6 @@ import {
 	XCircle,
 	CirclePause,
 	ChevronDown,
-	PauseCircle,
 	BadgeInfoIcon,
 	FileSignature,
 	Scale,
@@ -40,7 +32,6 @@ import {
 	GetArbitrationDto,
 	GetEscrowContractDto,
 	GetExecutionByContractDto,
-	Side,
 } from "@/types/api";
 import { Me } from "@/types/me";
 import { getCounterParty, shortKey } from "@/lib/utils";
@@ -136,7 +127,7 @@ export const ContractDetailSheet = ({
 				}
 			});
 		}
-	}, [contract?.status, contract?.amount]);
+	}, [contract?.status, contract?.amount, showBalanceWarning]);
 
 	if (!contract) return null;
 

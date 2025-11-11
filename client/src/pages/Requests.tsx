@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
-import { mockRequests } from "@/data/mockData";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
