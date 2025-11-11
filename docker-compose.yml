@@ -14,6 +14,11 @@ services:
       - SQLITE_DB_PATH=/app/data/db.sqlite
       - ARK_SERVER_URL=https://mutinynet.arkade.sh
       # secrets in Dockploy/envs
+      - JWT_SECRET
+      - ARBITRATOR_PUB_KEY
+      - ARBITRATOR_PRIV_KEY
+      - BACKOFFICE_BASIC_USER
+      - BACKOFFICE_BASIC_PASS
     volumes:
       - sqlite-data:/app/data
     networks:
