@@ -1,3 +1,5 @@
+import { number } from "zod";
+
 type KeepAlive = { kind: "ARKADE_KEEP_ALIVE"; timestamp: number };
 
 type RpcLoginRequest = {
@@ -30,6 +32,16 @@ type RpcArkWalletAddressResponse = {
 	method: "get-ark-wallet-address";
 	payload: {
 		arkAddress: string | null;
+	};
+};
+
+type RpcArkWalletBalanceRequest = {
+	method: "get-ark-wallet-balance";
+};
+type RpcArkWalletBalanceResponse = {
+	method: "get-ark-wallet-balance";
+	payload: {
+		available: number | null;
 	};
 };
 
@@ -79,6 +91,7 @@ type RpcRequest = {
 	| RpcXPublicKeyRequest
 	| RpcLoginRequest
 	| RpcArkWalletAddressRequest
+	| RpcArkWalletBalanceRequest
 	| RpcArkSignTransactionRequest
 	| RpcFundAddressRequest
 );
@@ -86,6 +99,7 @@ type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcLoginResponse
 	| RpcXPublicKeyResponse
 	| RpcArkWalletAddressResponse
+	| RpcArkWalletBalanceResponse
 	| RpcArkSignTransactionResponse
 	| RpcFundAddressResponse
 );
@@ -97,6 +111,7 @@ type DataMessage = { kind: "DATA" } & (
 	| { topic: "xOnlyPublicKey"; xOnlyPublicKey: string }
 	| { topic: "signedChallenge"; signedChallenge: string }
 	| { topic: "arkWalletAddress"; arkWalletAddress: string }
+	| { topic: "arkWalletBalance"; available: number }
 	| {
 			topic: "signedTransaction";
 			signedTransaction: { tx: string; checkpoints: string[] };
@@ -153,6 +168,22 @@ export default function makeMessageHandler(props: Props) {
 								kind: "DATA",
 								topic: "arkWalletAddress",
 								arkWalletAddress: payload.arkAddress,
+							},
+						};
+
+					case "get-ark-wallet-balance":
+						if (payload.available === null) {
+							return {
+								tag: "failure",
+								error: new Error(`${message.kind}/${method} returned null`),
+							};
+						}
+						return {
+							tag: "success",
+							result: {
+								kind: "DATA",
+								topic: "arkWalletBalance",
+								available: payload.available,
 							},
 						};
 

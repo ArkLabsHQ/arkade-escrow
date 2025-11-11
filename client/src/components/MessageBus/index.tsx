@@ -30,6 +30,7 @@ type MessageBridgeContextValue = {
 		transaction: Transaction,
 	) => Promise<{ tx: string; checkpoints: string[] }>;
 	fundAddress: (address: string, amount: number) => Promise<void>;
+	getWalletBalance: () => Promise<{ available: number }>;
 };
 
 const MessageBridgeContext = createContext<
@@ -76,6 +77,11 @@ export function MessageProvider({
 		null,
 	);
 	const timeoutSignatureRef = useRef<number | null>(null);
+
+	// Store pending promise handlers to avoid stale closures
+	const [walletBalance, setWalletBalance] = useState<{
+		available: number;
+	}>({ available: 0 });
 
 	const onMessage = useCallback(
 		async (event: MessageEvent) => {
@@ -126,6 +132,10 @@ export function MessageProvider({
 									);
 									setWalletAddress(resultContent.arkWalletAddress);
 									break;
+								case "arkWalletBalance":
+									console.log("[escrow] ark wallet balance", resultContent);
+									setWalletBalance({ available: resultContent.available });
+									break;
 								case "signedTransaction":
 									console.log(
 										"[escrow] signed transaction",
@@ -154,6 +164,14 @@ export function MessageProvider({
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
 										method: "get-ark-wallet-address",
+									},
+									event.origin,
+								);
+								childWindowRef.current?.postMessage(
+									{
+										kind: "ARKADE_RPC_REQUEST",
+										id: nanoid(8),
+										method: "get-ark-wallet-balance",
 									},
 									event.origin,
 								);
@@ -254,6 +272,21 @@ export function MessageProvider({
 							timeoutChallengeRef.current = null;
 							reject("timeout");
 						}, 10000);
+					});
+				},
+				getWalletBalance: () => {
+					if (!hostOrigin) return Promise.reject("app not ready");
+					childWindowRef.current?.postMessage(
+						{
+							kind: "ARKADE_RPC_REQUEST",
+							id: nanoid(8),
+							method: "get-ark-wallet-balance",
+						},
+						hostOrigin,
+					);
+					return new Promise((resolve) => {
+						// is 1s enough?
+						window.setTimeout(() => resolve(walletBalance), 1000);
 					});
 				},
 				signTransaction: (transaction: Transaction) => {

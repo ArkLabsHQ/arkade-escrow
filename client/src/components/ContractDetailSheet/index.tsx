@@ -77,8 +77,10 @@ export const ContractDetailSheet = ({
 	onContractAction,
 	me,
 }: ContractDetailSheetProps) => {
-	const { fundAddress, walletAddress } = useMessageBridge();
+	const { fundAddress, walletAddress, getWalletBalance } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
+	const [showBalanceWarning, setShowBalanceWarning] = useState(true);
+	const [walletBalance, setWalletBalance] = useState<number | null>(null);
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
@@ -120,6 +122,21 @@ export const ContractDetailSheet = ({
 		console.error(isError);
 		toast.error("Failed to load contract data");
 	}
+
+	useEffect(() => {
+		if (contract?.status === "created") {
+			const amount = contract.amount;
+			getWalletBalance().then((balance) => {
+				setWalletBalance(balance.available);
+				console.log(balance, amount);
+				if (balance.available < amount && !showBalanceWarning) {
+					setShowBalanceWarning(true);
+				} else if (showBalanceWarning) {
+					setShowBalanceWarning(false);
+				}
+			});
+		}
+	}, [contract?.status, contract?.amount]);
 
 	if (!contract) return null;
 
@@ -242,7 +259,7 @@ export const ContractDetailSheet = ({
 			case "completed":
 				return "Completed";
 			case "funded":
-				return "Virtual coins are present at this address";
+				return "Contract is funded and can be executed";
 			case "pending-execution": {
 				if (!currentExecution) return "Pending execution";
 				if (currentExecution.status === "pending-server-confirmation") {
@@ -476,7 +493,17 @@ export const ContractDetailSheet = ({
 						<Separator />
 
 						<div>
-							<p className="text-sm text-muted-foreground mb-2">ARK Address</p>
+							<div className="flex items-center justify-between mb-2">
+								<p className="text-sm text-muted-foreground">ARK Address</p>
+								{showBalanceWarning && walletBalance !== null && (
+									<Badge
+										variant="outline"
+										className="bg-warning/10 text-warning border-warning/20 text-xs"
+									>
+										{`Your available balance is only ${walletBalance} SAT`}
+									</Badge>
+								)}
+							</div>
 							<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
 								<p className="text-sm font-mono text-foreground flex-1 break-all">
 									{truncatedArkAddress ||

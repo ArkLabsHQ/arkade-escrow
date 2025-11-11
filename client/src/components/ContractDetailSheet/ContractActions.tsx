@@ -103,7 +103,11 @@ export default function ContractActions({
 			];
 		case "pending-execution":
 			// only dispute if already approved the execution
-			if (currentExecution?.transaction.approvedByPubKeys.some(me.isMyPubkey)) {
+			if (
+				currentExecution?.transaction.approvedByPubKeys.some((_) =>
+					me.isMyPubkey(_),
+				)
+			) {
 				return [
 					<Button
 						key={"dispute-funded"}

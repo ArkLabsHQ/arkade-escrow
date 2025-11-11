@@ -91,12 +91,18 @@ export class ArbitrationController {
 		description: "Opaque cursor from previous page",
 		schema: { type: "string" },
 	})
+	@ApiQuery({
+		name: "contract",
+		required: false,
+		description: "Filter arbitrations by contract id",
+	})
 	async getMine(
 		@UserFromJwt() user: User,
 		@Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
 		@Query("cursor", ParseCursorPipe) cursor: Cursor,
 		@Query("contract") contractId: string,
 	): Promise<ApiPaginatedEnvelope<GetArbitrationDto[]>> {
+		console.log("contractId", contractId);
 		const { items, total, nextCursor } = await this.service.getByUser(
 			user.publicKey,
 			{ contractId },

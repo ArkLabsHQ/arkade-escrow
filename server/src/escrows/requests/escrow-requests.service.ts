@@ -238,8 +238,6 @@ export class EscrowRequestsService {
 			)
 			.getRawAndEntities();
 
-		console.log(raw);
-
 		const total = await this.repo.count({
 			where: { public: true },
 		});

@@ -126,21 +126,18 @@ export class ArbitrationService {
 	}> {
 		const take = Math.min(limit, 100);
 
-		const qb = this.arbitrationRepository.createQueryBuilder("r").where(
-			new Brackets((w) => {
-				if (filter.contractId) {
-					w.andWhere("r.contract.externalId = :contractId", {
-						contractId: filter.contractId,
-					});
-				}
-				w.where("r.claimantPubkey = :pubKey", { pubKey }).orWhere(
-					"r.defendantPubkey = :pubKey",
-					{ pubKey },
-				);
-			}),
-		);
+		const qb = this.arbitrationRepository
+			.createQueryBuilder("r")
+			.leftJoin("r.contract", "contract")
+			.where("r.claimantPubkey = :pubKey OR r.defendantPubkey = :pubKey", {
+				pubKey,
+			});
 
-		qb.leftJoinAndSelect("r.contract", "contract");
+		if (filter.contractId) {
+			qb.andWhere("contract.externalId = :contractId", {
+				contractId: filter.contractId,
+			});
+		}
 
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
@@ -159,15 +156,26 @@ export class ArbitrationService {
 		}
 
 		const rows = await qb
+			.leftJoinAndSelect("r.contract", "contract")
 			.orderBy("r.createdAt", "DESC")
 			.addOrderBy("r.id", "DESC")
 			.take(take)
 			.getMany();
 
-		// total respecting the same filters (including status if present)
-		const total = await this.arbitrationRepository.count({
-			where: [{ claimantPubkey: pubKey }, { defendantPubkey: pubKey }],
-		});
+		const totalQb = this.arbitrationRepository
+			.createQueryBuilder("r")
+			.leftJoin("r.contract", "contract")
+			.where("r.claimantPubkey = :pubKey OR r.defendantPubkey = :pubKey", {
+				pubKey,
+			});
+
+		if (filter.contractId) {
+			totalQb.andWhere("contract.externalId = :contractId", {
+				contractId: filter.contractId,
+			});
+		}
+
+		const total = await totalQb.getCount();
 
 		let nextCursor: string | undefined;
 		if (rows.length === take) {
@@ -245,6 +253,7 @@ export class ArbitrationService {
 			where: { externalId: arbitration.contract.externalId },
 		});
 		if (!contract) throw new NotFoundException("Contract not found");
+		this.logger.debug(contract);
 		if (contract.status !== "under-arbitration") {
 			throw new InternalServerErrorException(
 				"Contract is not under arbitration",
