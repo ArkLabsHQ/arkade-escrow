@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import Config from "@/Config";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
+import { getCounterParty } from "@/lib/utils";
 
 interface RequestDetailSheetProps {
 	me: Me;
@@ -67,22 +68,11 @@ export const RequestDetailSheet = ({
 								{formattedDate}
 							</p>
 						</div>
-						<div
-							className={`rounded-lg p-2 ${
-								request.side === "receiver"
-									? "bg-success/10 text-success"
-									: "bg-primary/10 text-primary"
-							}`}
-						>
-							{request.side === "receiver" ? (
-								<ArrowDownLeft className="h-6 w-6" />
-							) : (
-								<ArrowUpRight className="h-6 w-6" />
-							)}
-						</div>
 					</div>
 					<SheetDescription className="text-base">
-						Review the escrow request details before creating a contract
+						{isMine
+							? "You created this request."
+							: "You can create a contract for this request."}
 					</SheetDescription>
 				</SheetHeader>
 
@@ -104,12 +94,19 @@ export const RequestDetailSheet = ({
 					{/* Details Section */}
 					<div className="space-y-4">
 						<div className="flex items-start gap-3">
-							<Badge
-								variant={request.side === "receiver" ? "default" : "secondary"}
-								className="mt-1"
+							<div
+								className={`rounded-lg p-2 ${
+									myRole === "receiver"
+										? "bg-success/10 text-success"
+										: "bg-primary/10 text-primary"
+								}`}
 							>
-								{request.side}
-							</Badge>
+								{myRole === "receiver" ? (
+									<ArrowDownLeft className="h-5 w-5" />
+								) : (
+									<ArrowUpRight className="h-5 w-5" />
+								)}
+							</div>
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Your Role</p>
 								<p className="text-base font-medium text-foreground">

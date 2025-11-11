@@ -314,19 +314,6 @@ export const ContractDetailSheet = ({
 								{formattedDate}
 							</p>
 						</div>
-						<div
-							className={`rounded-lg p-2 ${
-								contract.side === "receiver"
-									? "bg-success/10 text-success"
-									: "bg-primary/10 text-primary"
-							}`}
-						>
-							{contract.side === "receiver" ? (
-								<ArrowDownLeft className="h-6 w-6" />
-							) : (
-								<ArrowUpRight className="h-6 w-6" />
-							)}
-						</div>
 					</div>
 				</SheetHeader>
 
@@ -398,6 +385,19 @@ export const ContractDetailSheet = ({
 						<Separator />
 
 						<div className="flex items-start gap-3">
+							<div
+								className={`rounded-lg p-2 ${
+									yourSide === "receiver"
+										? "bg-success/10 text-success"
+										: "bg-primary/10 text-primary"
+								}`}
+							>
+								{yourSide === "receiver" ? (
+									<ArrowDownLeft className="h-5 w-5" />
+								) : (
+									<ArrowUpRight className="h-5 w-5" />
+								)}
+							</div>
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Your Role</p>
 								<p className="text-base font-medium text-foreground">

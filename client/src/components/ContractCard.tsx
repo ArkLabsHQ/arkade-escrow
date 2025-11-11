@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { GetEscrowContractDto } from "@/types/api";
 import { Me } from "@/types/me";
-import { shortKey } from "@/lib/utils";
+import { getCounterParty, shortKey } from "@/lib/utils";
 
 interface ContractCardProps {
 	contract: GetEscrowContractDto;
@@ -33,36 +33,20 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 		toast.success("ARK address copied to clipboard");
 	};
 
-	const getCounterParty = () => {
-		switch (contract.side) {
-			case "receiver":
-				if (me.isMyPubkey(contract.receiverPublicKey)) {
-					return ["Receiving from", contract.senderPublicKey];
-				}
-				return ["Sending to", contract.receiverPublicKey];
-			case "sender":
-				if (me.isMyPubkey(contract.senderPublicKey)) {
-					return ["Sending to", contract.receiverPublicKey];
-				}
-				return ["Receiving from", contract.senderPublicKey];
-			default:
-				return ["Unknown", "unknown"];
-		}
-	};
+	const { yourSide, createdByMe, counterParty } = getCounterParty(me, contract);
 
 	const renderSide = () => {
-		const [side, counterparty] = getCounterParty();
 		return (
 			<div className="flex flex-col">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium text-muted-foreground">
-						{side}
+						{yourSide}
 					</span>
 				</div>
 				<div className="flex items-center gap-2 mt-1">
 					<User className="h-3.5 w-3.5 text-muted-foreground" />
 					<span className="font-medium text-foreground">
-						{shortKey(counterparty)}
+						{shortKey(counterParty)}
 					</span>
 				</div>
 			</div>
@@ -80,8 +64,10 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				return "bg-blue-500/10 text-blue-500 border-blue-500/20";
 			case "draft":
 				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-			case "canceled-by-sender":
-			case "canceled-by-receiver":
+			case "rejected-by-counterparty":
+			case "canceled-by-creator":
+			case "rescinded-by-counterparty":
+			case "rescinded-by-creator":
 			case "voided-by-arbiter":
 			case "under-arbitration":
 				return "bg-destructive/10 text-destructive border-destructive/20";
@@ -101,12 +87,12 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 					<div className="flex items-center gap-3">
 						<div
 							className={`rounded-lg p-2 ${
-								contract.side === "receiver"
+								yourSide === "receiver"
 									? "bg-success/10 text-success"
 									: "bg-primary/10 text-primary"
 							}`}
 						>
-							{contract.side === "receiver" ? (
+							{yourSide === "receiver" ? (
 								<ArrowDownLeft className="h-5 w-5" />
 							) : (
 								<ArrowUpRight className="h-5 w-5" />
