@@ -26,6 +26,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    command: >
+      sh -lc 'rm -f /app/data/db.sqlite && echo "SQLite DB removed (one-time reset)" && node dist/main.js'
 
 networks:
   dokploy-network:
