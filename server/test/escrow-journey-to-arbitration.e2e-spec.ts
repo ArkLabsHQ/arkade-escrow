@@ -62,7 +62,7 @@ describe("Escrow from Request to disputed Contract and resolution", () => {
 
 		// Receiver accepts the draft Contract -> becomes "created"
 		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
+			.patch(`/api/v1/escrows/contracts/${contractId}/accept`)
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(200);
 
@@ -192,7 +192,7 @@ describe("Escrow from Request to disputed Contract and resolution", () => {
 
 		// Receiver accepts the draft Contract -> becomes "created"
 		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
+			.patch(`/api/v1/escrows/contracts/${contractId}/accept`)
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(200);
 

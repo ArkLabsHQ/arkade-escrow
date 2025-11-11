@@ -73,11 +73,7 @@ describe("Escrow from Request to all Contract statuses before funding", () => {
 			.expect(201);
 		expect(typeof createRes.body.data.externalId).toBe("string");
 		expect(typeof createRes.body.data.shareUrl).toBe("string");
-		const getOrderbookRes = await request(app.getHttpServer())
-			.get("/api/v1/escrows/requests/orderbook")
-			.expect(200);
-		expect(getOrderbookRes.body.data.length).toBe(1);
-		expect(getOrderbookRes.body.data[0].status).toBe("open");
+		// orderbook is tested just once in the previous test
 		await request(app.getHttpServer())
 			.get(`/api/v1/escrows/requests/${createRes.body.data.externalId}`)
 			.set("Authorization", `Bearer ${senderToken}`)

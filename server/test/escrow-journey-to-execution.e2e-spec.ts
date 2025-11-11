@@ -62,7 +62,7 @@ describe("Escrow from Request to completed Contract", () => {
 
 		// Receiver accepts the draft Contract -> becomes "created"
 		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
+			.patch(`/api/v1/escrows/contracts/${contractId}/accept`)
 			.set("Authorization", `Bearer ${receiverToken}`)
 			.expect(200);
 
@@ -190,7 +190,7 @@ describe("Escrow from Request to completed Contract", () => {
 
 		// Sender accepts the draft Contract -> becomes "created"
 		const acceptedContractRes = await request(app.getHttpServer())
-			.post(`/api/v1/escrows/contracts/${contractId}/accept`)
+			.patch(`/api/v1/escrows/contracts/${contractId}/accept`)
 			.set("Authorization", `Bearer ${senderToken}`)
 			.expect(200);
 
