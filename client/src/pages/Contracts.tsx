@@ -381,19 +381,9 @@ const Contracts = () => {
 
 	return (
 		<div className="min-h-screen bg-gradient-subtle">
-			<Header notificationCount={3} />
+			<Header title={"My Contracts"} />
 
 			<main className="container px-4 py-8 md:px-6">
-				{/* Page Header */}
-				<div className="mb-6 space-y-2 animate-slide-up">
-					<h1 className="text-2xl font-bold tracking-tight text-foreground">
-						My Contracts
-					</h1>
-					<p className="text-muted-foreground">
-						View and manage all your escrow contracts
-					</p>
-				</div>
-
 				{/* Filters */}
 				<div
 					className="mb-6 flex flex-col gap-4 animate-slide-up"

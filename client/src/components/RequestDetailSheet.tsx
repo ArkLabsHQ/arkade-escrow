@@ -14,6 +14,8 @@ import { GetEscrowRequestDto } from "@/types/api";
 import { Me } from "@/types/me";
 import { Link } from "react-router-dom";
 import Config from "@/Config";
+import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
 
 interface RequestDetailSheetProps {
 	me: Me;
@@ -30,6 +32,20 @@ export const RequestDetailSheet = ({
 	onOpenChange,
 	onCreateContract,
 }: RequestDetailSheetProps) => {
+	const cancelRequest = useMutation({
+		mutationFn: async (input: { requestId: string }) => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const res = await axios.patch<GetEscrowRequestDto>(
+				`${Config.apiBaseUrl}/escrows/requests/${input.requestId}/cancel`,
+				{},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			return res.data;
+		},
+	});
+
 	if (!request) return null;
 
 	const formattedDate = format(request.createdAt, "PPP 'at' p");
@@ -167,14 +183,12 @@ export const RequestDetailSheet = ({
 						>
 							Close
 						</Button>
-						{isMine && (
+						{isMine && request.status !== "canceled" && (
 							<Button
 								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
-								onClick={() => {
-									// onCreateContract(request.externalId);
-									// onOpenChange(false);
-									// TODO: call DELETE request and close the window
-									console.warn("not implemented");
+								onClick={async () => {
+									await cancelRequest.mutate({ requestId: request.externalId });
+									onOpenChange(false);
 								}}
 							>
 								Cancel Request

@@ -8,6 +8,10 @@ export function setAuth(data: AuthData): void {
 	localStorage.setItem("ark:auth", JSON.stringify(data));
 }
 
+export function removeAuth(): void {
+	localStorage.removeItem("ark:auth");
+}
+
 export function getAuth() {
 	const data = localStorage.getItem("ark:auth");
 	return data ? (JSON.parse(data) as AuthData) : null;

@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { Inbox, FileSignature } from "lucide-react";
 import { Logo } from "./Logo";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -6,10 +6,10 @@ import { Link } from "react-router-dom";
 import Config from "@/Config";
 
 interface HeaderProps {
-	notificationCount?: number;
+	title: string;
 }
 
-export const Header = ({ notificationCount = 3 }: HeaderProps) => {
+export const Header = ({ title = "" }: HeaderProps) => {
 	return (
 		<header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -19,29 +19,34 @@ export const Header = ({ notificationCount = 3 }: HeaderProps) => {
 				>
 					<Logo size={32} />
 					<span className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-						Escrow
+						{title}
 					</span>
 				</Link>
+				<div className="flex items-center space-x-1 sm:space-x-2">
+					<Link to={`${Config.appRootUrl}/requests`}>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+						>
+							<Inbox className="h-4 w-4" />
 
-				{/*<div className="flex items-center space-x-4">*/}
-				{/*	<Link to="/notifications">*/}
-				{/*		<Button*/}
-				{/*			variant="ghost"*/}
-				{/*			size="icon"*/}
-				{/*			className="relative hover:bg-secondary"*/}
-				{/*		>*/}
-				{/*			<Bell className="h-5 w-5" />*/}
-				{/*			{notificationCount > 0 && (*/}
-				{/*				<Badge*/}
-				{/*					variant="destructive"*/}
-				{/*					className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"*/}
-				{/*				>*/}
-				{/*					{notificationCount}*/}
-				{/*				</Badge>*/}
-				{/*			)}*/}
-				{/*		</Button>*/}
-				{/*	</Link>*/}
-				{/*</div>*/}
+							<span className="hidden sm:inline">My Requests</span>
+						</Button>
+					</Link>
+
+					<Link to={`${Config.appRootUrl}/contracts`}>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+						>
+							<FileSignature className="h-4 w-4" />
+
+							<span className="hidden sm:inline">My Contracts</span>
+						</Button>
+					</Link>
+				</div>
 			</div>
 		</header>
 	);

@@ -176,7 +176,6 @@ export function MessageProvider({
 									event.origin,
 								);
 							}
-							// console.log("[escrow] answer k.a.", result.result, event.origin);
 							setTimeout(
 								() =>
 									childWindowRef.current?.postMessage(
@@ -188,7 +187,7 @@ export function MessageProvider({
 							break;
 						}
 						default:
-							console.log(result.result);
+							console.warn(result.result);
 					}
 				}
 			} catch (err) {
@@ -200,7 +199,9 @@ export function MessageProvider({
 	);
 
 	useEffect(() => {
-		if (typeof window === "undefined") return;
+		if (typeof window === "undefined") {
+			return;
+		}
 		window.addEventListener("message", onMessage);
 		return () => {
 			window.removeEventListener("message", onMessage);

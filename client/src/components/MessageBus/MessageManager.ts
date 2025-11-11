@@ -122,7 +122,7 @@ type Props = {};
 type Result =
 	| { tag: "success"; result: OutboundMessage | DataMessage }
 	| { tag: "failure"; error: Error };
-export default function makeMessageHandler(props: Props) {
+export default function makeMessageHandler(_: Props) {
 	return async function messageHandler(
 		message: InboundMessage,
 	): Promise<Result> {
@@ -136,8 +136,8 @@ export default function makeMessageHandler(props: Props) {
 					},
 				};
 			case "ARKADE_RPC_RESPONSE": {
-				const { id, kind, method, payload } = message;
-				console.log("[escrow] RPC response", { id, kind, method, payload });
+				const { kind, method, payload } = message;
+				// console.log("[escrow] RPC response", { id, kind, method, payload });
 				switch (method) {
 					case "get-x-public-key":
 						if (payload.xOnlyPublicKey === null) {

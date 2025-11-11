@@ -201,7 +201,8 @@ export class EscrowRequestsService {
 
 		const rowsQb = this.repo
 			.createQueryBuilder("r")
-			.where("r.public = :pub", { pub: true });
+			.where("r.public = :pub", { pub: true })
+			.andWhere("r.status = :status", { status: "open" });
 
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			rowsQb.andWhere(

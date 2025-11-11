@@ -121,7 +121,6 @@ const Index = () => {
 	const handleCreateContract = (requestId: string) => {
 		createContractFromRequest.mutate(requestId, {
 			onSuccess: (resp) => {
-				console.log(resp);
 				toast.success("Contract created successfully!", {
 					description: "You can now view and manage your contract.",
 				});
@@ -193,7 +192,7 @@ const Index = () => {
 
 	return (
 		<div className="min-h-screen bg-gradient-subtle">
-			<Header notificationCount={3} />
+			<Header title={"Orderbook"} />
 
 			<main
 				ref={containerRef}
@@ -238,24 +237,6 @@ const Index = () => {
 
 				{/* Quick Actions */}
 				<div className="mb-8 flex flex-col sm:flex-row gap-3 animate-slide-up">
-					<Link
-						to={`${Config.appRootUrl}/requests`}
-						className="w-full sm:w-auto"
-					>
-						<Button variant="outline" className="gap-2 w-full sm:w-auto">
-							<FileText className="h-4 w-4" />
-							My Requests
-						</Button>
-					</Link>
-					<Link
-						to={`${Config.appRootUrl}/contracts`}
-						className="w-full sm:w-auto"
-					>
-						<Button variant="outline" className="gap-2 w-full sm:w-auto">
-							<FileSignature className="h-4 w-4" />
-							My Contracts
-						</Button>
-					</Link>
 					<Button
 						className="gap-2 bg-gradient-primary hover:opacity-90 transition-opacity w-full sm:w-auto"
 						onClick={() => setNewRequestOpen(true)}
@@ -267,8 +248,6 @@ const Index = () => {
 
 				{/* Requests List */}
 				<div className="space-y-4">
-					<h2 className="text-xl font-semibold text-foreground">Orderbook</h2>
-
 					{data?.pages.length === 0 && !isPending && (
 						<div className="text-center py-12 text-muted-foreground">
 							No contracts found
