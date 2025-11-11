@@ -270,6 +270,6 @@ export class EscrowRequestsService {
 	}
 
 	async cancel(externalId: string) {
-		this.repo.update({ externalId }, { status: "cancelled" });
+		this.repo.update({ externalId }, { status: "canceled" });
 	}
 }

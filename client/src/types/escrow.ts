@@ -7,7 +7,7 @@ export interface EscrowRequest {
 	createdAt: Date;
 	description: string;
 	amount: number; // in SAT
-	status: "open" | "cancelled";
+	status: "open" | "canceled";
 	contractsCount?: number; // Number of contracts created from this request
 }
 

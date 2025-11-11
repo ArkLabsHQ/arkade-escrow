@@ -2,6 +2,7 @@ import {
 	ApiBearerAuth,
 	ApiBody,
 	ApiCreatedResponse,
+	ApiExtraModels,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -18,7 +19,6 @@ import {
 	NotFoundException,
 	Param,
 	ParseIntPipe,
-	Patch,
 	Post,
 	Query,
 	UseGuards,
@@ -43,6 +43,7 @@ import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-contract.dto";
 
 @ApiTags("3 - Arbitrations")
+@ApiExtraModels(GetArbitrationDto)
 @Controller("api/v1/escrows/arbitrations")
 export class ArbitrationController {
 	constructor(private readonly service: ArbitrationService) {}

@@ -9,6 +9,7 @@ import {
 	NotFoundException,
 	Param,
 	ParseIntPipe,
+	Patch,
 	Post,
 	Query,
 	UseGuards,
@@ -56,6 +57,7 @@ import { ParseCursorPipe } from "../../common/pipes/cursor.pipe";
 	ApiEnvelopeShellDto,
 	ApiPaginatedMetaDto,
 	CreateEscrowRequestOutDto,
+	GetEscrowRequestDto,
 	OrderbookItemDto,
 )
 @Controller("api/v1/escrows/requests")
@@ -170,7 +172,7 @@ export class EscrowRequestsController {
 		return envelope(data);
 	}
 
-	@Delete(":externalId")
+	@Patch(":externalId/cancel")
 	@ApiBearerAuth()
 	@UseGuards(AuthGuard)
 	@ApiOperation({
@@ -179,7 +181,7 @@ export class EscrowRequestsController {
 	})
 	@ApiParam({ name: "externalId", description: "Public request external id" })
 	@ApiOkResponse({
-		description: "Request cancelled",
+		description: "Request canceled",
 		schema: getSchemaPathForEmptyResponse(),
 	})
 	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })

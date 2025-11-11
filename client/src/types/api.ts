@@ -26,7 +26,7 @@ export type GetEscrowRequestDto = {
 	amount: number;
 	description: string;
 	public: boolean;
-	status: "open" | "cancelled";
+	status: "open" | "canceled";
 	contractsCount: number;
 	createdAt: number;
 };
