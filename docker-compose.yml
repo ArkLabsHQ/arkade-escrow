@@ -13,8 +13,7 @@ services:
       - NODE_ENV=production
       - SQLITE_DB_PATH=/app/data/db.sqlite
       - ARK_SERVER_URL=https://mutinynet.arkade.sh
-      - JWT_SECRET=dev_super_secret_change_me
-      - ARBITRATOR_PUB_KEY=adf
+      # secrets in Dockploy/envs
     volumes:
       - sqlite-data:/app/data
     networks:
@@ -26,8 +25,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    command: >
-      sh -lc 'rm -f /app/data/db.sqlite && echo "SQLite DB removed (one-time reset)" && node dist/main.js'
+      # uncomment to drop the DB on startup
+#    command: >
+#      sh -lc 'rm -f /app/data/db.sqlite && echo "SQLite DB removed (one-time reset)" && node dist/main.js'
 
 networks:
   dokploy-network:
