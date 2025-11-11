@@ -36,8 +36,6 @@ async function debugFlow() {
 		console.log("Public key (x-only):", pubXOnly);
 		console.log("X-only length:", pubXOnly.length);
 
-		return;
-
 		console.log("\n2. Requesting challenge...");
 		const challengeResponse = await fetch(`${baseUrl}/auth/signup/challenge`, {
 			method: "POST",

@@ -47,9 +47,10 @@ export function mergeTx(signedTx: string, originalTx: string) {
 	for (let i = 0; i < signedTxDecoded.inputsLength; i++) {
 		const input = originalTxDecoded.getInput(i);
 		const inputFromServer = signedTxDecoded.getInput(i);
-		if (!input.tapScriptSig) throw new Error("No tapScriptSig");
+		if (!input.tapScriptSig || !inputFromServer.tapScriptSig)
+			throw new Error("No tapScriptSig");
 		originalTxDecoded.updateInput(i, {
-			tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig!),
+			tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig),
 		});
 	}
 	return originalTxDecoded;

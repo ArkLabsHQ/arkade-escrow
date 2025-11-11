@@ -3,7 +3,6 @@ import {
 	ConflictException,
 	Controller,
 	DefaultValuePipe,
-	Delete,
 	ForbiddenException,
 	Get,
 	NotFoundException,

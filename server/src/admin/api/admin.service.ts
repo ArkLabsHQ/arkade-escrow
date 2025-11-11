@@ -4,11 +4,14 @@ import {
 	Injectable,
 	Logger,
 	NotFoundException,
-	NotImplementedException,
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
+import { ConfigService } from "@nestjs/config";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { nanoid } from "nanoid";
+
 import { ContractArbitration } from "../../escrows/arbitration/contract-arbitration.entity";
 import {
 	Cursor,
@@ -19,34 +22,18 @@ import { EscrowContract } from "../../escrows/contracts/escrow-contract.entity";
 import { ContractExecution } from "../../escrows/contracts/contract-execution.entity";
 import { GetAdminEscrowContractDto } from "./get-admin-escrow-contract.dto";
 import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-details.dto";
-import { Subject } from "rxjs";
-import { schnorr } from "@noble/secp256k1";
-import { hexToBytes } from "@noble/hashes/utils.js";
-import { ConfigService } from "@nestjs/config";
-import { base64 } from "@scure/base";
-
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
 import { ArkService } from "../../ark/ark.service";
 import GetAdminStatsDto from "./get-admin-stats";
-import { EventEmitter2 } from "@nestjs/event-emitter";
+
 import {
 	ARBITRATION_RESOLVED,
 	ArbitrationResolved,
 } from "../../common/arbitration.event";
-import { nanoid } from "nanoid";
-
-type AdminEvent = {
-	type: "updated_contract";
-	externalId: string;
-};
 
 @Injectable()
 export class AdminService {
 	private readonly logger = new Logger(AdminService.name);
-	// Subject that acts as an event emitter
-	private readonly events$ = new Subject<AdminEvent>();
-	private readonly arbitratorPublicKey: string;
-	private readonly arbitratorPrivateKey: string;
 
 	constructor(
 		@InjectRepository(EscrowContract)
@@ -55,21 +42,10 @@ export class AdminService {
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		@InjectRepository(ContractArbitration)
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
-		private readonly arkService: ArkService,
-		private readonly configService: ConfigService,
+		readonly _arkService: ArkService,
+		readonly configService: ConfigService,
 		private readonly events: EventEmitter2,
-	) {
-		const pubKey = configService.get<string>("ARBITRATOR_PUB_KEY");
-		if (pubKey === undefined) {
-			throw new Error("ARBITRATOR_PUB_KEY is not set");
-		}
-		this.arbitratorPublicKey = pubKey;
-		const privKey = configService.get<string>("ARBITRATOR_PRIV_KEY");
-		if (privKey === undefined) {
-			throw new Error("ARBITRATOR_PRIV_KEY is not set");
-		}
-		this.arbitratorPrivateKey = privKey;
-	}
+	) {}
 
 	async getContractStats(): Promise<GetAdminStatsDto["contracts"]> {
 		const [total, active, disputed, settled] = await Promise.all([
@@ -280,32 +256,5 @@ export class AdminService {
 			default:
 				throw new BadRequestException(`Unsupported action ${action}`);
 		}
-	}
-
-	/*
-    rec ---> dispute
-    arb ---> release ---> ask address from rec
-     */
-
-	// TODO: implement arbitration
-	// private async executeSettlement(contract: EscrowContract) {
-	// 	try {
-	// 		const escrowTransaction = await this.arkService.createEscrowTransaction(
-	// 			{
-	// 				action: "release-funds",
-	// 				// TODO: get the ark address of the receiver!
-	// 				receiverAddress: ArkAddress.decode(),
-	// 				receiverPublicKey: contract.receiverPubkey,
-	// 				senderPublicKey: contract.senderPubkey,
-	// 				arbitratorPublicKey: this.arbitratorPublicKey,
-	// 				contractNonce: `${contract.externalId}${contract.request.externalId}`,
-	// 			},
-	// 			vtxo,
-	// 		);
-	// 	} catch (e) {}
-	// }
-
-	private executeRefund() {
-		throw new NotImplementedException();
 	}
 }

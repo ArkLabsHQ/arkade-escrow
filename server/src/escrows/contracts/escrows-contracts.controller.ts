@@ -4,7 +4,6 @@ import {
 	ConflictException,
 	Controller,
 	DefaultValuePipe,
-	Delete,
 	ForbiddenException,
 	Get,
 	HttpCode,
