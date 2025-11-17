@@ -15,7 +15,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
-		<MessageProvider allowedChildOrigins={[Config.hostUrl]}>
+		<MessageProvider allowedChildOrigins={Config.hostUrls}>
 			<SessionProvider>
 				<TooltipProvider>
 					<Toaster />
