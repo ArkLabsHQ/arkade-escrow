@@ -12,7 +12,7 @@ services:
       - PORT=3000
       - NODE_ENV=production
       - SQLITE_DB_PATH=/app/data/db.sqlite
-      - ARK_SERVER_URL=https://mutinynet.arkade.sh
+      - ARK_SERVER_URL
       # secrets in Dockploy/envs
       - JWT_SECRET
       - ARBITRATOR_PUB_KEY
