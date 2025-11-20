@@ -573,7 +573,7 @@ const ContractDetails = () => {
 																}
 																variant="default"
 															>
-																Settle
+																Release
 															</Button>
 															<Button
 																onClick={() =>

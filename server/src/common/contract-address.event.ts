@@ -45,3 +45,11 @@ export type ContractExecuted = {
 	arkAddress: ArkAddress;
 	executedAt: string;
 };
+
+export const CONTRACT_DISPUTED = "contract.disputed";
+export type ContractDisputed = {
+	eventId: string;
+	contractId: ContractId;
+	arbitrationId: string;
+	disputedAt: string;
+};

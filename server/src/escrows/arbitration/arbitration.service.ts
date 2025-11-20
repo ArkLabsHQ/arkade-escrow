@@ -31,6 +31,14 @@ import { ExecuteEscrowContractOutDto } from "../contracts/dto/execute-escrow-con
 import { base64 } from "@scure/base";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { toError } from "../../common/errors";
+import {
+	CONTRACT_DISPUTED,
+	CONTRACT_EXECUTED_ID,
+	ContractDisputed,
+	ContractExecuted,
+} from "../../common/contract-address.event";
+import { randomUUID } from "node:crypto";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 type ArbitrationQueryFilter = {
 	contractId?: string;
@@ -52,6 +60,7 @@ export class ArbitrationService {
 		@InjectRepository(ContractExecution)
 		private readonly contractExecutionRepository: Repository<ContractExecution>,
 		private readonly arkService: ArkService,
+		private readonly events: EventEmitter2,
 	) {
 		const pubKey = configService.get<string>("ARBITRATOR_PUB_KEY");
 		if (pubKey === undefined) {
@@ -102,6 +111,12 @@ export class ArbitrationService {
 				status: "under-arbitration",
 			},
 		);
+		this.events.emit(CONTRACT_DISPUTED, {
+			eventId: randomUUID(),
+			contractId: contract.externalId,
+			arbitrationId: newArbitration.externalId,
+			disputedAt: new Date().toISOString(),
+		} satisfies ContractDisputed);
 		return {
 			externalId: newArbitration.externalId,
 			contractId: contract.externalId,
@@ -127,9 +142,9 @@ export class ArbitrationService {
 		const take = Math.min(limit, 100);
 
 		const qb = this.arbitrationRepository
-			.createQueryBuilder("r")
-			.leftJoin("r.contract", "contract")
-			.where("r.claimantPubkey = :pubKey OR r.defendantPubkey = :pubKey", {
+			.createQueryBuilder("arb")
+			.leftJoinAndSelect("arb.contract", "contract")
+			.where("arb.claimantPubkey = :pubKey OR arb.defendantPubkey = :pubKey", {
 				pubKey,
 			});
 
@@ -142,13 +157,13 @@ export class ArbitrationService {
 		if (cursor.createdBefore !== undefined && cursor.idBefore !== undefined) {
 			qb.andWhere(
 				new Brackets((w) => {
-					w.where("r.createdAt < :createdBefore", {
+					w.where("arb.createdAt < :createdBefore", {
 						createdBefore: cursor.createdBefore,
 					}).orWhere(
 						new Brackets((w2) => {
-							w2.where("r.createdAt = :createdAtEq", {
+							w2.where("arb.createdAt = :createdAtEq", {
 								createdAtEq: cursor.createdBefore,
-							}).andWhere("r.id < :idBefore", { idBefore: cursor.idBefore });
+							}).andWhere("arb.id < :idBefore", { idBefore: cursor.idBefore });
 						}),
 					);
 				}),
@@ -156,9 +171,8 @@ export class ArbitrationService {
 		}
 
 		const rows = await qb
-			.leftJoinAndSelect("r.contract", "contract")
-			.orderBy("r.createdAt", "DESC")
-			.addOrderBy("r.id", "DESC")
+			.orderBy("arb.createdAt", "DESC")
+			.addOrderBy("arb.id", "DESC")
 			.take(take)
 			.getMany();
 
@@ -174,6 +188,8 @@ export class ArbitrationService {
 				contractId: filter.contractId,
 			});
 		}
+
+		this.logger.debug("before totalQb:");
 
 		const total = await totalQb.getCount();
 

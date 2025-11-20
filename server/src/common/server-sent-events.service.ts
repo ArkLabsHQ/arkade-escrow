@@ -3,11 +3,13 @@ import { OnEvent } from "@nestjs/event-emitter";
 import { Subject } from "rxjs";
 import {
 	CONTRACT_CREATED_ID,
+	CONTRACT_DISPUTED,
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
 	CONTRACT_VOIDED_ID,
 	type ContractCreated,
+	ContractDisputed,
 	type ContractDrafted,
 	type ContractExecuted,
 	type ContractFunded,
@@ -58,6 +60,11 @@ export class ServerSentEventsService {
 
 	@OnEvent(CONTRACT_EXECUTED_ID)
 	onContractExecuted(evt: ContractExecuted) {
+		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
+	}
+
+	@OnEvent(CONTRACT_DISPUTED)
+	onContractDisputed(evt: ContractDisputed) {
 		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
 	}
 }

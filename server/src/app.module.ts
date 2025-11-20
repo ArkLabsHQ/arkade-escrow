@@ -49,7 +49,7 @@ const isTest = process.env.NODE_ENV === "test";
 				type: "better-sqlite3",
 				database: isTest ? ":memory:" : process.env.SQLITE_DB_PATH,
 				synchronize: true,
-				// logging: isDev,
+				// logging: true,
 				autoLoadEntities: true,
 			}),
 		}),

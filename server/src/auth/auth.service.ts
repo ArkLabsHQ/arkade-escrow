@@ -62,8 +62,6 @@ export class AuthService {
 		challengeId: string,
 		origin: string,
 	) {
-		this.logger.debug("verifySignup", { publicKey });
-
 		const user = await this.users.findOne({ where: { publicKey } });
 		if (!user || !user.pendingChallenge || !user.challengeId) {
 			throw new UnauthorizedException("No pending challenge");
@@ -105,9 +103,8 @@ export class AuthService {
 		user.challengeExpiresAt = null;
 		user.lastLoginAt = new Date();
 
-		this.logger.debug("User verified", {
+		this.logger.debug("User logged in", {
 			publicKey,
-			userpubkey: user.publicKey,
 		});
 		try {
 			await this.users.save(user);

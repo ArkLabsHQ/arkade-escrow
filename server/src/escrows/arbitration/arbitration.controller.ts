@@ -103,7 +103,6 @@ export class ArbitrationController {
 		@Query("cursor", ParseCursorPipe) cursor: Cursor,
 		@Query("contract") contractId: string,
 	): Promise<ApiPaginatedEnvelope<GetArbitrationDto[]>> {
-		console.log("contractId", contractId);
 		const { items, total, nextCursor } = await this.service.getByUser(
 			user.publicKey,
 			{ contractId },
