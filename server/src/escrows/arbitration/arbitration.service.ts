@@ -32,7 +32,7 @@ import { base64 } from "@scure/base";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { toError } from "../../common/errors";
 import {
-	CONTRACT_DISPUTED,
+	CONTRACT_DISPUTED_ID,
 	CONTRACT_EXECUTED_ID,
 	ContractDisputed,
 	ContractExecuted,
@@ -111,7 +111,7 @@ export class ArbitrationService {
 				status: "under-arbitration",
 			},
 		);
-		this.events.emit(CONTRACT_DISPUTED, {
+		this.events.emit(CONTRACT_DISPUTED_ID, {
 			eventId: randomUUID(),
 			contractId: contract.externalId,
 			arbitrationId: newArbitration.externalId,

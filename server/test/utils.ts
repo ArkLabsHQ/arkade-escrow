@@ -14,6 +14,9 @@ export const arkdExec =
 	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
 
 export function faucetOffchain(address: string, amount: number): void {
+	console.log(
+		`Fauceting via ${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
+	);
 	execCommand(
 		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
 	);

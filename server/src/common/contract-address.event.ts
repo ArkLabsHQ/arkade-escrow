@@ -46,7 +46,7 @@ export type ContractExecuted = {
 	executedAt: string;
 };
 
-export const CONTRACT_DISPUTED = "contract.disputed";
+export const CONTRACT_DISPUTED_ID = "contract.disputed";
 export type ContractDisputed = {
 	eventId: string;
 	contractId: ContractId;

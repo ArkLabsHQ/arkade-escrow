@@ -3,7 +3,7 @@ import { OnEvent } from "@nestjs/event-emitter";
 import { Subject } from "rxjs";
 import {
 	CONTRACT_CREATED_ID,
-	CONTRACT_DISPUTED,
+	CONTRACT_DISPUTED_ID,
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
@@ -15,10 +15,12 @@ import {
 	type ContractFunded,
 	type ContractVoided,
 } from "./contract-address.event";
+import { REQUEST_CREATED_ID, RequestCreated } from "./request.event";
 
 type ArkSse =
 	| { type: "new_contract"; externalId: string }
-	| { type: "contract_updated"; externalId: string };
+	| { type: "contract_updated"; externalId: string }
+	| { type: "new_request"; externalId: string };
 
 // biome-ignore lint/suspicious/noExplicitAny: just anything remotely JSON-serializable
 export type SseEvent<T = any> = {
@@ -63,8 +65,13 @@ export class ServerSentEventsService {
 		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
 	}
 
-	@OnEvent(CONTRACT_DISPUTED)
+	@OnEvent(CONTRACT_DISPUTED_ID)
 	onContractDisputed(evt: ContractDisputed) {
 		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
+	}
+
+	@OnEvent(REQUEST_CREATED_ID)
+	onRequestCreated(evt: RequestCreated) {
+		this.events$.next({ type: "new_request", externalId: evt.requestId });
 	}
 }

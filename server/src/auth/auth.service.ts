@@ -123,4 +123,25 @@ export class AuthService {
 			publicKey: user.publicKey,
 		};
 	}
+
+	async getSession(token: string) {
+		try {
+			const verified = await this.jwt.verifyAsync(token);
+			console.log("verified -> ", verified);
+			const { userId, publicKey } = this.jwt.decode<{
+				userId: string;
+				publicKey: string;
+			}>(token);
+			const user = await this.users.findOneOrFail({
+				where: { id: userId, publicKey: publicKey as string },
+			});
+			if (user) {
+				return { userId, publicKey };
+			}
+			return null;
+		} catch (e) {
+			this.logger.error("Invalid token", e);
+			throw new UnauthorizedException("Invalid token");
+		}
+	}
 }

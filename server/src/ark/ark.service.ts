@@ -267,6 +267,8 @@ export class ArkService {
 	}
 
 	static getAddrPrefix(arkInfo: ArkInfo): string {
+		console.log("ARK_NETWORK: ", arkInfo.network);
+		console.log("ARK INFO", arkInfo);
 		return arkInfo.network === "bitcoin" ? "ark" : "tark";
 	}
 

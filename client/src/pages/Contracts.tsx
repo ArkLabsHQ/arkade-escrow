@@ -105,7 +105,6 @@ const Contracts = () => {
 						pages: ApiPaginatedEnvelope<GetEscrowContractDto>[];
 						pageParams: unknown;
 					}) => {
-						console.log(input);
 						if (!input) return input;
 						const pageIdx = input.pages.findIndex((p) =>
 							p.data.some((c) => c.externalId === externalId),
@@ -145,8 +144,6 @@ const Contracts = () => {
 		eventSource.onmessage = (event) => {
 			try {
 				const data = JSON.parse(event.data);
-				console.log(data);
-
 				switch (data?.type) {
 					case "new_contract":
 						setRefreshKey(refreshKey + 1);

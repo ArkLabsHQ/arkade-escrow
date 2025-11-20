@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	Get,
 	Headers,
 	HttpCode,
 	HttpStatus,
@@ -110,5 +111,13 @@ export class AuthController {
 		// TODO: void JWT
 		// return { data: {} };
 		throw new InternalServerErrorException("Not implemented");
+	}
+
+	@Get("/session")
+	@ApiOperation({ summary: "Get the current session if existing" })
+	async getSession(@Headers("authorization") authorization?: string) {
+		const token = authorization?.replace("Bearer ", "");
+		if (!token) return { data: null };
+		return this.auth.getSession(token);
 	}
 }

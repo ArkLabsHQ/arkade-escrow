@@ -203,25 +203,18 @@ describe("Escrow from Request to completed Contract", () => {
 			acceptedContractRes.body.data.amount,
 		);
 
-		await Promise.race([
-			new Promise((resolve) =>
-				setTimeout(async () => {
-					console.log("Waiting for arkd to sync...");
-					const getContractRes = await request(app.getHttpServer())
-						.get(`/api/v1/escrows/contracts/${contractId}`)
-						.set("Authorization", `Bearer ${senderToken}`)
-						.expect(200);
+		await new Promise((resolve) =>
+			setTimeout(async () => {
+				console.log("Waiting for arkd to sync...");
+				const getContractRes = await request(app.getHttpServer())
+					.get(`/api/v1/escrows/contracts/${contractId}`)
+					.set("Authorization", `Bearer ${senderToken}`)
+					.expect(200);
 
-					expect(getContractRes.body.data.status).toBe("funded");
-					resolve(undefined);
-				}, 5000),
-			),
-			new Promise((_, reject) =>
-				setTimeout(() => {
-					reject();
-				}, 10000),
-			),
-		]);
+				expect(getContractRes.body.data.status).toBe("funded");
+				resolve(undefined);
+			}, 10000),
+		);
 
 		const aliceAddress = await alice.wallet.getAddress();
 

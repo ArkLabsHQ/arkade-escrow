@@ -1,6 +1,6 @@
 import { Logo } from "./Logo";
 import { createContext, useContext, useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Check } from "lucide-react";
 import Config from "@/Config";
@@ -47,6 +47,20 @@ export const SessionProvider = ({ children }: Props) => {
 		},
 	});
 
+	const getSession = useQuery({
+		queryKey: ["session", me?.getAccessToken() ?? "[no-token"],
+		queryFn: async () => {
+			const res = await axios.get<{ data: { publicKey: string } }>(
+				`${Config.apiBaseUrl}/auth/session`,
+				{
+					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+				},
+			);
+			return res.data;
+		},
+		enabled: !!me,
+	});
+
 	type VerifySignupRequest = {
 		signature: string;
 		publicKey: string;
@@ -86,6 +100,7 @@ export const SessionProvider = ({ children }: Props) => {
 		}
 		if (authData && authData.xPubKey === xPublicKey && !me) {
 			setCurrentPhase(3);
+			console.log("session is ", getSession.data);
 			console.log(`Logged in as ${xPublicKey}`);
 			setMe(new Me(authData.xPubKey, authData.accessToken));
 			return;
