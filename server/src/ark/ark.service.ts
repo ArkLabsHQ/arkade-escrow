@@ -267,7 +267,7 @@ export class ArkService {
 	}
 
 	static getAddrPrefix(arkInfo: ArkInfo): string {
-		return arkInfo.network === "mainnet" ? "ark" : "tark";
+		return arkInfo.network === "bitcoin" ? "ark" : "tark";
 	}
 
 	static getSpendingPathForAction(
