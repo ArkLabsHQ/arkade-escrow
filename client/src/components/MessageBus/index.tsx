@@ -85,10 +85,10 @@ export function MessageProvider({
 
 	const onMessage = useCallback(
 		async (event: MessageEvent) => {
-			if (!allowed.has(event.origin)) {
-				console.warn(`Arkade: ignoring message from ${event.origin}`);
-				return;
-			}
+			// if (!allowed.has(event.origin)) {
+			// 	console.warn(`Arkade: ignoring message from ${event.origin}`);
+			// 	return;
+			// }
 			if (event.origin !== hostOrigin) {
 				setHostOrigin(event.origin);
 			}
