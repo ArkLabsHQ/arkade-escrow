@@ -91,6 +91,37 @@ const Index = () => {
 		toast.error("Failed to load requests");
 	}
 
+	// SSE listener for contract updates
+	useEffect(() => {
+		// TODO: this must be under /requests/sse and be public
+		const eventSource = new EventSource(
+			`${Config.apiBaseUrl}/escrows/contracts/sse`,
+		);
+
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				switch (data?.type) {
+					case "new_request":
+						setRefreshKey(refreshKey + 1);
+						break;
+					default:
+						console.error("Unknown event type:", data.type);
+				}
+			} catch (error) {
+				console.error("Error parsing SSE event:", error);
+			}
+		};
+
+		eventSource.onerror = (error) => {
+			console.error("SSE connection error:", error);
+		};
+
+		return () => {
+			eventSource.close();
+		};
+	}, [refreshKey]);
+
 	// Infinite scroll observer
 	useEffect(() => {
 		const observer = new IntersectionObserver(

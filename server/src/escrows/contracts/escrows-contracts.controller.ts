@@ -218,6 +218,7 @@ export class EscrowsContractsController {
 	sse(
 		// @UserFromJwt() user: User,
 	): Observable<SseEvent> {
+		// TODO: separate orderbook from contracts
 		return this.sseService.userEvents().pipe(
 			map((event) => ({
 				data: event,
