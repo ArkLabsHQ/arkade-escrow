@@ -244,8 +244,6 @@ export namespace VEscrow {
 					script: this.directScript,
 					signers: ["sender", "receiver", "server"],
 				},
-
-				// TODO: support unilateral paths
 				{
 					name: "receiverDisputeUnilateral",
 					type: "unilateral",
