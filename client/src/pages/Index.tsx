@@ -106,7 +106,9 @@ const Index = () => {
 						setRefreshKey(refreshKey + 1);
 						break;
 					default:
-						console.error("Unknown event type:", data.type);
+						// console.error("Unknown event type:", data.type);
+						// not an error, this is just for requests
+						break;
 				}
 			} catch (error) {
 				console.error("Error parsing SSE event:", error);
