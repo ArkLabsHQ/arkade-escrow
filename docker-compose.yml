@@ -32,8 +32,8 @@ services:
       retries: 3
       start_period: 10s
       # uncomment to drop the DB on startup
-#    command: >
-#      sh -lc 'rm -f /app/data/db.sqlite && echo "SQLite DB removed (one-time reset)" && node dist/main.js'
+    command: >
+      sh -lc 'rm -f /app/data/db.sqlite && echo "SQLite DB removed (one-time reset)" && node dist/main.js'
 
 networks:
   dokploy-network:
