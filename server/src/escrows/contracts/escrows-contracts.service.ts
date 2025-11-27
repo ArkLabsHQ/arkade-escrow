@@ -182,7 +182,7 @@ export class EscrowsContractsService {
 				draft.createdBy === "receiver")
 		) {
 			throw new ForbiddenException(
-				"Only the counterparty can accept the contract - you created this draft contrasct",
+				"Only the counterparty can accept the contract - you created this draft contract",
 			);
 		}
 
@@ -762,12 +762,6 @@ export class EscrowsContractsService {
 		const signedTransaction = {
 			arkTx: input.signedTx,
 			checkpoints: input.signedCheckpoints,
-			// signutils
-			// 	.mergeCheckpoints(
-			// 		input.signedCheckpoints,
-			// 		execution.signedTransaction.checkpoints,
-			// 	)
-			// 	.map((_) => base64.encode(_.toPSBT())),
 		};
 
 		const finalTxId = await this.arkService.executeEscrowTransaction({
@@ -809,9 +803,6 @@ export class EscrowsContractsService {
 		}
 		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new UnprocessableEntityException("Contract  is not funded");
-		}
-		if (contract.receiverPubkey !== initiatorPubKey) {
-			throw new ForbiddenException("Only the receiver can execute this action");
 		}
 		const vtxo = contract.virtualCoins[0];
 		try {
