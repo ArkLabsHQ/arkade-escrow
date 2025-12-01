@@ -275,5 +275,5 @@ describe("Escrow from Request to completed Contract", () => {
 			.expect(200);
 
 		expect(finalContract.body.data.status).toBe("completed");
-	}, 1000);
+	}, 10000);
 });

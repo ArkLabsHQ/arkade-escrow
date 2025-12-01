@@ -804,13 +804,14 @@ export class EscrowsContractsService {
 		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new UnprocessableEntityException("Contract  is not funded");
 		}
+
 		const vtxo = contract.virtualCoins[0];
 		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
 				{
 					action: "direct-settle",
 					receiverAddress: ArkAddress.decode(initiatorArkAddress),
-					receiverPublicKey: initiatorPubKey,
+					receiverPublicKey: contract.receiverPubkey,
 					senderPublicKey: contract.senderPubkey,
 					arbitratorPublicKey: this.arbitratorPublicKey,
 					contractNonce: `${contract.externalId}${contract.request.externalId}`,
