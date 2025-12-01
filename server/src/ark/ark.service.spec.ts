@@ -92,7 +92,7 @@ describe("ArkService", () => {
 		it("should create an ArkAddress for the given contract", () => {
 			const result = arkService.createArkAddressForContract(contract);
 			expect(result).toBeInstanceOf(ArkAddress);
-			expect(result.hrp).toBe("ark");
+			expect(result.hrp).toBe("tark");
 		});
 	});
 

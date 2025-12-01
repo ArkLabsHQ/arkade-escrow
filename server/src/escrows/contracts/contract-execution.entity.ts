@@ -15,8 +15,10 @@ import { PublicKey } from "../../common/PublicKey";
 import { ACTION_TYPE, ActionType } from "../../common/Action.type";
 
 export const EXECUTION_STATUS = [
-	"pending-initiator-signature",
-	"pending-counterparty-signature",
+	// "pending-initiator-signature",
+	// "pending-counterparty-signature",
+	"pending-signatures",
+
 	"pending-server-confirmation",
 	"executed",
 

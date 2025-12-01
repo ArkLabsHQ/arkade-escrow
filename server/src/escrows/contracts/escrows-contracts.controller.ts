@@ -231,7 +231,7 @@ export class EscrowsContractsController {
 	@ApiBearerAuth()
 	@ApiOperation({
 		summary:
-			"Create a direct settlement execution transaction for the contract",
+			"Create a direct settlement execution transaction for the contract. Only the receiver can do this",
 	})
 	@ApiParam({ name: "contractId", description: "Contract external id" })
 	@ApiBody({ type: ExecuteEscrowContractInDto })
@@ -249,7 +249,7 @@ export class EscrowsContractsController {
 		@UserFromJwt() user: User,
 		@Param("contractId") contractId: string,
 	): Promise<ApiEnvelope<ExecuteEscrowContractOutDto>> {
-		const ce = await this.service.createDirectSettlementExecution(
+		const ce = await this.service.createDirectSettlementExecutionWithAddress(
 			contractId,
 			dto.arkAddress,
 			user.publicKey,

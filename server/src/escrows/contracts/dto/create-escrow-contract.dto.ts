@@ -7,50 +7,14 @@ export class CreateEscrowContractInDto {
 	@IsString()
 	@IsNotEmpty()
 	requestId!: string;
-}
-
-export class CreateEscrowContractOutDto {
-	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
-	externalId!: string;
-
-	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
-	requestId!: string;
-
-	@ApiProperty({ description: "Sender public key" })
-	sender!: string;
-
-	@ApiProperty({ description: "Receiver public key" })
-	receiver!: string;
 
 	@ApiProperty({
-		minimum: 0,
-		description: "Amount in satoshis or your smallest unit",
+		example:
+			"ark1qpt0syx7j0jspe69kldtljet0x9jz6ns4xw70m0w0xl30yfhn0mz6e9gu6zr3epntklwz8h330j8m03u27a4lqnc4dc7z829kxczves5stw760",
+		description: "Ark Address of the receiver, optional",
 	})
-	@IsNumber()
-	@Min(0)
-	amount!: number;
-
-	@ApiProperty({ description: "ARK address of the contract" })
-	arkAddress!: string;
-
-	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	createdAt!: number;
-
-	@ApiProperty({
-		enum: CONTRACT_STATUS,
-		description: "Contract status",
-		default: "created",
-	})
-	status: ContractStatus = "created";
-
-	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	updatedAt!: number;
+	@IsString()
+	receiverAddress?: string;
 }
 
 export class DraftEscrowContractOutDto {

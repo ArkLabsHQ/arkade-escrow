@@ -50,11 +50,13 @@ import { DraftEscrowContractOutDto } from "./dto/create-escrow-contract.dto";
 import { PublicKey } from "../../common/PublicKey";
 import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
+import { ActionType } from "../../common/Action.type";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
 	senderPubkey: string;
 	receiverPubkey: string;
+	receiverAddress?: string;
 	amount: number;
 	requestId: string;
 };
@@ -130,6 +132,7 @@ export class EscrowsContractsService {
 			status: "draft",
 			senderPubkey: input.senderPubkey,
 			receiverPubkey: input.receiverPubkey,
+			receiverAddress: input.receiverAddress,
 			amount: input.amount ?? 0,
 			createdBy: input.initiator,
 		});
@@ -570,9 +573,9 @@ export class EscrowsContractsService {
 				`Contract ${contractId} or execution ${executionId} not found`,
 			);
 		}
-		if (execution.status === "pending-server-confirmation") {
-			throw new InternalServerErrorException(
-				"Execution in pending-server-confirmation",
+		if (execution.status !== "pending-signatures") {
+			throw new ForbiddenException(
+				`Cannot sign an execution with status ${execution.status}`,
 			);
 		}
 		if (execution.cleanTransaction.approvedByPubKeys.includes(signerPubKey)) {
@@ -607,44 +610,13 @@ export class EscrowsContractsService {
 			this.logger.error(e);
 			throw new BadRequestException("Invalid signature");
 		}
+        execution.cleanTransaction.approvedByPubKeys
 
-		const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
-		let nextExecutionStatus: ExecutionStatus = execution.status;
-
-		switch (execution.status) {
-			case "pending-initiator-signature": {
-				this.logger.debug(
-					`execution ${executionId} is pending-initiator-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
-				);
-				if (!signerIsInitiator) {
-					throw new ForbiddenException(
-						`Execution must be signed by initiator first`,
-					);
-				}
-				nextExecutionStatus = "pending-counterparty-signature";
-				break;
-			}
-			case "pending-counterparty-signature": {
-				this.logger.debug(
-					`execution ${executionId} is pending-counterparty-signature, signer is ${signerIsInitiator ? "initiator" : "counterparty"}`,
-				);
-				if (signerIsInitiator) {
-					throw new ForbiddenException(
-						`Execution must be signed by counterparty`,
-					);
-				}
-				nextExecutionStatus = "pending-server-confirmation";
-				break;
-			}
-			default: {
-				throw new UnprocessableEntityException(
-					`Execution ${executionId} is not pending any signature`,
-				);
-			}
-		}
+		// const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
+		let nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByBoth(execution) ? "pending-server-confirmation" : "pending-signatures"
 
 		this.logger.debug(
-			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus} by ${execution.initiatedByPubKey === signerPubKey ? "initiator" : "counterparty"}`,
+			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus}`,
 		);
 
 		const cleanTransaction: ExecutionTransaction = {
@@ -733,6 +705,14 @@ export class EscrowsContractsService {
 		};
 	}
 
+    private isExecutionSignedByBoth(ce: ContractExecution): boolean {
+        let c = ce.cleanTransaction.requiredSigners.length;
+        for (let required in ce.cleanTransaction.requiredSigners) {
+            if (ce.cleanTransaction.approvedByPubKeys.includes(required)) c--;
+        }
+        return c === 0;
+    }
+
 	private async submitAndFinalizeExecutionTransaction(input: {
 		// Base64 encoded PSBT
 		signedTx: string;
@@ -786,9 +766,17 @@ export class EscrowsContractsService {
 		return finalTxId;
 	}
 
-	async createDirectSettlementExecution(
+	/**
+	 * Used by the receiver to create a direct settlement execution with a specific receiver address.
+	 * The contract must be in "funded" status and the initiator must be the receiver.
+	 *
+	 * @param externalId contract externalId
+	 * @param receiverAddress where the funds will be sent upon execution
+	 * @param initiatorPubKey
+	 */
+	async createDirectSettlementExecutionWithAddress(
 		externalId: string,
-		initiatorArkAddress: string,
+		receiverAddress: string,
 		initiatorPubKey: string,
 	): Promise<ExecuteEscrowContractOutDto> {
 		const contract = await this.getOneForPartyAndStatus(
@@ -804,13 +792,56 @@ export class EscrowsContractsService {
 		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new UnprocessableEntityException("Contract  is not funded");
 		}
+		if (contract.receiverPubkey !== initiatorPubKey) {
+			throw new ForbiddenException(
+				"Only the receiver can initiate a direct settlement execution",
+			);
+		}
 
 		const vtxo = contract.virtualCoins[0];
 		try {
+			const execution = await this.createDirectSettlementExecution(
+				contract,
+				receiverAddress,
+				initiatorPubKey,
+			);
+            await this.contractRepository.update(
+            	{ externalId: contract.externalId },
+            	{
+            		status: "pending-execution",
+            	},
+            );
+			return {
+				externalId: execution.externalId,
+				contractId: execution.contract.externalId,
+				arkTx: execution.cleanTransaction.arkTx,
+				checkpoints: execution.cleanTransaction.checkpoints,
+				vtxo: execution.cleanTransaction.vtxo,
+			};
+		} catch (e) {
+			this.logger.error("Failed to create direct settlement execution", e);
+			throw new InternalServerErrorException(
+				"Failed to create direct settlement execution",
+				{ cause: e },
+			);
+		}
+	}
+
+	private async createDirectSettlementExecution(
+		contract: EscrowContract,
+		receiverAddress: string,
+		initiatorPubKey: string,
+	): Promise<ContractExecution> {
+		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
+			throw new Error("Not VTXO found in contract");
+		}
+		const vtxo = contract.virtualCoins[0];
+		const action: ActionType = "direct-settle";
+		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
 				{
-					action: "direct-settle",
-					receiverAddress: ArkAddress.decode(initiatorArkAddress),
+					action,
+					receiverAddress: ArkAddress.decode(receiverAddress),
 					receiverPublicKey: contract.receiverPubkey,
 					senderPublicKey: contract.senderPubkey,
 					arbitratorPublicKey: this.arbitratorPublicKey,
@@ -820,14 +851,14 @@ export class EscrowsContractsService {
 			);
 
 			const entity = this.contractExecutionRepository.create({
-				action: "direct-settle",
+				action,
 				externalId: nanoid(16),
 				contract: { externalId: contract.externalId } as Pick<
 					EscrowContract,
 					"externalId"
 				>,
 				initiatedByPubKey: initiatorPubKey,
-				status: "pending-initiator-signature",
+				status: "pending-signatures",
 				cleanTransaction: {
 					vtxo: {
 						txid: vtxo.txid,
@@ -841,20 +872,7 @@ export class EscrowsContractsService {
 					rejectedByPubKeys: [],
 				},
 			});
-			const persisted = await this.contractExecutionRepository.save(entity);
-			await this.contractRepository.update(
-				{ externalId: contract.externalId },
-				{
-					status: "pending-execution",
-				},
-			);
-			return {
-				externalId: persisted.externalId,
-				contractId: persisted.contract.externalId,
-				arkTx: persisted.cleanTransaction.arkTx,
-				checkpoints: persisted.cleanTransaction.checkpoints,
-				vtxo: persisted.cleanTransaction.vtxo,
-			};
+			return  await this.contractExecutionRepository.save(entity);
 		} catch (e) {
 			this.logger.error("Failed to create escrow transaction", e);
 			throw new InternalServerErrorException(
@@ -881,13 +899,32 @@ export class EscrowsContractsService {
 				`Contract ${evt.contractId} with status ${contract.status} received event ${CONTRACT_FUNDED_ID}`,
 			);
 		}
-		await this.contractRepository.update(
-			{ externalId: contract.externalId },
-			{
-				status: "funded",
-				virtualCoins: evt.vtxos,
-			},
-		);
+		if (contract.receiverAddress !== undefined) {
+            // if there is a receiver address, we create a direct settlement execution automatically
+			try {
+                const execution = await this.createDirectSettlementExecution(
+                    contract, contract.receiverAddress, this.arbitratorPublicKey
+                )
+                this.logger.debug(`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`);
+                await this.contractRepository.update(
+                    {externalId: contract.externalId},
+                    {
+                        status: "pending-execution",
+                        virtualCoins: evt.vtxos,
+                    },
+                );
+            } catch (e) {
+                this.logger.error(`Failed to create direct settlement execution automatically for contract ${contract.externalId}`, e);
+            }
+		} else {
+            await this.contractRepository.update(
+                {externalId: contract.externalId},
+                {
+                    status: "funded",
+                    virtualCoins: evt.vtxos,
+                },
+            );
+        }
 	}
 
 	async getOneByExternalId(

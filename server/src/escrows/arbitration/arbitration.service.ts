@@ -307,7 +307,7 @@ export class ArbitrationService {
 						"externalId"
 					>,
 					initiatedByPubKey: this.arbitratorPublicKey,
-					status: "pending-counterparty-signature",
+					status: "pending-signatures",
 					cleanTransaction: {
 						vtxo: {
 							txid: vtxo.txid,
@@ -362,7 +362,7 @@ export class ArbitrationService {
 						"externalId"
 					>,
 					initiatedByPubKey: this.arbitratorPublicKey,
-					status: "pending-counterparty-signature",
+					status: "pending-signatures",
 					cleanTransaction: {
 						vtxo: {
 							txid: vtxo.txid,
