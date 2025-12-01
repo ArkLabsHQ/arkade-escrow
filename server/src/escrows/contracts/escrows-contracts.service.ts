@@ -610,10 +610,14 @@ export class EscrowsContractsService {
 			this.logger.error(e);
 			throw new BadRequestException("Invalid signature");
 		}
-        execution.cleanTransaction.approvedByPubKeys
+		execution.cleanTransaction.approvedByPubKeys;
 
 		// const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
-		let nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByBoth(execution) ? "pending-server-confirmation" : "pending-signatures"
+		let nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByBoth(
+			execution,
+		)
+			? "pending-server-confirmation"
+			: "pending-signatures";
 
 		this.logger.debug(
 			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus}`,
@@ -705,13 +709,13 @@ export class EscrowsContractsService {
 		};
 	}
 
-    private isExecutionSignedByBoth(ce: ContractExecution): boolean {
-        let c = ce.cleanTransaction.requiredSigners.length;
-        for (let required in ce.cleanTransaction.requiredSigners) {
-            if (ce.cleanTransaction.approvedByPubKeys.includes(required)) c--;
-        }
-        return c === 0;
-    }
+	private isExecutionSignedByBoth(ce: ContractExecution): boolean {
+		let c = ce.cleanTransaction.requiredSigners.length;
+		for (let required in ce.cleanTransaction.requiredSigners) {
+			if (ce.cleanTransaction.approvedByPubKeys.includes(required)) c--;
+		}
+		return c === 0;
+	}
 
 	private async submitAndFinalizeExecutionTransaction(input: {
 		// Base64 encoded PSBT
@@ -805,12 +809,12 @@ export class EscrowsContractsService {
 				receiverAddress,
 				initiatorPubKey,
 			);
-            await this.contractRepository.update(
-            	{ externalId: contract.externalId },
-            	{
-            		status: "pending-execution",
-            	},
-            );
+			await this.contractRepository.update(
+				{ externalId: contract.externalId },
+				{
+					status: "pending-execution",
+				},
+			);
 			return {
 				externalId: execution.externalId,
 				contractId: execution.contract.externalId,
@@ -872,7 +876,7 @@ export class EscrowsContractsService {
 					rejectedByPubKeys: [],
 				},
 			});
-			return  await this.contractExecutionRepository.save(entity);
+			return await this.contractExecutionRepository.save(entity);
 		} catch (e) {
 			this.logger.error("Failed to create escrow transaction", e);
 			throw new InternalServerErrorException(
@@ -900,31 +904,38 @@ export class EscrowsContractsService {
 			);
 		}
 		if (contract.receiverAddress !== undefined) {
-            // if there is a receiver address, we create a direct settlement execution automatically
+			// if there is a receiver address, we create a direct settlement execution automatically
 			try {
-                const execution = await this.createDirectSettlementExecution(
-                    contract, contract.receiverAddress, this.arbitratorPublicKey
-                )
-                this.logger.debug(`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`);
-                await this.contractRepository.update(
-                    {externalId: contract.externalId},
-                    {
-                        status: "pending-execution",
-                        virtualCoins: evt.vtxos,
-                    },
-                );
-            } catch (e) {
-                this.logger.error(`Failed to create direct settlement execution automatically for contract ${contract.externalId}`, e);
-            }
+				const execution = await this.createDirectSettlementExecution(
+					contract,
+					contract.receiverAddress,
+					this.arbitratorPublicKey,
+				);
+				this.logger.debug(
+					`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`,
+				);
+				await this.contractRepository.update(
+					{ externalId: contract.externalId },
+					{
+						status: "pending-execution",
+						virtualCoins: evt.vtxos,
+					},
+				);
+			} catch (e) {
+				this.logger.error(
+					`Failed to create direct settlement execution automatically for contract ${contract.externalId}`,
+					e,
+				);
+			}
 		} else {
-            await this.contractRepository.update(
-                {externalId: contract.externalId},
-                {
-                    status: "funded",
-                    virtualCoins: evt.vtxos,
-                },
-            );
-        }
+			await this.contractRepository.update(
+				{ externalId: contract.externalId },
+				{
+					status: "funded",
+					virtualCoins: evt.vtxos,
+				},
+			);
+		}
 	}
 
 	async getOneByExternalId(

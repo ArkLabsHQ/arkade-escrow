@@ -6,34 +6,37 @@ import { ContractExecution } from "./contract-execution.entity";
 import { ArkService } from "../../ark/ark.service";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import {ArkAddress, VirtualCoin} from "@arkade-os/sdk";
-import {ContractFunded} from "../../common/contract-address.event";
-import {nanoid} from "nanoid";
+import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
+import { ContractFunded } from "../../common/contract-address.event";
+import { nanoid } from "nanoid";
 
 const ARBITRATOR_PUB_KEY = "mock_arbitrator_pubkey";
-const newId = () => nanoid(16)
+const newId = () => nanoid(16);
 
 describe("EscrowsContractsService", () => {
-    const receiverPubkey = "pubkey-receiver";
-    const senderPubkey = "pubkey-sender";
-    const initiatorArkAddress =
-        "tark1qpt0syx7j0jspe69kldtljet0x9jz6ns4xw70m0w0xl30yfhn0mz6e9gu6zr3epntklwz8h330j8m03u27a4lqnc4dc7z829kxczves5stw760";
-    const contractAddress = "tark1qra883hysahlkt0ujcwhv0x2n278849c3m7t3a08l7fdc40f4f2nm8925vs39g4edhxnc7mkmed36w2fnydw3evqknfmra58xkmlsx6p3ne7yn"
-    const mockVirtualCoins: VirtualCoin[] = [{ txid: "tx1", vout: 0, value: 1000} as any];
-    const mockContract = {
-        externalId: newId(),
-        senderPubkey: senderPubkey,
-        receiverPubkey: receiverPubkey,
-        status: "funded",
-        virtualCoins:  mockVirtualCoins,
-        request: { externalId: newId()},
-    };
-    // Mock arkService.createEscrowTransaction
-    const mockEscrowTx = {
-        arkTx: "mock_ark_tx",
-        checkpoints: ["cp1"],
-        requiredSigners: ["sender", "receiver", "server"],
-    };
+	const receiverPubkey = "pubkey-receiver";
+	const senderPubkey = "pubkey-sender";
+	const initiatorArkAddress =
+		"tark1qpt0syx7j0jspe69kldtljet0x9jz6ns4xw70m0w0xl30yfhn0mz6e9gu6zr3epntklwz8h330j8m03u27a4lqnc4dc7z829kxczves5stw760";
+	const contractAddress =
+		"tark1qra883hysahlkt0ujcwhv0x2n278849c3m7t3a08l7fdc40f4f2nm8925vs39g4edhxnc7mkmed36w2fnydw3evqknfmra58xkmlsx6p3ne7yn";
+	const mockVirtualCoins: VirtualCoin[] = [
+		{ txid: "tx1", vout: 0, value: 1000 } as any,
+	];
+	const mockContract = {
+		externalId: newId(),
+		senderPubkey: senderPubkey,
+		receiverPubkey: receiverPubkey,
+		status: "funded",
+		virtualCoins: mockVirtualCoins,
+		request: { externalId: newId() },
+	};
+	// Mock arkService.createEscrowTransaction
+	const mockEscrowTx = {
+		arkTx: "mock_ark_tx",
+		checkpoints: ["cp1"],
+		requiredSigners: ["sender", "receiver", "server"],
+	};
 
 	let service: EscrowsContractsService;
 	let contractRepository: any;
@@ -43,7 +46,7 @@ describe("EscrowsContractsService", () => {
 	const mockContractRepository = {
 		createQueryBuilder: jest.fn(),
 		update: jest.fn(),
-        findOne: jest.fn(),
+		findOne: jest.fn(),
 	};
 
 	const mockContractExecutionRepository = {
@@ -62,34 +65,34 @@ describe("EscrowsContractsService", () => {
 		}),
 	};
 
-    mockArkService.createEscrowTransaction.mockResolvedValue(mockEscrowTx);
+	mockArkService.createEscrowTransaction.mockResolvedValue(mockEscrowTx);
 
-    // Transaction without signatures!
-    const cleanTransaction = {
-        ...mockEscrowTx,
-        vtxo: mockVirtualCoins[0],
-    };
+	// Transaction without signatures!
+	const cleanTransaction = {
+		...mockEscrowTx,
+		vtxo: mockVirtualCoins[0],
+	};
 
-    // Mock repository create and save
-    const mockExecutionEntity = {
-        externalId: newId(),
-        contract: { externalId: mockContract.externalId },
-        cleanTransaction: {
-            ...cleanTransaction,
-            approvedByPubKeys: [],
-            rejectedByPubKeys: [],
-        },
-        status: "pending-signatures",
-        initiatedByPubKey: receiverPubkey,
-    };
+	// Mock repository create and save
+	const mockExecutionEntity = {
+		externalId: newId(),
+		contract: { externalId: mockContract.externalId },
+		cleanTransaction: {
+			...cleanTransaction,
+			approvedByPubKeys: [],
+			rejectedByPubKeys: [],
+		},
+		status: "pending-signatures",
+		initiatedByPubKey: receiverPubkey,
+	};
 
-    // Mock getOneForPartyAndStatus (via createQueryBuilder)
-    const qbMock = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(mockContract),
-    };
+	// Mock getOneForPartyAndStatus (via createQueryBuilder)
+	const qbMock = {
+		leftJoinAndSelect: jest.fn().mockReturnThis(),
+		where: jest.fn().mockReturnThis(),
+		andWhere: jest.fn().mockReturnThis(),
+		getOne: jest.fn().mockResolvedValue(mockContract),
+	};
 
 	beforeEach(async () => {
 		const moduleRef = await Test.createTestingModule({
@@ -123,8 +126,6 @@ describe("EscrowsContractsService", () => {
 
 		jest.clearAllMocks();
 	});
-
-
 
 	describe("createDirectSettlementExecution", () => {
 		beforeEach(() => {
@@ -188,75 +189,84 @@ describe("EscrowsContractsService", () => {
 		});
 	});
 
-    describe('onContractFunded', () => {
-        const evtContractFunded: ContractFunded = {
-            eventId: newId(),
-            contractId: mockContract.externalId,
-            arkAddress: ArkAddress.decode(contractAddress),
-            amountSats: BigInt(mockVirtualCoins[0].value),
-            vtxos: mockVirtualCoins,
-            detectedAt: (new Date()).toISOString()
+	describe("onContractFunded", () => {
+		const evtContractFunded: ContractFunded = {
+			eventId: newId(),
+			contractId: mockContract.externalId,
+			arkAddress: ArkAddress.decode(contractAddress),
+			amountSats: BigInt(mockVirtualCoins[0].value),
+			vtxos: mockVirtualCoins,
+			detectedAt: new Date().toISOString(),
+		};
 
-        }
+		beforeEach(() => {
+			mockContractRepository.createQueryBuilder.mockReturnValue(qbMock);
+			mockContractExecutionRepository.create.mockReturnValue(
+				mockExecutionEntity,
+			);
+			mockContractExecutionRepository.save.mockResolvedValue(
+				mockExecutionEntity,
+			);
+		});
 
-        beforeEach(() => {
-            mockContractRepository.createQueryBuilder.mockReturnValue(qbMock);
-            mockContractExecutionRepository.create.mockReturnValue(
-                mockExecutionEntity,
-            );
-            mockContractExecutionRepository.save.mockResolvedValue(
-                mockExecutionEntity,
-            );
-        });
-
-        it('when `receiverAddress` is defined, should create an execution', async () => {
-            const contract = { ...mockContract, status: "created", receiverAddress: initiatorArkAddress, vtxos: undefined };
-            mockContractRepository.findOne.mockResolvedValue(contract);
-            mockContractRepository.update.mockResolvedValue(contract);
-            await service.onContractFunded(evtContractFunded);
-            // Verify transaction creation
-            expect(mockArkService.createEscrowTransaction).toHaveBeenCalledWith(
-                {
-                    action: "direct-settle",
-                    receiverAddress: ArkAddress.decode(initiatorArkAddress),
-                    receiverPublicKey: receiverPubkey,
-                    senderPublicKey: senderPubkey,
-                    arbitratorPublicKey: ARBITRATOR_PUB_KEY,
-                    contractNonce: `${mockContract.externalId}${mockContract.request.externalId}`,
-                },
-                mockContract.virtualCoins[0],
-            );
-            // Verify contract execution creation
-            expect(mockContractExecutionRepository.create).toHaveBeenCalledWith({
-                action: "direct-settle",
-                externalId: expect.stringMatching(/^.{16}$/),
-                contract: { externalId: mockContract.externalId },
-                initiatedByPubKey: ARBITRATOR_PUB_KEY,
-                status: "pending-signatures",
-                cleanTransaction: {
-                    ...cleanTransaction,
-                    approvedByPubKeys: [],
-                    rejectedByPubKeys: [],
-                },
-            });
-            // Verify contract status update
-            expect(mockContractRepository.update).toHaveBeenCalledWith(
-                { externalId: mockContract.externalId },
-                { status: "pending-execution", virtualCoins: evtContractFunded.vtxos },
-            );
-        })
-        it('when `receiverAddress` is not defined, should update the contract status and vtxos', async () => {
-            const contract = { ...mockContract, status: "created", receiverAddress: undefined, vtxos: undefined };
-            mockContractRepository.findOne.mockResolvedValue(contract);
-            mockContractRepository.update.mockResolvedValue(contract);
-            await service.onContractFunded(evtContractFunded);
-            expect(mockArkService.createEscrowTransaction).not.toHaveBeenCalled();
-            expect(mockContractExecutionRepository.create).not.toHaveBeenCalled();
-            // Verify contract status update
-            expect(mockContractRepository.update).toHaveBeenCalledWith(
-                { externalId: mockContract.externalId },
-                { status: "funded", virtualCoins: evtContractFunded.vtxos },
-            );
-        })
-    });
+		it("when `receiverAddress` is defined, should create an execution", async () => {
+			const contract = {
+				...mockContract,
+				status: "created",
+				receiverAddress: initiatorArkAddress,
+				vtxos: undefined,
+			};
+			mockContractRepository.findOne.mockResolvedValue(contract);
+			mockContractRepository.update.mockResolvedValue(contract);
+			await service.onContractFunded(evtContractFunded);
+			// Verify transaction creation
+			expect(mockArkService.createEscrowTransaction).toHaveBeenCalledWith(
+				{
+					action: "direct-settle",
+					receiverAddress: ArkAddress.decode(initiatorArkAddress),
+					receiverPublicKey: receiverPubkey,
+					senderPublicKey: senderPubkey,
+					arbitratorPublicKey: ARBITRATOR_PUB_KEY,
+					contractNonce: `${mockContract.externalId}${mockContract.request.externalId}`,
+				},
+				mockContract.virtualCoins[0],
+			);
+			// Verify contract execution creation
+			expect(mockContractExecutionRepository.create).toHaveBeenCalledWith({
+				action: "direct-settle",
+				externalId: expect.stringMatching(/^.{16}$/),
+				contract: { externalId: mockContract.externalId },
+				initiatedByPubKey: ARBITRATOR_PUB_KEY,
+				status: "pending-signatures",
+				cleanTransaction: {
+					...cleanTransaction,
+					approvedByPubKeys: [],
+					rejectedByPubKeys: [],
+				},
+			});
+			// Verify contract status update
+			expect(mockContractRepository.update).toHaveBeenCalledWith(
+				{ externalId: mockContract.externalId },
+				{ status: "pending-execution", virtualCoins: evtContractFunded.vtxos },
+			);
+		});
+		it("when `receiverAddress` is not defined, should update the contract status and vtxos", async () => {
+			const contract = {
+				...mockContract,
+				status: "created",
+				receiverAddress: undefined,
+				vtxos: undefined,
+			};
+			mockContractRepository.findOne.mockResolvedValue(contract);
+			mockContractRepository.update.mockResolvedValue(contract);
+			await service.onContractFunded(evtContractFunded);
+			expect(mockArkService.createEscrowTransaction).not.toHaveBeenCalled();
+			expect(mockContractExecutionRepository.create).not.toHaveBeenCalled();
+			// Verify contract status update
+			expect(mockContractRepository.update).toHaveBeenCalledWith(
+				{ externalId: mockContract.externalId },
+				{ status: "funded", virtualCoins: evtContractFunded.vtxos },
+			);
+		});
+	});
 });
