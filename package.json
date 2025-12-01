@@ -8,6 +8,8 @@
 		"watch:client": "cd client && vite build --watch --mode development",
 		"watch:backoffice": "cd backoffice && vite build --watch --mode development",
 		"clean": "rm -rf dist node_modules",
+		"clean:client": "rm -rf client/dist client/node_modules",
+		"clean:backoffice": "rm -rf backoffice/dist backoffice/node_modules",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:cov": "jest --coverage",
@@ -26,7 +28,7 @@
 		"ci:check": "biome ci server"
 	},
 	"dependencies": {
-		"@arkade-os/sdk": "0.3.3",
+		"@arkade-os/sdk": "^0.3.8",
 		"@nestjs/common": "^11.1.6",
 		"@nestjs/config": "^4.0.2",
 		"@nestjs/core": "^11.1.6",
