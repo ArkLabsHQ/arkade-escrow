@@ -43,10 +43,13 @@ import ContractActions, {
 import { getStatusText } from "@/components/ContractDetailSheet/helpers";
 import ExecutionAttempt from "@/components/ContractDetailSheet/ExecutionAttempt";
 import ArbitrationSection from "@/components/ContractDetailSheet/ArbitrationSection";
+import { useContractSse } from "@/components/ContractDetailSheet/useContractSse";
+import { Skeleton } from "../ui/skeleton";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
 	open: boolean;
+	balance?: number;
 	onOpenChange: (open: boolean) => void;
 	onContractAction: (
 		action: ContractAction,
@@ -62,22 +65,101 @@ type ContractDetailSheetProps = {
 	me: Me;
 };
 
-export const ContractDetailSheet = ({
+export const ContractDetailSheet = (props: ContractDetailSheetProps) => {
+	return (
+		<Sheet open={props.open} onOpenChange={props.onOpenChange}>
+			<SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+				{props.contract === null ? (
+					<>
+						<SheetHeader className="space-y-3">
+							<div>
+								<Skeleton className="h-8 w-48 mb-2" />
+								<Skeleton className="h-3 w-32" />
+							</div>
+						</SheetHeader>
+						<div className="mt-8 space-y-6">
+							{/* Amount Section Skeleton */}
+							<div className="bg-gradient-shine rounded-xl p-6 border border-border">
+								<div className="flex items-center justify-between">
+									<div className="flex-1">
+										<Skeleton className="h-4 w-32 mb-2" />
+
+										<Skeleton className="h-9 w-48" />
+									</div>
+
+									<Skeleton className="h-12 w-12 rounded-lg" />
+								</div>
+							</div>
+							{/* Details Section Skeletons */}
+							<div className="space-y-4">
+								{/* Status */}
+								<div className="flex items-start gap-3">
+									<Skeleton className="h-6 w-20 rounded-full" />
+
+									<div className="flex-1">
+										<Skeleton className="h-4 w-16 mb-2" />
+
+										<Skeleton className="h-5 w-32" />
+									</div>
+								</div>
+								<Separator />
+								{/* Role */}
+								<div className="flex items-start gap-3">
+									<Skeleton className="h-9 w-9 rounded-lg" />
+
+									<div className="flex-1">
+										<Skeleton className="h-4 w-20 mb-2" />
+
+										<Skeleton className="h-5 w-48" />
+									</div>
+								</div>
+							</div>
+						</div>
+					</>
+				) : (
+					<InnerContractDetailSheet {...props} contract={props.contract} />
+				)}
+			</SheetContent>
+		</Sheet>
+	);
+};
+
+type InnerContractDetailSheetProps = {
+	contract: GetEscrowContractDto;
+	balance?: number;
+	onOpenChange: (open: boolean) => void;
+	onContractAction: (
+		action: ContractAction,
+		data: {
+			contractId: string;
+			executionId?: string;
+			disputeId?: string;
+			walletAddress: string | null;
+			transaction: GetExecutionByContractDto["transaction"] | null;
+			reason?: string;
+		},
+	) => void;
+	me: Me;
+};
+
+const InnerContractDetailSheet = ({
 	contract,
-	open,
+	balance,
 	onOpenChange,
 	onContractAction,
 	me,
-}: ContractDetailSheetProps) => {
-	const { fundAddress, walletAddress, getWalletBalance } = useMessageBridge();
+}: InnerContractDetailSheetProps) => {
+	const { fundAddress, walletAddress } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
-	const [showBalanceWarning, setShowBalanceWarning] = useState(true);
-	const [walletBalance, setWalletBalance] = useState<number | null>(null);
+	const [showBalanceWarning, setShowBalanceWarning] = useState(false);
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
+	const lastContractEvent = useContractSse(contract.externalId, () => {
+		console.log("Contract event received");
+	});
 
-	const { data: dataExecutions, isError } = useQuery({
+	const { data: dataExecutions, error: dataExecutionsError } = useQuery({
 		queryKey: ["contract-executions", contract?.externalId],
 		queryFn: async () => {
 			const res = await axios.get<
@@ -93,7 +175,7 @@ export const ContractDetailSheet = ({
 		enabled: !!contract?.externalId,
 	});
 
-	const { data: dataArbitrations } = useQuery({
+	const { data: dataArbitrations, error: dataArbitrationsError } = useQuery({
 		queryKey: ["contract-arbitrations", contract?.externalId],
 		queryFn: async () => {
 			const res = await axios.get<ApiPaginatedEnvelope<GetArbitrationDto>>(
@@ -110,24 +192,23 @@ export const ContractDetailSheet = ({
 	// Only one arbitration is supported for now
 	const currentArbitration = dataArbitrations?.data[0];
 
-	if (isError) {
-		console.error(isError);
+	if (dataExecutionsError || dataArbitrationsError) {
+		const error = dataExecutionsError ?? dataArbitrationsError;
+		console.error(error);
 		toast.error("Failed to load contract data");
 	}
 
 	useEffect(() => {
-		if (contract?.status === "created") {
-			const amount = contract.amount;
-			getWalletBalance().then((balance) => {
-				setWalletBalance(balance.available);
-				if (balance.available < amount && !showBalanceWarning) {
+		if (contract?.status === "created" && balance !== undefined) {
+			if (balance < contract.amount) {
+				if (!showBalanceWarning) {
 					setShowBalanceWarning(true);
-				} else if (showBalanceWarning) {
-					setShowBalanceWarning(false);
 				}
-			});
+			} else if (showBalanceWarning) {
+				setShowBalanceWarning(false);
+			}
 		}
-	}, []);
+	}, [contract, balance, showBalanceWarning]);
 
 	if (!contract) return null;
 
@@ -215,318 +296,310 @@ export const ContractDetailSheet = ({
 	};
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-				<SheetHeader className="space-y-3">
-					<div className="flex items-center justify-between">
-						<div className="flex-1">
-							<SheetTitle className="text-2xl">Contract Details</SheetTitle>
-							<p className="text-xs text-muted-foreground mt-1">
-								{formattedDate}
-							</p>
-						</div>
-					</div>
-				</SheetHeader>
-
-				<div className="mt-8 space-y-6">
-					{/* Amount Section */}
-					<div className="bg-gradient-shine rounded-xl p-6 border border-border">
-						<div className="flex items-center justify-between">
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground mb-1">
-									Requested Amount
-								</p>
-								<p className="text-3xl font-bold text-foreground">
-									{contract.amount} SAT
-								</p>
-
-								{(contract.status === "funded" ||
-									contract.status === "pending-execution" ||
-									contract.status === "completed") &&
-									fundedAmount && (
-										<div className="mt-4 pt-4 border-t border-border/50">
-											<div className="flex items-center gap-2 mb-1">
-												<p className="text-sm text-muted-foreground">
-													Currently Funded
-												</p>
-												<Badge
-													className={
-														isFundingMet
-															? "bg-success/10 text-success border-success/20"
-															: "bg-warning/10 text-warning border-warning/20"
-													}
-													variant="outline"
-												>
-													{isFundingMet
-														? "Requirement Met"
-														: "Partially Funded"}
-												</Badge>
-											</div>
-											<div className="flex items-baseline gap-2">
-												<p className="text-2xl font-bold text-foreground">
-													{fundedAmount} SAT
-												</p>
-												{fundingDifference !== 0 && (
-													<p
-														className={`text-sm ${fundingDifference > 0 ? "text-success" : "text-warning"}`}
-													>
-														{fundingDifference > 0 ? "+" : ""}
-														{(fundingDifference / 100000000).toFixed(8)} SAT
-													</p>
-												)}
-											</div>
-										</div>
-									)}
-							</div>
-							<Wallet className="h-12 w-12 text-primary opacity-50" />
-						</div>
-					</div>
-
-					{/* Details Section */}
-					<div className="space-y-4">
-						<div className="flex items-start gap-3">
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Status</p>
-								<p className="text-base font-medium text-foreground">
-									{getStatusText(me, { mySide, createdByMe }, contract.status)}
-								</p>
-							</div>
-						</div>
-
-						<Separator />
-
-						<div className="flex items-start gap-3">
-							<div
-								className={`rounded-lg p-2 ${
-									mySide === "receiver"
-										? "bg-success/10 text-success"
-										: "bg-primary/10 text-primary"
-								}`}
-							>
-								{mySide === "receiver" ? (
-									<ArrowDownLeft className="h-5 w-5" />
-								) : (
-									<ArrowUpRight className="h-5 w-5" />
-								)}
-							</div>
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Your Role</p>
-								<p className="text-base font-medium text-foreground">
-									You are the {mySide} in this contract
-								</p>
-							</div>
-						</div>
-
-						<Separator />
-
-						<div className="flex items-start gap-3">
-							<User className="h-5 w-5 text-muted-foreground mt-0.5" />
-							{createdByMe ? (
-								<div className="flex-1">
-									<p className="text-sm text-muted-foreground">Counterparty</p>
-									<p className="text-base font-medium text-foreground">
-										{shortKey(counterParty)}
-									</p>
-								</div>
-							) : (
-								<div className="flex-1">
-									<p className="text-sm text-muted-foreground">Created By</p>
-									<p className="text-base font-medium text-foreground">
-										{shortKey(counterParty)}
-									</p>
-								</div>
-							)}
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={handleCopyCounterparty}
-								className="shrink-0"
-							>
-								<Copy className="h-4 w-4" />
-							</Button>
-						</div>
-
-						<Separator />
-
-						<div className="flex items-start gap-3">
-							<FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Request ID</p>
-								<p className="text-base font-medium text-foreground font-mono">
-									{contract.requestId}
-								</p>
-							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={handleCopyRequestId}
-								className="shrink-0"
-							>
-								<Copy className="h-4 w-4" />
-							</Button>
-						</div>
-						<div className="flex items-start gap-3">
-							<FileSignature className="h-5 w-5 text-muted-foreground mt-0.5" />
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Contract ID</p>
-								<p className="text-base font-medium text-foreground font-mono">
-									{contract.externalId}
-								</p>
-							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={handleCopyContractId}
-								className="shrink-0"
-							>
-								<Copy className="h-4 w-4" />
-							</Button>
-						</div>
-
-						<Separator />
-
-						<div>
-							<p className="text-sm text-muted-foreground mb-2">Description</p>
-							<p className="text-base text-foreground leading-relaxed">
-								{contract.description}
-							</p>
-						</div>
-
-						<Separator />
-
-						<div>
-							<div className="flex items-center justify-between mb-2">
-								<p className="text-sm text-muted-foreground">ARK Address</p>
-								{showBalanceWarning && walletBalance !== null && (
-									<Badge
-										variant="outline"
-										className="bg-warning/10 text-warning border-warning/20 text-xs"
-									>
-										{`Your available balance is only ${walletBalance} SAT`}
-									</Badge>
-								)}
-							</div>
-							<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
-								<p className="text-sm font-mono text-foreground flex-1 break-normal">
-									{truncatedArkAddress ||
-										"The address will be generated once the contract is accepted"}
-								</p>
-								{contract.arkAddress && (
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={handleCopyAddress}
-										className="shrink-0"
-									>
-										<Copy className="h-4 w-4" />
-									</Button>
-								)}
-								{contract.arkAddress && (
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleFundAddress}
-										className="shrink-0"
-										disabled={!contract.arkAddress}
-									>
-										<Banknote className="h-4 w-4" />
-									</Button>
-								)}
-							</div>
-						</div>
-
-						{/* Current Execution - Collapsible */}
-						{currentExecution && (
-							<>
-								<Separator />
-								<Collapsible defaultOpen={true}>
-									<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
-										<div className="flex items-center gap-2">
-											<BadgeInfoIcon className="h-4 w-4 text-neutral" />
-											<p className="text-sm font-medium text-foreground">
-												Current Execution Attempt
-											</p>
-										</div>
-										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
-									</CollapsibleTrigger>
-									<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-										<ExecutionAttempt execution={currentExecution} me={me} />
-									</CollapsibleContent>
-								</Collapsible>
-							</>
-						)}
-
-						{/* Arbitration Section - Non-collapsible */}
-						{contract.status === "under-arbitration" && currentArbitration && (
-							<>
-								<Separator />
-
-								<div className="space-y-3">
-									<div className="flex items-center gap-2">
-										<Scale className="h-5 w-5 text-destructive" />
-
-										<p className="text-base font-semibold text-foreground">
-											Arbitration
-										</p>
-									</div>
-									<ArbitrationSection
-										arbitration={currentArbitration}
-										me={me}
-									/>
-								</div>
-							</>
-						)}
-
-						{/* Past Executions - Collapsible */}
-						{pastFailedExecutions.length > 0 && (
-							<>
-								<Separator />
-								<Collapsible>
-									<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
-										<div className="flex items-center gap-2">
-											<AlertCircle className="h-4 w-4 text-destructive" />
-											<p className="text-sm font-medium text-foreground">
-												Past Execution Attempts ({pastFailedExecutions.length})
-											</p>
-										</div>
-										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
-									</CollapsibleTrigger>
-									<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-										{pastFailedExecutions.map((execution) => (
-											<ExecutionAttempt
-												key={execution.externalId}
-												execution={execution}
-												me={me}
-												isPast
-											/>
-										))}
-									</CollapsibleContent>
-								</Collapsible>
-							</>
-						)}
-					</div>
-
-					{/* Actions */}
-					<div className="space-y-3 pt-4">
-						<ContractActions
-							me={me}
-							contractStatus={contract.status}
-							sideDetails={getContractSideDetails(me, contract)}
-							currentExecution={currentExecution}
-							currentArbitration={currentArbitration}
-							onClick={handleActionClick}
-						/>
-						{/* Close button - always visible */}
-						<Button
-							variant="ghost"
-							className="w-full"
-							onClick={() => onOpenChange(false)}
-						>
-							Close
-						</Button>
+		<>
+			<SheetHeader className="space-y-3">
+				<div className="flex items-center justify-between">
+					<div className="flex-1">
+						<SheetTitle className="text-2xl">Contract Details</SheetTitle>
+						<p className="text-xs text-muted-foreground mt-1">
+							{formattedDate}
+						</p>
 					</div>
 				</div>
-			</SheetContent>
+			</SheetHeader>
+
+			<div className="mt-8 space-y-6">
+				{/* Amount Section */}
+				<div className="bg-gradient-shine rounded-xl p-6 border border-border">
+					<div className="flex items-center justify-between">
+						<div className="flex-1">
+							<p className="text-sm text-muted-foreground mb-1">
+								Requested Amount
+							</p>
+							<p className="text-3xl font-bold text-foreground">
+								{contract.amount} SAT
+							</p>
+
+							{(contract.status === "funded" ||
+								contract.status === "pending-execution" ||
+								contract.status === "completed") &&
+								fundedAmount && (
+									<div className="mt-4 pt-4 border-t border-border/50">
+										<div className="flex items-center gap-2 mb-1">
+											<p className="text-sm text-muted-foreground">
+												Currently Funded
+											</p>
+											<Badge
+												className={
+													isFundingMet
+														? "bg-success/10 text-success border-success/20"
+														: "bg-warning/10 text-warning border-warning/20"
+												}
+												variant="outline"
+											>
+												{isFundingMet ? "Requirement Met" : "Partially Funded"}
+											</Badge>
+										</div>
+										<div className="flex items-baseline gap-2">
+											<p className="text-2xl font-bold text-foreground">
+												{fundedAmount} SAT
+											</p>
+											{fundingDifference !== 0 && (
+												<p
+													className={`text-sm ${fundingDifference > 0 ? "text-success" : "text-warning"}`}
+												>
+													{`${fundingDifference > 0 ? "+" : ""}${fundingDifference} SAT`}
+												</p>
+											)}
+										</div>
+									</div>
+								)}
+						</div>
+						<Wallet className="h-12 w-12 text-primary opacity-50" />
+					</div>
+				</div>
+
+				{/* Details Section */}
+				<div className="space-y-4">
+					<div className="flex items-start gap-3">
+						<div className="flex-1">
+							<p className="text-sm text-muted-foreground">Status</p>
+							<p className="text-base font-medium text-foreground">
+								{getStatusText(me, { mySide, createdByMe }, contract.status)}
+							</p>
+						</div>
+					</div>
+
+					<Separator />
+
+					<div className="flex items-start gap-3">
+						<div
+							className={`rounded-lg p-2 ${
+								mySide === "receiver"
+									? "bg-success/10 text-success"
+									: "bg-primary/10 text-primary"
+							}`}
+						>
+							{mySide === "receiver" ? (
+								<ArrowDownLeft className="h-5 w-5" />
+							) : (
+								<ArrowUpRight className="h-5 w-5" />
+							)}
+						</div>
+						<div className="flex-1">
+							<p className="text-sm text-muted-foreground">Your Role</p>
+							<p className="text-base font-medium text-foreground">
+								You are the {mySide} in this contract
+							</p>
+						</div>
+					</div>
+
+					<Separator />
+
+					<div className="flex items-start gap-3">
+						<User className="h-5 w-5 text-muted-foreground mt-0.5" />
+						{createdByMe ? (
+							<div className="flex-1">
+								<p className="text-sm text-muted-foreground">Counterparty</p>
+								<p className="text-base font-medium text-foreground">
+									{shortKey(counterParty)}
+								</p>
+							</div>
+						) : (
+							<div className="flex-1">
+								<p className="text-sm text-muted-foreground">Created By</p>
+								<p className="text-base font-medium text-foreground">
+									{shortKey(counterParty)}
+								</p>
+							</div>
+						)}
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={handleCopyCounterparty}
+							className="shrink-0"
+						>
+							<Copy className="h-4 w-4" />
+						</Button>
+					</div>
+
+					<Separator />
+
+					<div className="flex items-start gap-3">
+						<FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+						<div className="flex-1">
+							<p className="text-sm text-muted-foreground">Request ID</p>
+							<p className="text-base font-medium text-foreground font-mono">
+								{contract.requestId}
+							</p>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={handleCopyRequestId}
+							className="shrink-0"
+						>
+							<Copy className="h-4 w-4" />
+						</Button>
+					</div>
+					<div className="flex items-start gap-3">
+						<FileSignature className="h-5 w-5 text-muted-foreground mt-0.5" />
+						<div className="flex-1">
+							<p className="text-sm text-muted-foreground">Contract ID</p>
+							<p className="text-base font-medium text-foreground font-mono">
+								{contract.externalId}
+							</p>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={handleCopyContractId}
+							className="shrink-0"
+						>
+							<Copy className="h-4 w-4" />
+						</Button>
+					</div>
+
+					<Separator />
+
+					<div>
+						<p className="text-sm text-muted-foreground mb-2">Description</p>
+						<p className="text-base text-foreground leading-relaxed">
+							{contract.description}
+						</p>
+					</div>
+
+					<Separator />
+
+					<div>
+						<div className="flex items-center justify-between mb-2">
+							<p className="text-sm text-muted-foreground">ARK Address</p>
+							{showBalanceWarning && balance !== null && (
+								<Badge
+									variant="outline"
+									className="bg-warning/10 text-warning border-warning/20 text-xs"
+								>
+									{`Your available balance is only ${balance} SAT`}
+								</Badge>
+							)}
+						</div>
+						<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+							<p className="text-sm font-mono text-foreground flex-1 break-normal">
+								{truncatedArkAddress ||
+									"The address will be generated once the contract is accepted"}
+							</p>
+							{contract.arkAddress && (
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={handleCopyAddress}
+									className="shrink-0"
+								>
+									<Copy className="h-4 w-4" />
+								</Button>
+							)}
+							{contract.arkAddress && (
+								<Button
+									variant="default"
+									size="sm"
+									onClick={handleFundAddress}
+									className="shrink-0"
+									disabled={!contract.arkAddress}
+								>
+									<Banknote className="h-4 w-4" />
+								</Button>
+							)}
+						</div>
+					</div>
+
+					{/* Current Execution - Collapsible */}
+					{currentExecution && (
+						<>
+							<Separator />
+							<Collapsible defaultOpen={true}>
+								<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
+									<div className="flex items-center gap-2">
+										<BadgeInfoIcon className="h-4 w-4 text-neutral" />
+										<p className="text-sm font-medium text-foreground">
+											Current Execution Attempt
+										</p>
+									</div>
+									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
+								</CollapsibleTrigger>
+								<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
+									<ExecutionAttempt execution={currentExecution} me={me} />
+								</CollapsibleContent>
+							</Collapsible>
+						</>
+					)}
+
+					{/* Arbitration Section - Non-collapsible */}
+					{contract.status === "under-arbitration" && currentArbitration && (
+						<>
+							<Separator />
+
+							<div className="space-y-3">
+								<div className="flex items-center gap-2">
+									<Scale className="h-5 w-5 text-destructive" />
+
+									<p className="text-base font-semibold text-foreground">
+										Arbitration
+									</p>
+								</div>
+								<ArbitrationSection arbitration={currentArbitration} me={me} />
+							</div>
+						</>
+					)}
+
+					{/* Past Executions - Collapsible */}
+					{pastFailedExecutions.length > 0 && (
+						<>
+							<Separator />
+							<Collapsible>
+								<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
+									<div className="flex items-center gap-2">
+										<AlertCircle className="h-4 w-4 text-destructive" />
+										<p className="text-sm font-medium text-foreground">
+											Past Execution Attempts ({pastFailedExecutions.length})
+										</p>
+									</div>
+									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
+								</CollapsibleTrigger>
+								<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
+									{pastFailedExecutions.map((execution) => (
+										<ExecutionAttempt
+											key={execution.externalId}
+											execution={execution}
+											me={me}
+											isPast
+										/>
+									))}
+								</CollapsibleContent>
+							</Collapsible>
+						</>
+					)}
+				</div>
+
+				{/* Actions */}
+				<div className="space-y-3 pt-4">
+					<ContractActions
+						me={me}
+						contractStatus={contract.status}
+						sideDetails={getContractSideDetails(me, contract)}
+						currentExecution={currentExecution}
+						currentArbitration={currentArbitration}
+						onClick={handleActionClick}
+					/>
+					{/* Close button - always visible */}
+					<Button
+						variant="ghost"
+						className="w-full"
+						onClick={() => onOpenChange(false)}
+					>
+						Close
+					</Button>
+				</div>
+			</div>
 
 			{currentAction && (
 				<ContractActionModal
@@ -536,6 +609,6 @@ export const ContractDetailSheet = ({
 					onConfirm={handleActionConfirm}
 				/>
 			)}
-		</Sheet>
+		</>
 	);
 };

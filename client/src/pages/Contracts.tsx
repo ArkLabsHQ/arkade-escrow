@@ -12,30 +12,21 @@ import {
 } from "@/components/ui/select";
 import { Search, Filter } from "lucide-react";
 import Config from "@/Config";
-import {
-	ApiPaginatedEnvelope,
-	ExecuteEscrowContractOutDto,
-	GetEscrowContractDto,
-} from "@/types/api";
+import { ApiPaginatedEnvelope, GetEscrowContractDto } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
-import {
-	useInfiniteQuery,
-	useMutation,
-	useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
 import { useMessageBridge } from "@/components/MessageBus";
 
-import {
-	ApiEnvelope,
-	ApiEnvelopeShellDto,
-} from "../../../server/src/common/dto/envelopes";
+import { ApiEnvelopeShellDto } from "../../../server/src/common/dto/envelopes";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 const Contracts = () => {
-	const { signTransaction } = useMessageBridge();
+	const { getWalletBalance } = useMessageBridge();
+	const [walletBalance, setWalletBalance] = useState<number | undefined>();
+
 	const [selectedContract, setSelectedContract] =
 		useState<GetEscrowContractDto | null>(null);
 	const [sheetOpen, setSheetOpen] = useState(false);
@@ -102,7 +93,6 @@ const Contracts = () => {
 				// 2) Update list cache
 				queryClient.setQueryData(
 					["my-escrow-contracts", limit, refreshKey],
-
 					(input: {
 						pages: ApiPaginatedEnvelope<GetEscrowContractDto>[];
 						pageParams: unknown;
@@ -206,6 +196,7 @@ const Contracts = () => {
 	// }, [requestIdFilter, statusFilter, sideFilter]);
 
 	const handleContractClick = (contract: GetEscrowContractDto) => {
+		getWalletBalance().then((wb) => setWalletBalance(wb.available));
 		setSelectedContract(contract);
 		setSheetOpen(true);
 	};
@@ -324,7 +315,11 @@ const Contracts = () => {
 			<ContractDetailSheet
 				contract={selectedContract}
 				open={sheetOpen}
-				onOpenChange={setSheetOpen}
+				balance={walletBalance}
+				onOpenChange={(next) => {
+					setSheetOpen(next);
+					setTimeout(() => setSelectedContract(null), 250);
+				}}
 				onContractAction={async (action: ContractAction, data) => {
 					try {
 						await handleAction({ action, ...data });
