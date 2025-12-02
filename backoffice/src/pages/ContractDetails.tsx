@@ -333,7 +333,7 @@ const ContractDetails = () => {
 								</div>
 								<div className="md:col-span-2">
 									<p className="text-sm text-muted-foreground">ARK Address</p>
-									<p className="font-mono text-xs break-all">
+									<p className="font-mono text-xs break-normal">
 										{contract.arkAddress ?? "-"}
 									</p>
 								</div>
@@ -382,7 +382,7 @@ const ContractDetails = () => {
 											<div className="grid grid-cols-2 gap-2 text-sm">
 												<div>
 													<span className="text-muted-foreground">TXID:</span>
-													<p className="font-mono text-xs break-all">
+													<p className="font-mono text-xs break-normal">
 														{coin.txid}
 													</p>
 												</div>

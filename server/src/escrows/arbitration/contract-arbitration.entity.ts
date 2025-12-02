@@ -6,6 +6,7 @@ import {
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
+	Unique,
 	UpdateDateColumn,
 } from "typeorm";
 import { EscrowContract } from "../contracts/escrow-contract.entity";
@@ -17,6 +18,7 @@ export const VERDICT = ["refund", "release"] as const;
 export type Verdict = (typeof VERDICT)[number];
 
 @Entity("contract_arbitrations")
+@Unique("uq_contract_arbitrations_external_id", ["externalId"])
 export class ContractArbitration {
 	@PrimaryGeneratedColumn()
 	id!: number;

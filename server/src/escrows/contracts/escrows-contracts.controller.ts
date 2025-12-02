@@ -200,7 +200,7 @@ export class EscrowsContractsController {
 					initiator: "sender",
 					senderPubkey: user.publicKey,
 					receiverPubkey: request.creatorPubkey,
-					receiverAddress: dto.receiverAddress,
+					receiverAddress: request.receiverAddress,
 					amount: request.amount ?? 0,
 					requestId: request.externalId,
 					description: request.description,

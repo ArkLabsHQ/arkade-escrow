@@ -6,6 +6,7 @@ import {
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
+	Unique,
 	UpdateDateColumn,
 } from "typeorm";
 import { EscrowContract } from "./escrow-contract.entity";
@@ -51,6 +52,7 @@ export type ArkServerData = {
 };
 
 @Entity("contract_executions")
+@Unique("uq_contract_executions_external_id", ["externalId"])
 export class ContractExecution {
 	@PrimaryGeneratedColumn()
 	id!: number;

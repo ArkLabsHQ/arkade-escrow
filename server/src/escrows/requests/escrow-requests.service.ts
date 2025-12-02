@@ -54,10 +54,16 @@ export class EscrowRequestsService {
 		pubKey: string,
 	): Promise<CreateEscrowRequestOutDto> {
 		const externalId = generateNanoid();
+		if (dto.side === "sender" && dto.receiverAddress !== undefined) {
+			throw new ForbiddenException(
+				"Sender requests cannot specify receiver address",
+			);
+		}
 		try {
 			const entity = this.repo.create({
 				externalId,
 				side: dto.side,
+				receiverAddress: dto.receiverAddress,
 				creatorPubkey: pubKey,
 				amount: dto.amount ?? null,
 				description: dto.description,

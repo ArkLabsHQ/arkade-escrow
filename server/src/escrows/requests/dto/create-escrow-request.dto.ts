@@ -36,6 +36,13 @@ export class CreateEscrowRequestInDto {
 	@IsOptional()
 	@IsBoolean()
 	public?: boolean;
+
+	@ApiPropertyOptional({
+		description: "ARK receiver address, optional, only valid for receiver side",
+	})
+	@IsOptional()
+	@IsString()
+	receiverAddress?: string;
 }
 
 export class CreateEscrowRequestOutDto {

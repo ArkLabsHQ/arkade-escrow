@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
@@ -14,9 +14,8 @@ import { Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 import Config from "@/Config";
 import { ApiPaginatedEnvelope, GetEscrowRequestDto } from "@/types/api";
-import { Me } from "@/types/me";
 import axios from "axios";
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSession } from "@/components/SessionProvider";
 
 const Requests = () => {

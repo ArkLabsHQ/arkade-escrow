@@ -21,7 +21,7 @@ import { ContractAction } from "@/components/ContractDetailSheet/ContractActions
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 // Orderbook page: list of all public requests
-const Index = () => {
+const Orderbook = () => {
 	const { walletAddress } = useMessageBridge();
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
@@ -41,16 +41,22 @@ const Index = () => {
 
 	// create request
 	const createRequest = useMutation({
-		mutationFn: async (data: any) => {
+		mutationFn: async (data: {
+			side: "receiver" | "sender";
+			amount: number;
+			description: string;
+			public: boolean;
+			receiverAddress?: string;
+		}) => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const res = await axios.post<GetEscrowRequestDto>(
+			const res = await axios.post<{ data: GetEscrowRequestDto }>(
 				`${Config.apiBaseUrl}/escrows/requests`,
 				data,
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
-			return res.data;
+			return res.data.data;
 		},
 	});
 
@@ -150,24 +156,6 @@ const Index = () => {
 	const handleRequestClick = (request: GetEscrowRequestDto) => {
 		setSelectedRequest(request);
 		setRequestSheetOpen(true);
-	};
-
-	const handleNewRequest = (data: any) => {
-		createRequest.mutate(data, {
-			onSuccess: (_) => {
-				toast.success("Request created successfully!", {
-					description: "Your request is now visible in the orderbook",
-				});
-				// Reset pagination and refetch from the first page
-				setRefreshKey((k) => k + 1);
-				window.scrollTo({ top: 0, behavior: "smooth" });
-			},
-			onError: (error) => {
-				toast.error("Failed to create request", {
-					description: error.message,
-				});
-			},
-		});
 	};
 
 	const handleRefresh = useCallback(async () => {
@@ -332,7 +320,32 @@ const Index = () => {
 			<NewRequestSheet
 				open={newRequestOpen}
 				onOpenChange={setNewRequestOpen}
-				onSubmit={handleNewRequest}
+				onSubmit={(data) => {
+					createRequest.mutate(
+						{
+							...data,
+							receiverAddress:
+								data.side === "receiver" && walletAddress
+									? walletAddress
+									: undefined,
+						},
+						{
+							onSuccess: (_) => {
+								toast.success("Request created successfully!", {
+									description: "Your request is now visible in the orderbook",
+								});
+								// Reset pagination and refetch from the first page
+								setRefreshKey((k) => k + 1);
+								window.scrollTo({ top: 0, behavior: "smooth" });
+							},
+							onError: (error) => {
+								toast.error("Failed to create request", {
+									description: error.message,
+								});
+							},
+						},
+					);
+				}}
 			/>
 
 			<ContractDetailSheet
@@ -354,4 +367,4 @@ const Index = () => {
 	);
 };
 
-export default Index;
+export default Orderbook;

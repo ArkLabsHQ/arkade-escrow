@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import Index from "./pages/Index";
+import Orderbook from "./pages/Orderbook";
 import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
 import NotFound from "./pages/NotFound";
@@ -24,7 +24,7 @@ const App = () => (
 						<Sonner />
 						<BrowserRouter>
 							<Routes>
-								<Route path={Config.appRootUrl} element={<Index />} />
+								<Route path={Config.appRootUrl} element={<Orderbook />} />
 								{/*<Route*/}
 								{/*	path={`${Config.appRootUrl}/notifications`}*/}
 								{/*	element={<Notifications />}*/}

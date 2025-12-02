@@ -407,7 +407,7 @@ export const ContractDetailSheet = ({
 								)}
 							</div>
 							<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
-								<p className="text-sm font-mono text-foreground flex-1 break-all">
+								<p className="text-sm font-mono text-foreground flex-1 break-normal">
 									{truncatedArkAddress ||
 										"The address will be generated once the contract is accepted"}
 								</p>

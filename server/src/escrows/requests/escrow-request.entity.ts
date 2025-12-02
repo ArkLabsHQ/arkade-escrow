@@ -29,6 +29,9 @@ export class EscrowRequest {
 	@Column({ type: "text" })
 	side!: RequestSide;
 
+	@Column({ type: "text", nullable: true })
+	receiverAddress?: string;
+
 	@Column({ type: "integer" })
 	amount!: number;
 

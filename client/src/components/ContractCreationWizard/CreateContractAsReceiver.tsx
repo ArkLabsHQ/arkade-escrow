@@ -5,22 +5,17 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import {
-	ArrowDownLeft,
-	ArrowUpRight,
-	Copy,
-	QrCode,
-	Undo,
-	Wallet,
-} from "lucide-react";
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { ArrowDownLeft, Copy, Info, QrCode, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { ArkAddress } from "@arkade-os/sdk";
 import { GetEscrowRequestDto } from "@/types/api";
 import { shortKey } from "@/lib/utils";
+import { RequestDescription } from "@/components/ContractCreationWizard/RequestDescription";
+import { RequestAmount } from "@/components/ContractCreationWizard/RequestAmount";
 
 type Props = {
 	request: GetEscrowRequestDto;
@@ -30,7 +25,7 @@ type Props = {
 	onCreateContract: (requestId: string, releaseAddress?: string) => void;
 };
 
-export const ContractCreationWizard = ({
+export const CreateContractAsReceiver = ({
 	request,
 	open,
 	initialReleaseAddress,
@@ -41,13 +36,13 @@ export const ContractCreationWizard = ({
 	const [releaseAddress, setReleaseAddress] = useState(initialReleaseAddress);
 
 	const handlePaste = async () => {
+		const text = await navigator.clipboard.readText().catch(() => "");
 		try {
-			const text = await navigator.clipboard.readText();
 			const addr = ArkAddress.decode(text);
 			setReleaseAddress(addr.encode());
 			toast.success("Address pasted from clipboard");
 		} catch (err) {
-			toast.error("Failed to paste from clipboard");
+			toast.error("Not a valid ARK address. Please try again.");
 		}
 	};
 
@@ -78,63 +73,37 @@ export const ContractCreationWizard = ({
 		setStep(1); // Reset for next time
 	};
 
-	const roleDescription =
-		request.side === "sender"
-			? `You will send ${request.amount} SAT to ${request}`
-			: `You will receive ${request.amount} SAT from ${shortKey(request.creatorPublicKey)}`;
+	const roleDescription = `You will receive ${request.amount} SAT from ${shortKey(request.creatorPublicKey)}`;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="sm:max-w-md [&>button]:hidden">
 				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2">
+					<DialogTitle>
 						<span>Create Contract</span>
-						<span className="text-sm text-muted-foreground font-normal">
-							(Step {step} of 2)
-						</span>
 					</DialogTitle>
-					<DialogDescription>
-						{step === 1
-							? "Configure your contract details"
-							: "Review and confirm your contract"}
-					</DialogDescription>
+					<DialogDescription>(Step {step} of 2)</DialogDescription>
 				</DialogHeader>
 
+				{/* Summary */}
 				<div className="space-y-6 animate-fade-in">
-					{step === 1 ? (
-						<>
-							{/* Summary */}
-							<div className="bg-gradient-shine rounded-lg p-4 border border-border space-y-3">
-								<div className="flex items-center gap-3">
-									<div
-										className={`rounded-lg p-2 ${
-											request.side === "receiver"
-												? "bg-success/10 text-success"
-												: "bg-primary/10 text-primary"
-										}`}
-									>
-										{request.side === "receiver" ? (
-											<ArrowDownLeft className="h-5 w-5" />
-										) : (
-											<ArrowUpRight className="h-5 w-5" />
-										)}
-									</div>
-									<div className="flex-1">
-										<p className="text-sm text-muted-foreground">Your Role</p>
-										<p className="text-base font-medium">{roleDescription}</p>
-									</div>
-								</div>
-								<div className="flex items-baseline gap-2 pt-2 border-t border-border/50">
-									<Wallet className="h-4 w-4 text-muted-foreground mt-1" />
-									<div>
-										<p className="text-2xl font-bold text-foreground">
-											{request.amount}
-										</p>
-										<p className="text-xs text-muted-foreground">SAT</p>
-									</div>
-								</div>
+					<div className="space-y-4">
+						<div className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg border border-border">
+							<div className="rounded-full p-2 bg-success/10 text-success shrink-0">
+								<ArrowDownLeft className="h-5 w-5" />
 							</div>
 
+							<p className="text-base font-medium text-foreground leading-relaxed pt-1">
+								{roleDescription}
+							</p>
+						</div>
+
+						<RequestDescription description={request.description} />
+						<RequestAmount amount={request.amount} side={"receiver"} />
+					</div>
+
+					{step === 1 ? (
+						<>
 							{/* Release Address */}
 							<div className="space-y-3">
 								<Label htmlFor="releaseAddress">Release Address</Label>
@@ -154,7 +123,7 @@ export const ContractCreationWizard = ({
 										onClick={handleReset}
 										className="flex-1"
 									>
-										<Undo className="h-4 w-4" />
+										<RotateCcw className="h-4 w-4" />
 										Reset
 									</Button>
 									<Button
@@ -178,11 +147,14 @@ export const ContractCreationWizard = ({
 										Scan QR
 									</Button>
 								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
-									This is your current wallet's release address. You can change
-									it by pasting a new address or scanning a QR code. You can
-									also update it later if needed.
-								</p>
+								<div className="flex gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+									<Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+									<p className="text-xs text-muted-foreground leading-relaxed">
+										The address where funds will be released upon contract
+										fulfillment. You can change it now or update it later if
+										needed.
+									</p>
+								</div>
 							</div>
 
 							{/* Actions */}
@@ -206,51 +178,11 @@ export const ContractCreationWizard = ({
 						<>
 							{/* Step 2: Final Summary */}
 							<div className="space-y-4">
-								<div className="bg-gradient-shine rounded-lg p-4 border border-border space-y-3">
-									<div className="flex items-center gap-3">
-										<div
-											className={`rounded-lg p-2 ${
-												request.side === "receiver"
-													? "bg-success/10 text-success"
-													: "bg-primary/10 text-primary"
-											}`}
-										>
-											{request.side === "receiver" ? (
-												<ArrowDownLeft className="h-5 w-5" />
-											) : (
-												<ArrowUpRight className="h-5 w-5" />
-											)}
-										</div>
-										<div className="flex-1">
-											<p className="text-sm text-muted-foreground">Your Role</p>
-											<p className="text-base font-medium">{roleDescription}</p>
-										</div>
-									</div>
-									<div className="flex items-baseline gap-2 pt-2 border-t border-border/50">
-										<Wallet className="h-4 w-4 text-muted-foreground mt-1" />
-										<div>
-											<p className="text-2xl font-bold text-foreground">
-												{request.amount}
-											</p>
-											<p className="text-xs text-muted-foreground">SAT</p>
-										</div>
-									</div>
-								</div>
-
 								<div className="space-y-2">
 									<Label>Release Address</Label>
 									<div className="bg-muted/50 rounded-lg p-3 border border-border">
-										<p className="font-mono text-xs break-all text-foreground">
+										<p className="font-mono text-xs break-normal text-foreground">
 											{releaseAddress}
-										</p>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<Label>Description</Label>
-									<div className="bg-muted/50 rounded-lg p-3 border border-border">
-										<p className="text-sm text-foreground">
-											{request.description}
 										</p>
 									</div>
 								</div>

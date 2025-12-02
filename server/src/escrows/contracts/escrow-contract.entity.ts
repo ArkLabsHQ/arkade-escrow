@@ -6,6 +6,7 @@ import {
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
+	Unique,
 	UpdateDateColumn,
 } from "typeorm";
 import { EscrowRequest } from "../requests/escrow-request.entity";
@@ -41,6 +42,7 @@ export const CONTRACT_STATUS = [
 export type ContractStatus = (typeof CONTRACT_STATUS)[number];
 
 @Entity("escrow_contracts")
+@Unique("uq_escrow_contracts_external_id", ["externalId"])
 export class EscrowContract {
 	@PrimaryGeneratedColumn()
 	id!: number;
