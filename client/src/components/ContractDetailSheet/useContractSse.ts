@@ -3,6 +3,7 @@ import Config from "@/Config";
 
 type ContractSseEvent = {
 	type: "contract_updated";
+	id: string;
 };
 
 /**
@@ -15,7 +16,12 @@ export function useContractSse(
 	onContractUpdate: (externalId: string) => void,
 ) {
 	const [lastEvent, setLastEvent] = useState<ContractSseEvent | undefined>();
+	const [connection, setConnection] = useState<EventSource | null>(null);
 	useEffect(() => {
+		if (connection) {
+			return;
+		}
+
 		const eventSource = new EventSource(
 			`${Config.apiBaseUrl}/escrows/contracts/sse?id=${externalId}`,
 		);
@@ -26,7 +32,7 @@ export function useContractSse(
 				switch (data?.type) {
 					case "contract_updated":
 						onContractUpdate(externalId);
-						setLastEvent(data);
+						setLastEvent({ ...data, id: event.lastEventId });
 						break;
 					default:
 					// ignore
@@ -40,9 +46,11 @@ export function useContractSse(
 			console.error("SSE connection error:", error);
 		};
 
+		setConnection(eventSource);
+
 		return () => {
 			eventSource.close();
 		};
-	}, [externalId, onContractUpdate]);
+	}, [externalId]);
 	return lastEvent;
 }

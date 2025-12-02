@@ -187,8 +187,6 @@ export class ArbitrationService {
 			});
 		}
 
-		this.logger.debug("before totalQb:");
-
 		const total = await totalQb.getCount();
 
 		let nextCursor: string | undefined;

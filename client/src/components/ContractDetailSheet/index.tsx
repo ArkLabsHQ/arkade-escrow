@@ -45,6 +45,7 @@ import ExecutionAttempt from "@/components/ContractDetailSheet/ExecutionAttempt"
 import ArbitrationSection from "@/components/ContractDetailSheet/ArbitrationSection";
 import { useContractSse } from "@/components/ContractDetailSheet/useContractSse";
 import { Skeleton } from "../ui/skeleton";
+import { ApiEnvelopeShellDto } from "../../../../server/src/common/dto/envelopes";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
@@ -143,7 +144,7 @@ type InnerContractDetailSheetProps = {
 };
 
 const InnerContractDetailSheet = ({
-	contract,
+	contract: inputContract,
 	balance,
 	onOpenChange,
 	onContractAction,
@@ -155,12 +156,27 @@ const InnerContractDetailSheet = ({
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
-	const lastContractEvent = useContractSse(contract.externalId, () => {
-		console.log("Contract event received");
+	const lastContractEvent = useContractSse(inputContract.externalId, (_) => {
+		console.log("New contract event received");
 	});
 
+	const { data: latestContract, error: latestContractError } = useQuery({
+		queryKey: ["contract", inputContract.externalId, lastContractEvent],
+		queryFn: async () => {
+			const res = await axios.get<ApiEnvelopeShellDto<GetEscrowContractDto>>(
+				`${Config.apiBaseUrl}/escrows/contracts/${inputContract.externalId}`,
+				{
+					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+				},
+			);
+			return res.data.data;
+		},
+	});
+
+	const contract = latestContract ?? inputContract;
+
 	const { data: dataExecutions, error: dataExecutionsError } = useQuery({
-		queryKey: ["contract-executions", contract?.externalId],
+		queryKey: ["contract-executions", contract.externalId, lastContractEvent],
 		queryFn: async () => {
 			const res = await axios.get<
 				ApiPaginatedEnvelope<GetExecutionByContractDto>
@@ -172,11 +188,10 @@ const InnerContractDetailSheet = ({
 			);
 			return res.data;
 		},
-		enabled: !!contract?.externalId,
 	});
 
 	const { data: dataArbitrations, error: dataArbitrationsError } = useQuery({
-		queryKey: ["contract-arbitrations", contract?.externalId],
+		queryKey: ["contract-arbitrations", contract.externalId, lastContractEvent],
 		queryFn: async () => {
 			const res = await axios.get<ApiPaginatedEnvelope<GetArbitrationDto>>(
 				`${Config.apiBaseUrl}/escrows/arbitrations/?contract=${contract?.externalId}`,
@@ -186,14 +201,14 @@ const InnerContractDetailSheet = ({
 			);
 			return res.data;
 		},
-		enabled: !!contract?.externalId,
 	});
 
 	// Only one arbitration is supported for now
 	const currentArbitration = dataArbitrations?.data[0];
 
-	if (dataExecutionsError || dataArbitrationsError) {
-		const error = dataExecutionsError ?? dataArbitrationsError;
+	if (dataExecutionsError || dataArbitrationsError || latestContractError) {
+		const error =
+			dataExecutionsError ?? dataArbitrationsError ?? latestContractError;
 		console.error(error);
 		toast.error("Failed to load contract data");
 	}
@@ -209,8 +224,6 @@ const InnerContractDetailSheet = ({
 			}
 		}
 	}, [contract, balance, showBalanceWarning]);
-
-	if (!contract) return null;
 
 	const fundedAmount =
 		contract.virtualCoins?.reduce((acc, vc) => {
@@ -284,8 +297,6 @@ const InnerContractDetailSheet = ({
 				transaction: currentExecution?.transaction ?? null,
 				reason: data?.reason,
 			});
-			onOpenChange(false);
-			setActionModalOpen(false);
 		} catch (error) {
 			console.error("Error handling action:", error);
 			toast.error(`Failed to handle action ${currentAction}`, {
@@ -498,7 +509,7 @@ const InnerContractDetailSheet = ({
 									<Copy className="h-4 w-4" />
 								</Button>
 							)}
-							{contract.arkAddress && (
+							{contract.arkAddress && mySide === "sender" && (
 								<Button
 									variant="default"
 									size="sm"

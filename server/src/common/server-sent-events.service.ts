@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import { Subject } from "rxjs";
+import { filter, Subject } from "rxjs";
 import {
 	CONTRACT_CREATED_ID,
 	CONTRACT_DISPUTED_ID,
@@ -35,8 +35,10 @@ export class ServerSentEventsService {
 		return this.events$.asObservable();
 	}
 
-	userEvents(/* user: User */) {
-		// TODO: filter events by user
+	contractEvents(id?: string) {
+		if (id) {
+			return this.events$.pipe(filter((e) => e.externalId === id));
+		}
 		return this.events$.asObservable();
 	}
 

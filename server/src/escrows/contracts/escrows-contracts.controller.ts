@@ -217,14 +217,9 @@ export class EscrowsContractsController {
 	@ApiOperation({
 		summary: "Subscribe to all contract events",
 	})
-	// TODO: implement authentication via cookies or ad-hoc token
-	// @UseGuards(AuthGuard)
-	// @ApiBearerAuth()
-	sse(
-		// @UserFromJwt() user: User,
-	): Observable<SseEvent> {
+	sse(@Query("id") id: string): Observable<SseEvent> {
 		// TODO: separate orderbook from contracts
-		return this.sseService.userEvents().pipe(
+		return this.sseService.contractEvents(id).pipe(
 			map((event) => ({
 				data: event,
 			})),
