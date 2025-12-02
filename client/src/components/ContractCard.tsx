@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { GetEscrowContractDto } from "@/types/api";
 import { Me } from "@/types/me";
-import { getCounterParty, shortKey } from "@/lib/utils";
+import { getContractSideDetails, shortKey } from "@/lib/utils";
 
 interface ContractCardProps {
 	contract: GetEscrowContractDto;
@@ -33,14 +33,17 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 		toast.success("ARK address copied to clipboard");
 	};
 
-	const { yourSide, createdByMe, counterParty } = getCounterParty(me, contract);
+	const { mySide, createdByMe, counterParty } = getContractSideDetails(
+		me,
+		contract,
+	);
 
 	const renderSide = () => {
 		return (
 			<div className="flex flex-col">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium text-muted-foreground">
-						{yourSide}
+						{mySide}
 					</span>
 				</div>
 				<div className="flex items-center gap-2 mt-1">
@@ -87,12 +90,12 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 					<div className="flex items-center gap-3">
 						<div
 							className={`rounded-lg p-2 ${
-								yourSide === "receiver"
+								mySide === "receiver"
 									? "bg-success/10 text-success"
 									: "bg-primary/10 text-primary"
 							}`}
 						>
-							{yourSide === "receiver" ? (
+							{mySide === "receiver" ? (
 								<ArrowDownLeft className="h-5 w-5" />
 							) : (
 								<ArrowUpRight className="h-5 w-5" />

@@ -10,29 +10,35 @@ import { Badge } from "./ui/badge";
 import { ArrowDownLeft, ArrowUpRight, User, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "./ui/separator";
-import { GetEscrowRequestDto } from "@/types/api";
+import { GetEscrowContractDto, GetEscrowRequestDto } from "@/types/api";
 import { Me } from "@/types/me";
 import { Link } from "react-router-dom";
 import Config from "@/Config";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { getCounterParty } from "@/lib/utils";
+import { useState } from "react";
+import { ContractCreationWizard } from "@/components/ContractCreationWizard";
+import { toast } from "sonner";
 
 interface RequestDetailSheetProps {
 	me: Me;
+	walletAddress: string | null;
 	request: GetEscrowRequestDto | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onCreateContract?: (requestId: string) => void;
+	onContractCreated?: (contract: GetEscrowContractDto) => void;
 }
 
 export const RequestDetailSheet = ({
 	me,
+	walletAddress,
 	request,
 	open,
 	onOpenChange,
-	onCreateContract,
+	onContractCreated,
 }: RequestDetailSheetProps) => {
+	const [wizardOpen, setWizardOpen] = useState(false);
+
 	const cancelRequest = useMutation({
 		mutationFn: async (input: { requestId: string }) => {
 			if (me === null) {
@@ -46,6 +52,46 @@ export const RequestDetailSheet = ({
 			return res.data;
 		},
 	});
+
+	const createContractFromRequest = useMutation({
+		mutationFn: async (payload: {
+			requestId: string;
+			receiverAddress?: string;
+		}): Promise<GetEscrowContractDto> => {
+			if (me === null) {
+				throw new Error("User not authenticated");
+			}
+			const res = await axios.post(
+				`${Config.apiBaseUrl}/escrows/contracts`,
+				payload,
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+			return res.data.data;
+		},
+	});
+
+	const handleCreateContract = (
+		requestId: string,
+		receiverAddress?: string,
+	) => {
+		createContractFromRequest.mutate(
+			{ requestId, receiverAddress },
+			{
+				onSuccess: (resp) => {
+					toast.success("Contract created successfully!", {
+						description: "You can now view and manage your contract.",
+					});
+					if (onContractCreated) onContractCreated(resp);
+				},
+				onError: (error) => {
+					toast.error("Failed to create contract", {
+						description: error.message,
+					});
+				},
+			},
+		);
+		onOpenChange(false);
+	};
 
 	if (!request) return null;
 
@@ -191,13 +237,10 @@ export const RequestDetailSheet = ({
 								Cancel Request
 							</Button>
 						)}
-						{!isMine && onCreateContract && (
+						{!isMine && (
 							<Button
 								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
-								onClick={() => {
-									onCreateContract(request.externalId);
-									onOpenChange(false);
-								}}
+								onClick={() => setWizardOpen(true)}
 							>
 								Create Contract
 							</Button>
@@ -205,6 +248,14 @@ export const RequestDetailSheet = ({
 					</div>
 				</div>
 			</SheetContent>
+
+			<ContractCreationWizard
+				request={request}
+				open={wizardOpen}
+				onOpenChange={setWizardOpen}
+				onCreateContract={handleCreateContract}
+				initialReleaseAddress={walletAddress || undefined}
+			/>
 		</Sheet>
 	);
 };

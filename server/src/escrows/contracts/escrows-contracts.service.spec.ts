@@ -21,6 +21,7 @@ describe("EscrowsContractsService", () => {
 	const contractAddress =
 		"tark1qra883hysahlkt0ujcwhv0x2n278849c3m7t3a08l7fdc40f4f2nm8925vs39g4edhxnc7mkmed36w2fnydw3evqknfmra58xkmlsx6p3ne7yn";
 	const mockVirtualCoins: VirtualCoin[] = [
+		// biome-ignore lint/suspicious/noExplicitAny: using only the values we need from VirtualCoin
 		{ txid: "tx1", vout: 0, value: 1000 } as any,
 	];
 	const mockContract = {
@@ -39,9 +40,12 @@ describe("EscrowsContractsService", () => {
 	};
 
 	let service: EscrowsContractsService;
-	let contractRepository: any;
-	let contractExecutionRepository: any;
-	let arkService: any;
+	// // biome-ignore lint/suspicious/noExplicitAny: complex mocks
+	// let contractRepository: any;
+	// // biome-ignore lint/suspicious/noExplicitAny: complex mocks
+	// let contractExecutionRepository: any;
+	// // biome-ignore lint/suspicious/noExplicitAny: complex mocks
+	// let _arkService: any;
 
 	const mockContractRepository = {
 		createQueryBuilder: jest.fn(),
@@ -118,11 +122,11 @@ describe("EscrowsContractsService", () => {
 			.compile();
 
 		service = moduleRef.get(EscrowsContractsService);
-		contractRepository = moduleRef.get(getRepositoryToken(EscrowContract));
-		contractExecutionRepository = moduleRef.get(
-			getRepositoryToken(ContractExecution),
-		);
-		arkService = moduleRef.get(ArkService);
+		// contractRepository = moduleRef.get(getRepositoryToken(EscrowContract));
+		// contractExecutionRepository = moduleRef.get(
+		// 	getRepositoryToken(ContractExecution),
+		// );
+		// _arkService = moduleRef.get(ArkService);
 
 		jest.clearAllMocks();
 	});

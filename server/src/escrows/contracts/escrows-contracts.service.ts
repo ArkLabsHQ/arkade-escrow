@@ -14,7 +14,11 @@ import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
-import { ArkAddress, verifyTapscriptSignatures } from "@arkade-os/sdk";
+import {
+	ArkAddress,
+	verifyTapscriptSignatures,
+	VirtualCoin,
+} from "@arkade-os/sdk";
 import { Transaction } from "@scure/btc-signer";
 import { base64 } from "@scure/base";
 
@@ -51,6 +55,7 @@ import { PublicKey } from "../../common/PublicKey";
 import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
 import { ActionType } from "../../common/Action.type";
+import { Contract } from "../../common/Contract.type";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -59,6 +64,8 @@ type DraftContractInput = {
 	receiverAddress?: string;
 	amount: number;
 	requestId: string;
+	description: string;
+	side: string;
 };
 
 type ContractQueryFilter = {
@@ -149,8 +156,11 @@ export class EscrowsContractsService {
 			requestId: persisted.request.externalId,
 			senderPublicKey: persisted.senderPubkey,
 			receiverPublicKey: persisted.receiverPubkey,
+			createdBy: input.initiator,
 			amount: persisted.amount,
 			status: persisted.status,
+			description: input.description,
+			side: input.initiator,
 			createdAt: persisted.createdAt.getTime(),
 			updatedAt: persisted.updatedAt.getTime(),
 		};
@@ -560,6 +570,13 @@ export class EscrowsContractsService {
 			checkpoints: string[];
 		},
 	): Promise<GetExecutionByContractDto> {
+		console.log(
+			"signContractExecution",
+			contractId,
+			executionId,
+			signerPubKey,
+			signature,
+		);
 		const contract = await this.getOneForPartyAndStatus(
 			contractId,
 			signerPubKey,
@@ -610,18 +627,6 @@ export class EscrowsContractsService {
 			this.logger.error(e);
 			throw new BadRequestException("Invalid signature");
 		}
-		execution.cleanTransaction.approvedByPubKeys;
-
-		// const signerIsInitiator = execution.initiatedByPubKey === signerPubKey;
-		let nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByBoth(
-			execution,
-		)
-			? "pending-server-confirmation"
-			: "pending-signatures";
-
-		this.logger.debug(
-			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus}`,
-		);
 
 		const cleanTransaction: ExecutionTransaction = {
 			...execution.cleanTransaction,
@@ -630,6 +635,16 @@ export class EscrowsContractsService {
 				...execution.cleanTransaction.approvedByPubKeys,
 			],
 		};
+
+		const nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByAll(
+			cleanTransaction,
+		)
+			? "pending-server-confirmation"
+			: "pending-signatures";
+
+		this.logger.debug(
+			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus}`,
+		);
 
 		const signedTransaction = {
 			arkTx: execution.signedTransaction
@@ -709,12 +724,16 @@ export class EscrowsContractsService {
 		};
 	}
 
-	private isExecutionSignedByBoth(ce: ContractExecution): boolean {
-		let c = ce.cleanTransaction.requiredSigners.length;
-		for (let required in ce.cleanTransaction.requiredSigners) {
-			if (ce.cleanTransaction.approvedByPubKeys.includes(required)) c--;
-		}
-		return c === 0;
+	private isExecutionSignedByAll(extx: ExecutionTransaction): boolean {
+		console.log("PORCO CAZZO");
+		console.log(extx.requiredSigners);
+		let c = extx.requiredSigners.filter(
+			(s) => s === "sender" || s === "receiver",
+		).length;
+		console.log(c);
+		console.log(extx.approvedByPubKeys);
+		console.log(extx.approvedByPubKeys.length === c);
+		return extx.approvedByPubKeys.length === c;
 	}
 
 	private async submitAndFinalizeExecutionTransaction(input: {
@@ -802,7 +821,6 @@ export class EscrowsContractsService {
 			);
 		}
 
-		const vtxo = contract.virtualCoins[0];
 		try {
 			const execution = await this.createDirectSettlementExecution(
 				contract,
@@ -835,11 +853,12 @@ export class EscrowsContractsService {
 		contract: EscrowContract,
 		receiverAddress: string,
 		initiatorPubKey: string,
+		vtxos?: VirtualCoin[],
 	): Promise<ContractExecution> {
-		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
-			throw new Error("Not VTXO found in contract");
+		const vtxo = (vtxos ?? contract.virtualCoins)?.[0];
+		if (vtxo === undefined) {
+			throw new Error("Not VTXO found for contract");
 		}
-		const vtxo = contract.virtualCoins[0];
 		const action: ActionType = "direct-settle";
 		try {
 			const escrowTransaction = await this.arkService.createEscrowTransaction(
@@ -903,13 +922,14 @@ export class EscrowsContractsService {
 				`Contract ${evt.contractId} with status ${contract.status} received event ${CONTRACT_FUNDED_ID}`,
 			);
 		}
-		if (contract.receiverAddress !== undefined) {
+		if (contract.receiverAddress) {
 			// if there is a receiver address, we create a direct settlement execution automatically
 			try {
 				const execution = await this.createDirectSettlementExecution(
 					contract,
 					contract.receiverAddress,
 					this.arbitratorPublicKey,
+					evt.vtxos,
 				);
 				this.logger.debug(
 					`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`,

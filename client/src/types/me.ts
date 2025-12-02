@@ -17,4 +17,8 @@ export class Me {
 	getAccessToken() {
 		return this.accessToken;
 	}
+
+	getXPubKey() {
+		return this.xPubKey;
+	}
 }

@@ -16,6 +16,9 @@ export class GetEscrowContractDto {
 	@ApiProperty({ description: "Receiver public key" })
 	receiverPublicKey!: string;
 
+	@ApiProperty({ description: "Receiver ARK address", nullable: true })
+	receiverAddress?: string;
+
 	@ApiProperty({
 		minimum: 0,
 		description: "Amount in satoshis or your smallest unit",

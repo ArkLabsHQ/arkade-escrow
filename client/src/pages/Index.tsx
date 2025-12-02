@@ -4,19 +4,33 @@ import { RequestCard } from "@/components/RequestCard";
 import { RequestDetailSheet } from "@/components/RequestDetailSheet";
 import { NewRequestSheet } from "@/components/NewRequestSheet";
 import { Button } from "@/components/ui/button";
-import { Inbox, FileSignature, Plus, FileText, RefreshCw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import Config from "@/Config";
 import axios from "axios";
-import { ApiPaginatedEnvelope, GetEscrowRequestDto } from "@/types/api";
+import {
+	ApiPaginatedEnvelope,
+	GetEscrowContractDto,
+	GetEscrowRequestDto,
+} from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
+import { useMessageBridge } from "@/components/MessageBus";
+import { ContractDetailSheet } from "@/components/ContractDetailSheet";
+import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
+import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
+// Orderbook page: list of all public requests
 const Index = () => {
+	const { walletAddress } = useMessageBridge();
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
+	const [requestSheetOpen, setRequestSheetOpen] = useState(false);
+	const [selectedContract, setSelectedContract] =
+		useState<GetEscrowContractDto | null>(null);
+	const [contractSheetOpen, setContractSheetOpen] = useState(false);
 	const me = useSession();
+	const { handleAction, isExecuting } = useContractActionHandler();
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [newRequestOpen, setNewRequestOpen] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
@@ -24,20 +38,6 @@ const Index = () => {
 	const [pullDistance, setPullDistance] = useState(0);
 	const touchStartY = useRef<number>(0);
 	const containerRef = useRef<HTMLDivElement>(null);
-
-	const createContractFromRequest = useMutation({
-		mutationFn: async (requestId: string) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const res = await axios.post(
-				`${Config.apiBaseUrl}/escrows/contracts`,
-				{ requestId },
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			return res.data;
-		},
-	});
 
 	// create request
 	const createRequest = useMutation({
@@ -149,21 +149,7 @@ const Index = () => {
 
 	const handleRequestClick = (request: GetEscrowRequestDto) => {
 		setSelectedRequest(request);
-	};
-
-	const handleCreateContract = (requestId: string) => {
-		createContractFromRequest.mutate(requestId, {
-			onSuccess: (resp) => {
-				toast.success("Contract created successfully!", {
-					description: "You can now view and manage your contract.",
-				});
-			},
-			onError: (error) => {
-				toast.error("Failed to create contract", {
-					description: error.message,
-				});
-			},
-		});
+		setRequestSheetOpen(true);
 	};
 
 	const handleNewRequest = (data: any) => {
@@ -324,18 +310,45 @@ const Index = () => {
 				</div>
 			</main>
 
+			{/* TODO: lift this part up in the tree because it will be repeated */}
 			<RequestDetailSheet
 				me={me}
+				walletAddress={walletAddress}
 				request={selectedRequest}
-				open={selectedRequest !== null}
-				onOpenChange={() => setSelectedRequest(null)}
-				onCreateContract={handleCreateContract}
+				open={requestSheetOpen}
+				onOpenChange={(open) => {
+					setRequestSheetOpen(open);
+					setSelectedRequest(null);
+				}}
+				onContractCreated={(newContract) => {
+					// Close request sheet and open contract sheet
+					setRequestSheetOpen(false);
+					setSelectedRequest(null);
+					setSelectedContract(newContract);
+					setContractSheetOpen(true);
+				}}
 			/>
 
 			<NewRequestSheet
 				open={newRequestOpen}
 				onOpenChange={setNewRequestOpen}
 				onSubmit={handleNewRequest}
+			/>
+
+			<ContractDetailSheet
+				contract={selectedContract}
+				open={contractSheetOpen}
+				onOpenChange={setContractSheetOpen}
+				onContractAction={async (action: ContractAction, data) => {
+					try {
+						await handleAction({ action, ...data });
+						toast.success("Action executed successfully");
+					} catch (error) {
+						console.error(error);
+						toast.error("Failed to execute contract action");
+					}
+				}}
+				me={me}
 			/>
 		</div>
 	);

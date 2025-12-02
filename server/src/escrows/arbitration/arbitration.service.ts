@@ -33,9 +33,7 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { toError } from "../../common/errors";
 import {
 	CONTRACT_DISPUTED_ID,
-	CONTRACT_EXECUTED_ID,
 	ContractDisputed,
-	ContractExecuted,
 } from "../../common/contract-address.event";
 import { randomUUID } from "node:crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";

@@ -25,13 +25,14 @@ import {
 } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
-import { Transaction, useMessageBridge } from "@/components/MessageBus";
+import { useMessageBridge } from "@/components/MessageBus";
 
 import {
 	ApiEnvelope,
 	ApiEnvelopeShellDto,
 } from "../../../server/src/common/dto/envelopes";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
+import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 const Contracts = () => {
 	const { signTransaction } = useMessageBridge();
@@ -39,6 +40,7 @@ const Contracts = () => {
 		useState<GetEscrowContractDto | null>(null);
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const me = useSession();
+	const { handleAction, isExecuting } = useContractActionHandler();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [requestIdFilter, setRequestIdFilter] = useState("");
@@ -167,174 +169,6 @@ const Contracts = () => {
 			eventSource.close();
 		};
 	}, [refreshKey, refreshOneContract]);
-
-	const acceptContract = useMutation({
-		mutationFn: async (contractId: string) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const res = await axios.patch<GetEscrowContractDto>(
-				`${Config.apiBaseUrl}/escrows/contracts/${contractId}/accept`,
-				{},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			return res.data;
-		},
-	});
-
-	const executeContract = useMutation({
-		mutationFn: async (input: { contractId: string; arkAddress: string }) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const res = await axios.post<ApiEnvelope<ExecuteEscrowContractOutDto>>(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/execute`,
-				{ arkAddress: input.arkAddress },
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-
-			if (res.status !== 201) {
-				throw new Error("Failed to execute contract", {
-					cause: new Error(`${res.status} - ${res.statusText}`),
-				});
-			}
-			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
-			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
-
-			const r = await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
-				{
-					arkTx: signed.tx,
-					checkpoints: signed.checkpoints,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-		},
-	});
-
-	const approveContractExecution = useMutation({
-		mutationFn: async (input: {
-			contractId: string;
-			executionId: string;
-			transaction: Transaction;
-		}) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const signed = await signTransaction(input.transaction);
-
-			console.log(signed);
-
-			const r = await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${input.executionId}`,
-				{
-					arkTx: signed.tx,
-					checkpoints: signed.checkpoints,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-
-			console.log(r);
-		},
-	});
-
-	const disputeContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			await axios.post(
-				`${Config.apiBaseUrl}/escrows/arbitrations`,
-				{
-					contractId: input.contractId,
-					reason: input.reason,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-		},
-	});
-
-	const createExecutionForDispute = useMutation({
-		mutationFn: async (input: {
-			contractId: string;
-			disputeId: string;
-			arkAddress: string;
-		}) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const res = await axios.post<ApiEnvelope<ExecuteEscrowContractOutDto>>(
-				`${Config.apiBaseUrl}/escrows/arbitrations/${input.disputeId}/execute`,
-				{ arkAddress: input.arkAddress },
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-
-			if (res.status !== 201) {
-				throw new Error("Failed to execute arbitration", {
-					cause: new Error(`${res.status} - ${res.statusText}`),
-				});
-			}
-			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
-			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
-
-			await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
-				{
-					arkTx: signed.tx,
-					checkpoints: signed.checkpoints,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-		},
-	});
-
-	const rejectContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const r = await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/reject`,
-				{
-					reason: input.reason,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			console.log(r);
-		},
-	});
-
-	const cancelContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const r = await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/cancel`,
-				{
-					reason: input.reason,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			console.log(r);
-		},
-	});
-
-	const recedeFromContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const r = await axios.patch(
-				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/recede`,
-				{
-					reason: input.reason,
-				},
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			console.log(r);
-		},
-	});
 
 	if (isError) {
 		console.error(error);
@@ -491,112 +325,13 @@ const Contracts = () => {
 				contract={selectedContract}
 				open={sheetOpen}
 				onOpenChange={setSheetOpen}
-				onContractAction={(
-					action: ContractAction,
-					{
-						contractId,
-						walletAddress,
-						executionId,
-						disputeId,
-						transaction,
-						reason,
-					},
-				) => {
-					switch (action) {
-						case "accept-draft": {
-							acceptContract.mutate(contractId, {
-								onSuccess: (_) => {
-									toast.success("Contract accepted successfully");
-								},
-								onError: (_) => {
-									console.error(error);
-									toast.error("Failed to accept contract");
-								},
-								onSettled: () => {},
-							});
-							return;
-						}
-						case "reject-draft": {
-							if (!reason) {
-								throw new Error("Reason is required for rejection");
-							}
-							rejectContract.mutate({ contractId, reason }, {});
-							return;
-						}
-						case "cancel-draft": {
-							if (!reason) {
-								throw new Error("Reason is required for rejection");
-							}
-							cancelContract.mutate({ contractId, reason }, {});
-							return;
-						}
-						case "execute":
-							if (!walletAddress) {
-								return Promise.reject(
-									new Error("Wallet address is required for execution"),
-								);
-							}
-							executeContract.mutate(
-								{ contractId, arkAddress: walletAddress },
-								{
-									onSuccess: (d) => {
-										toast.success("Contract executed successfully");
-										// setRefreshKey(refreshKey + 1);
-									},
-									onError: (error) => {
-										toast.error("Failed to execute contract");
-									},
-									onSettled: () => {},
-								},
-							);
-							return;
-						case "approve":
-							if (!transaction || !executionId) {
-								throw new Error("Transaction is required for approval");
-							}
-							approveContractExecution.mutate(
-								{
-									contractId,
-									executionId,
-									transaction,
-								},
-								{
-									onSuccess: (d) => {
-										toast.success("Execution approved successfully");
-										// setRefreshKey(refreshKey + 1);
-									},
-									onError: (error) => {
-										console.error(error);
-										toast.error("Failed to run execution");
-									},
-									onSettled: () => {},
-								},
-							);
-							return;
-						case "dispute":
-							if (!reason) {
-								throw new Error("Reason is required for dispute");
-							}
-							disputeContract.mutate({ contractId, reason }, {});
-							return;
-						case "create-execution-for-dispute":
-							if (!disputeId || !walletAddress) {
-								throw new Error("Wallet address is required for dispute");
-							}
-							createExecutionForDispute.mutate({
-								contractId,
-								disputeId,
-								arkAddress: walletAddress,
-							});
-							return;
-						case "recede-created":
-							if (!reason) {
-								throw new Error("Reason is required for receding");
-							}
-							recedeFromContract.mutate({ contractId, reason });
-							return;
-						default:
-							return Promise.reject(new Error(`Invalid action ${action}`));
+				onContractAction={async (action: ContractAction, data) => {
+					try {
+						await handleAction({ action, ...data });
+						toast.success("Action executed successfully");
+					} catch (error) {
+						console.error(error);
+						toast.error("Failed to execute contract action");
 					}
 				}}
 				me={me}

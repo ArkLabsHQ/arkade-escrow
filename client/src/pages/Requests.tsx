@@ -22,6 +22,7 @@ import { useSession } from "@/components/SessionProvider";
 const Requests = () => {
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
+
 	const me = useSession();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
@@ -30,21 +31,6 @@ const Requests = () => {
 		"all",
 	);
 	const [refreshKey, setRefreshKey] = useState(0);
-
-	// create request
-	const createRequest = useMutation({
-		mutationFn: async (data: any) => {
-			if (me === null) {
-				throw new Error("User not authenticated");
-			}
-			const res = await axios.post<GetEscrowRequestDto>(
-				`${Config.apiBaseUrl}/escrows/requests`,
-				data,
-				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-			return res.data;
-		},
-	});
 
 	// Fetch requests with pagination (cursor + limit)
 	const limit = Config.itemsPerPage;

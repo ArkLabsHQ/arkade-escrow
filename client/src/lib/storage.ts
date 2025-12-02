@@ -1,7 +1,7 @@
 export type AuthData = {
 	accessToken: string;
 	xPubKey: string;
-	expirersAt: number;
+	expiresAt: number;
 };
 
 export function setAuth(data: AuthData): void {

@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsNumber, IsString, Min } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
 
 export class CreateEscrowContractInDto {
@@ -14,6 +14,7 @@ export class CreateEscrowContractInDto {
 		description: "Ark Address of the receiver, optional",
 	})
 	@IsString()
+	@IsOptional()
 	receiverAddress?: string;
 }
 
@@ -27,9 +28,6 @@ export class DraftEscrowContractOutDto {
 	@ApiProperty({ description: "Sender public key" })
 	senderPublicKey!: string;
 
-	@ApiProperty({ description: "Sender ARK address", nullable: true })
-	senderAddress?: string;
-
 	@ApiProperty({ description: "Receiver public key" })
 	receiverPublicKey!: string;
 
@@ -42,17 +40,28 @@ export class DraftEscrowContractOutDto {
 	amount!: number;
 
 	@ApiProperty({
-		description: "Unix epoch in milliseconds",
-		example: 1732690234123,
-	})
-	createdAt!: number;
-
-	@ApiProperty({
 		enum: CONTRACT_STATUS,
 		description: "Contract status",
 		default: "draft",
 	})
 	status: ContractStatus = "draft";
+
+	@ApiProperty()
+	description!: string;
+
+	@ApiProperty({ enum: ["receiver", "sender"] })
+	side!: "receiver" | "sender";
+
+	@ApiProperty({
+		description: "Which side created the contract",
+	})
+	createdBy!: string;
+
+	@ApiProperty({
+		description: "Unix epoch in milliseconds",
+		example: 1732690234123,
+	})
+	createdAt!: number;
 
 	@ApiProperty({
 		description: "Unix epoch in milliseconds",

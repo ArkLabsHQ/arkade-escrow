@@ -94,8 +94,7 @@ export type ExecutionTransaction = {
 };
 
 export type ExecutionStatus =
-	| "pending-initiator-signature"
-	| "pending-counterparty-signature"
+	| "pending-signatures"
 	| "pending-server-confirmation"
 	| "executed"
 

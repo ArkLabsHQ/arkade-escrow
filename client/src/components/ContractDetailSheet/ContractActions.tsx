@@ -5,6 +5,7 @@ import {
 } from "@/types/api";
 import { Me } from "@/types/me";
 import { Button } from "@/components/ui/button";
+import { getContractSideDetails } from "@/lib/utils";
 
 export type ContractAction =
 	| "accept-draft"
@@ -19,9 +20,7 @@ export type ContractAction =
 type Props = {
 	me: Me;
 	contractStatus: GetEscrowContractDto["status"];
-	createdBy: GetEscrowContractDto["createdBy"];
-	yourSide: GetEscrowContractDto["side"];
-	counterParty: string;
+	sideDetails: ReturnType<typeof getContractSideDetails>;
 	currentExecution?: GetExecutionByContractDto;
 	currentArbitration?: GetArbitrationDto;
 	onClick: (ca: ContractAction) => void;
@@ -29,13 +28,12 @@ type Props = {
 export default function ContractActions({
 	me,
 	contractStatus,
-	createdBy,
-	yourSide,
+	sideDetails,
 	currentExecution,
 	currentArbitration,
 	onClick,
 }: Props) {
-	const createdByMe = createdBy === yourSide;
+	const createdByMe = sideDetails.createdByMe;
 
 	switch (contractStatus) {
 		case "draft":
@@ -143,7 +141,10 @@ export default function ContractActions({
 				return [];
 			}
 			// sender can execute a refund
-			if (currentArbitration.verdict === "refund" && yourSide === "sender") {
+			if (
+				currentArbitration.verdict === "refund" &&
+				sideDetails.mySide === "sender"
+			) {
 				return [
 					<Button
 						key={"execute-refund"}
@@ -155,7 +156,10 @@ export default function ContractActions({
 				];
 			}
 			// receiver can execute a release
-			if (currentArbitration.verdict === "release" && yourSide === "receiver") {
+			if (
+				currentArbitration.verdict === "release" &&
+				sideDetails.mySide === "receiver"
+			) {
 				return [
 					<Button
 						key={"execute-release"}

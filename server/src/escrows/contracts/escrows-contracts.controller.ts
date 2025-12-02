@@ -165,7 +165,6 @@ export class EscrowsContractsController {
 		@Body() dto: CreateEscrowContractInDto,
 		@UserFromJwt() user: User,
 	): Promise<ApiEnvelope<DraftEscrowContractOutDto>> {
-		this.logger.log("Accepting contract from request", dto.requestId);
 		const request = await this.requestsService.findOneByExternalId(
 			dto.requestId,
 		);
@@ -188,8 +187,11 @@ export class EscrowsContractsController {
 					initiator: "receiver",
 					senderPubkey: request.creatorPubkey,
 					receiverPubkey: user.publicKey,
+					receiverAddress: dto.receiverAddress,
 					amount: request.amount ?? 0,
 					requestId: request.externalId,
+					description: request.description,
+					side: request.side,
 				});
 				return envelope(contract);
 			}
@@ -198,8 +200,11 @@ export class EscrowsContractsController {
 					initiator: "sender",
 					senderPubkey: user.publicKey,
 					receiverPubkey: request.creatorPubkey,
+					receiverAddress: dto.receiverAddress,
 					amount: request.amount ?? 0,
 					requestId: request.externalId,
+					description: request.description,
+					side: request.side,
 				});
 				return envelope(contract);
 			}

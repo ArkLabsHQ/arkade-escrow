@@ -11,8 +11,6 @@ import {
 	Banknote,
 	FileText,
 	AlertCircle,
-	XCircle,
-	CirclePause,
 	ChevronDown,
 	BadgeInfoIcon,
 	FileSignature,
@@ -34,7 +32,7 @@ import {
 	GetExecutionByContractDto,
 } from "@/types/api";
 import { Me } from "@/types/me";
-import { getCounterParty, shortKey } from "@/lib/utils";
+import { getContractSideDetails, shortKey } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import Config from "@/Config";
@@ -42,6 +40,9 @@ import { useMessageBridge } from "@/components/MessageBus";
 import ContractActions, {
 	ContractAction,
 } from "@/components/ContractDetailSheet/ContractActions";
+import { getStatusText } from "@/components/ContractDetailSheet/helpers";
+import ExecutionAttempt from "@/components/ContractDetailSheet/ExecutionAttempt";
+import ArbitrationSection from "@/components/ContractDetailSheet/ArbitrationSection";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
@@ -119,7 +120,6 @@ export const ContractDetailSheet = ({
 			const amount = contract.amount;
 			getWalletBalance().then((balance) => {
 				setWalletBalance(balance.available);
-				console.log(balance, amount);
 				if (balance.available < amount && !showBalanceWarning) {
 					setShowBalanceWarning(true);
 				} else if (showBalanceWarning) {
@@ -127,7 +127,7 @@ export const ContractDetailSheet = ({
 				}
 			});
 		}
-	}, [contract?.status, contract?.amount, showBalanceWarning]);
+	}, []);
 
 	if (!contract) return null;
 
@@ -144,7 +144,10 @@ export const ContractDetailSheet = ({
 	const isFundingMet = fundedAmount ? fundedAmount >= contract.amount : false;
 	const fundingDifference = fundedAmount ? fundedAmount - contract.amount : 0;
 
-	const { yourSide, counterParty, createdByMe } = getCounterParty(me, contract);
+	const { mySide, counterParty, createdByMe } = getContractSideDetails(
+		me,
+		contract,
+	);
 	const currentExecution = dataExecutions?.data.find((execution) =>
 		execution.status.startsWith("pending-"),
 	);
@@ -208,98 +211,6 @@ export const ContractDetailSheet = ({
 				description:
 					error instanceof Error ? error.message : "An unknown error occurred",
 			});
-		}
-	};
-
-	const getStatusColor = (status: GetEscrowContractDto["status"]) => {
-		switch (status) {
-			case "completed":
-				return "bg-success/10 text-success border-success/20";
-			case "funded":
-			case "pending-execution":
-				return "bg-primary/10 text-primary border-primary/20";
-			case "created":
-				return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-			case "draft":
-				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-			case "canceled-by-creator":
-			case "rejected-by-counterparty":
-			case "voided-by-arbiter":
-			case "under-arbitration":
-				return "bg-destructive/10 text-destructive border-destructive/20";
-			default:
-				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-		}
-	};
-
-	const getArbitrationStatusColor = (status: GetArbitrationDto["status"]) => {
-		switch (status) {
-			case "pending":
-				return "bg-warning/10 text-warning border-warning/20";
-			case "resolved":
-				return "bg-success/10 text-success border-success/20";
-			case "executed":
-				return "bg-primary/10 text-primary border-primary/20";
-			default:
-				return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-		}
-	};
-
-	const getStatusText = (status: GetEscrowContractDto["status"]) => {
-		switch (status) {
-			case "completed":
-				return "Completed";
-			case "funded":
-				return "Contract is funded and can be executed";
-			case "pending-execution": {
-				if (!currentExecution) return "Pending execution";
-				if (currentExecution.status === "pending-server-confirmation") {
-					return "Waiting for the server to confirm the transaction";
-				}
-				const isInitiator = me.isMyPubkey(currentExecution.initiatedByPubKey);
-				if (isInitiator) {
-					if (currentExecution.status === "pending-counterparty-signature")
-						return "The counterparty has not signed the transaction yet";
-
-					return "Waiting for your approval";
-				}
-				if (currentExecution.status === "pending-counterparty-signature")
-					return "Waiting for your approval";
-				return "The initator has not signed the transaction yet";
-			}
-			case "created":
-				if (yourSide === "sender") {
-					return "Created, waiting for funds";
-				}
-				return "Created, waiting for funds";
-			case "draft":
-				if (createdByMe) {
-					return "Draft, waiting for the counterparty to accept it";
-				}
-				return "Draft, waiting for you to accept it";
-			case "canceled-by-creator":
-				if (createdByMe) {
-					return "The contract was canceled by you";
-				}
-				return "The contract was canceled by the creator";
-			case "rejected-by-counterparty":
-				if (createdByMe) {
-					return "The contract was rejected by the counterparty";
-				}
-				return "The contract was rejected by you";
-			case "rescinded-by-creator":
-				if (createdByMe) {
-					return "You rescinded the contract";
-				}
-				return "The contract was rescinded by the creator";
-			case "rescinded-by-counterparty":
-				if (createdByMe) {
-					return "The contract was rescinded by the counterparty";
-				}
-				return "You rescinded the contract";
-
-			default:
-				return status;
 		}
 	};
 
@@ -377,7 +288,7 @@ export const ContractDetailSheet = ({
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Status</p>
 								<p className="text-base font-medium text-foreground">
-									{getStatusText(contract.status)}
+									{getStatusText(me, { mySide, createdByMe }, contract.status)}
 								</p>
 							</div>
 						</div>
@@ -387,12 +298,12 @@ export const ContractDetailSheet = ({
 						<div className="flex items-start gap-3">
 							<div
 								className={`rounded-lg p-2 ${
-									yourSide === "receiver"
+									mySide === "receiver"
 										? "bg-success/10 text-success"
 										: "bg-primary/10 text-primary"
 								}`}
 							>
-								{yourSide === "receiver" ? (
+								{mySide === "receiver" ? (
 									<ArrowDownLeft className="h-5 w-5" />
 								) : (
 									<ArrowUpRight className="h-5 w-5" />
@@ -401,7 +312,7 @@ export const ContractDetailSheet = ({
 							<div className="flex-1">
 								<p className="text-sm text-muted-foreground">Your Role</p>
 								<p className="text-base font-medium text-foreground">
-									You are the {yourSide} in this contract
+									You are the {mySide} in this contract
 								</p>
 							</div>
 						</div>
@@ -539,52 +450,13 @@ export const ContractDetailSheet = ({
 										<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
 									</CollapsibleTrigger>
 									<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-										<div
-											key={currentExecution.externalId}
-											className="bg-neutral/5 border border-neutral/20 rounded-lg p-3 space-y-2 animate-fade-in"
-										>
-											<div className="flex items-start gap-2">
-												<CirclePause className="h-4 w-4 text-neutral mt-0.5 shrink-0" />
-												<div className="flex-1 min-w-0">
-													<div className="flex items-center gap-2 flex-wrap">
-														<Badge
-															variant="outline"
-															className="bg-neutral/10 text-neutral border-neutral/20"
-														>
-															{currentExecution.status}
-														</Badge>
-														<span className="text-xs text-muted-foreground">
-															{format(currentExecution.createdAt, "PPp")}
-														</span>
-													</div>
-													<p className="text-sm text-foreground mt-1">
-														Initiated by{" "}
-														<span className="font-medium">
-															{me.pubkeyAsMe(
-																currentExecution.initiatedByPubKey,
-															)}
-														</span>
-													</p>
-													{currentExecution.cancelationReason && (
-														<p className="text-xs text-muted-foreground mt-1 italic">
-															"{currentExecution.cancelationReason}"
-														</p>
-													)}
-													{currentExecution.rejectionReason && (
-														<p className="text-xs text-muted-foreground mt-1 italic">
-															"{currentExecution.rejectionReason}"
-														</p>
-													)}
-												</div>
-											</div>
-										</div>
+										<ExecutionAttempt execution={currentExecution} me={me} />
 									</CollapsibleContent>
 								</Collapsible>
 							</>
 						)}
 
 						{/* Arbitration Section - Non-collapsible */}
-
 						{contract.status === "under-arbitration" && currentArbitration && (
 							<>
 								<Separator />
@@ -597,65 +469,10 @@ export const ContractDetailSheet = ({
 											Arbitration
 										</p>
 									</div>
-
-									<div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">
-										<div className="flex items-start gap-3">
-											<div className="flex-1">
-												<p className="text-sm text-muted-foreground mb-1">
-													Status
-												</p>
-
-												<Badge
-													variant="outline"
-													className={getArbitrationStatusColor(
-														currentArbitration.status,
-													)}
-												>
-													{currentArbitration.status}
-												</Badge>
-											</div>
-
-											<div className="flex-1">
-												<p className="text-sm text-muted-foreground mb-1">
-													Initiated
-												</p>
-
-												<p className="text-sm text-foreground">
-													{format(currentArbitration.createdAt, "PPp")}
-												</p>
-											</div>
-										</div>
-
-										<div>
-											<p className="text-sm text-muted-foreground mb-1">
-												Claimant
-											</p>
-
-											<p className="text-sm font-medium text-foreground">
-												{me.pubkeyAsMe(currentArbitration.claimantPublicKey)}
-											</p>
-										</div>
-
-										<div>
-											<p className="text-sm text-muted-foreground mb-1">
-												Verdict
-											</p>
-
-											<p className="text-sm font-medium text-foreground">
-												{currentArbitration.verdict ?? "-"}
-											</p>
-										</div>
-
-										<div>
-											<p className="text-sm text-muted-foreground mb-1">
-												Reason
-											</p>
-
-											<p className="text-sm text-foreground italic">
-												"{currentArbitration.reason}"
-											</p>
-										</div>
-									</div>
+									<ArbitrationSection
+										arbitration={currentArbitration}
+										me={me}
+									/>
 								</div>
 							</>
 						)}
@@ -676,43 +493,12 @@ export const ContractDetailSheet = ({
 									</CollapsibleTrigger>
 									<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
 										{pastFailedExecutions.map((execution) => (
-											<div
+											<ExecutionAttempt
 												key={execution.externalId}
-												className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2 animate-fade-in"
-											>
-												<div className="flex items-start gap-2">
-													<XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-													<div className="flex-1 min-w-0">
-														<div className="flex items-center gap-2 flex-wrap">
-															<Badge
-																variant="outline"
-																className="bg-destructive/10 text-destructive border-destructive/20"
-															>
-																{execution.status}
-															</Badge>
-															<span className="text-xs text-muted-foreground">
-																{format(execution.createdAt, "PPp")}
-															</span>
-														</div>
-														<p className="text-sm text-foreground mt-1">
-															Initiated by{" "}
-															<span className="font-medium">
-																{shortKey(execution.initiatedByPubKey)}
-															</span>
-														</p>
-														{execution.cancelationReason && (
-															<p className="text-xs text-muted-foreground mt-1 italic">
-																"{execution.cancelationReason}"
-															</p>
-														)}
-														{execution.rejectionReason && (
-															<p className="text-xs text-muted-foreground mt-1 italic">
-																"{execution.rejectionReason}"
-															</p>
-														)}
-													</div>
-												</div>
-											</div>
+												execution={execution}
+												me={me}
+												isPast
+											/>
 										))}
 									</CollapsibleContent>
 								</Collapsible>
@@ -725,9 +511,7 @@ export const ContractDetailSheet = ({
 						<ContractActions
 							me={me}
 							contractStatus={contract.status}
-							createdBy={contract.createdBy}
-							yourSide={yourSide}
-							counterParty={counterParty}
+							sideDetails={getContractSideDetails(me, contract)}
 							currentExecution={currentExecution}
 							currentArbitration={currentArbitration}
 							onClick={handleActionClick}

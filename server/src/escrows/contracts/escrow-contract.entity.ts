@@ -63,7 +63,7 @@ export class EscrowContract {
 	receiverPubkey!: string;
 
 	@Index()
-	@Column({ type: "text" })
+	@Column({ type: "text", nullable: true })
 	receiverAddress?: string;
 
 	@Column({ type: "integer" })

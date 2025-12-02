@@ -131,7 +131,7 @@ export const SessionProvider = ({ children }: Props) => {
 				accessToken: signupVerification.data.data.accessToken,
 				xPubKey: xPublicKey,
 				// TODO: unused for now
-				expirersAt: 0,
+				expiresAt: 0,
 			});
 			console.log(`Signed up as ${xPublicKey}`);
 			setMe(new Me(xPublicKey, signupVerification.data.data.accessToken));
