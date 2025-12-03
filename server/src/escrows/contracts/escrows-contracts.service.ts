@@ -982,11 +982,12 @@ export class EscrowsContractsService {
 			requestId: contract.request.externalId,
 			senderPublicKey: contract.senderPubkey,
 			receiverPublicKey: contract.receiverPubkey,
+			receiverAddress: contract.receiverAddress,
 			amount: contract.amount,
 			arkAddress: contract.arkAddress,
 			status: contract.status,
 			side: contract.request.side,
-			description: contract.request.description,
+			description: contract.request.description,q
 			cancelationReason: contract.cancelationReason,
 			virtualCoins: contract.virtualCoins,
 			createdBy: contract.createdBy,

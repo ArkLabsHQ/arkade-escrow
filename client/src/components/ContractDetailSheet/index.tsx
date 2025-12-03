@@ -15,6 +15,9 @@ import {
 	BadgeInfoIcon,
 	FileSignature,
 	Scale,
+	BookOpen,
+	Book,
+	ChevronUp,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "../ui/separator";
@@ -32,7 +35,7 @@ import {
 	GetExecutionByContractDto,
 } from "@/types/api";
 import { Me } from "@/types/me";
-import { getContractSideDetails, shortKey } from "@/lib/utils";
+import { getContractSideDetails, shortArkAddress, shortKey } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import Config from "@/Config";
@@ -40,12 +43,15 @@ import { useMessageBridge } from "@/components/MessageBus";
 import ContractActions, {
 	ContractAction,
 } from "@/components/ContractDetailSheet/ContractActions";
-import { getStatusText } from "@/components/ContractDetailSheet/helpers";
 import ExecutionAttempt from "@/components/ContractDetailSheet/ExecutionAttempt";
 import ArbitrationSection from "@/components/ContractDetailSheet/ArbitrationSection";
 import { useContractSse } from "@/components/ContractDetailSheet/useContractSse";
 import { Skeleton } from "../ui/skeleton";
 import { ApiEnvelopeShellDto } from "../../../../server/src/common/dto/envelopes";
+import { AmountBadge } from "@/components/ContractDetailSheet/AmountBadge";
+import { AdditionalData } from "@/components/ContractDetailSheet/AdditionalData";
+import { StatusText } from "@/components/ContractDetailSheet/StatusText";
+import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
@@ -153,12 +159,11 @@ const InnerContractDetailSheet = ({
 	const { fundAddress, walletAddress } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
 	const [showBalanceWarning, setShowBalanceWarning] = useState(false);
+	const [isAdditionaDataOpen, setIsAdditionalDataOpen] = useState(false);
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
-	const lastContractEvent = useContractSse(inputContract.externalId, (_) => {
-		console.log("New contract event received");
-	});
+	const lastContractEvent = useContractSse(inputContract.externalId);
 
 	const { data: latestContract, error: latestContractError } = useQuery({
 		queryKey: ["contract", inputContract.externalId, lastContractEvent],
@@ -226,17 +231,9 @@ const InnerContractDetailSheet = ({
 	}, [contract, balance, showBalanceWarning]);
 
 	const fundedAmount =
-		contract.virtualCoins?.reduce((acc, vc) => {
-			console.log(vc);
-			return vc.value + acc;
-		}, 0) ?? 0;
+		contract.virtualCoins?.reduce((acc, vc) => vc.value + acc, 0) ?? 0;
 
 	const formattedDate = format(contract.createdAt, "PPP 'at' p");
-	const truncatedArkAddress = contract.arkAddress
-		? `${contract.arkAddress.slice(0, 8)}...${contract.arkAddress.slice(-8)}`
-		: undefined;
-	const isFundingMet = fundedAmount ? fundedAmount >= contract.amount : false;
-	const fundingDifference = fundedAmount ? fundedAmount - contract.amount : 0;
 
 	const { mySide, counterParty, createdByMe } = getContractSideDetails(
 		me,
@@ -256,20 +253,16 @@ const InnerContractDetailSheet = ({
 		navigator.clipboard.writeText(contract.externalId);
 		toast.success("Contract ID copied to clipboard");
 	};
-	const handleCopyRequestId = () => {
-		navigator.clipboard.writeText(contract.requestId);
-		toast.success("Request ID copied to clipboard");
-	};
-	const handleCopyCounterparty = () => {
-		navigator.clipboard.writeText(counterParty);
-		toast.success("Counterparty copied to clipboard");
-	};
 
-	const handleCopyAddress = (e: React.MouseEvent) => {
-		e.stopPropagation();
-		if (!contract.arkAddress) return;
-		navigator.clipboard.writeText(contract.arkAddress);
-		toast.success("ARK address copied to clipboard");
+	const handleCopyItem = (key: string, value: string) => {
+		// it's a Promise to allow for feedback animation
+		try {
+			navigator.clipboard.writeText(value);
+			return Promise.resolve();
+		} catch (error) {
+			console.error("Failed to access clipboard:", error);
+			return Promise.reject(error);
+		}
 	};
 
 	const handleFundAddress = async (e: React.MouseEvent) => {
@@ -311,7 +304,9 @@ const InnerContractDetailSheet = ({
 			<SheetHeader className="space-y-3">
 				<div className="flex items-center justify-between">
 					<div className="flex-1">
-						<SheetTitle className="text-2xl">Contract Details</SheetTitle>
+						<SheetTitle className="text-2xl">
+							Contract <code className="text-base">{contract.externalId}</code>
+						</SheetTitle>
 						<p className="text-xs text-muted-foreground mt-1">
 							{formattedDate}
 						</p>
@@ -320,69 +315,10 @@ const InnerContractDetailSheet = ({
 			</SheetHeader>
 
 			<div className="mt-8 space-y-6">
-				{/* Amount Section */}
-				<div className="bg-gradient-shine rounded-xl p-6 border border-border">
-					<div className="flex items-center justify-between">
-						<div className="flex-1">
-							<p className="text-sm text-muted-foreground mb-1">
-								Requested Amount
-							</p>
-							<p className="text-3xl font-bold text-foreground">
-								{contract.amount} SAT
-							</p>
-
-							{(contract.status === "funded" ||
-								contract.status === "pending-execution" ||
-								contract.status === "completed") &&
-								fundedAmount && (
-									<div className="mt-4 pt-4 border-t border-border/50">
-										<div className="flex items-center gap-2 mb-1">
-											<p className="text-sm text-muted-foreground">
-												Currently Funded
-											</p>
-											<Badge
-												className={
-													isFundingMet
-														? "bg-success/10 text-success border-success/20"
-														: "bg-warning/10 text-warning border-warning/20"
-												}
-												variant="outline"
-											>
-												{isFundingMet ? "Requirement Met" : "Partially Funded"}
-											</Badge>
-										</div>
-										<div className="flex items-baseline gap-2">
-											<p className="text-2xl font-bold text-foreground">
-												{fundedAmount} SAT
-											</p>
-											{fundingDifference !== 0 && (
-												<p
-													className={`text-sm ${fundingDifference > 0 ? "text-success" : "text-warning"}`}
-												>
-													{`${fundingDifference > 0 ? "+" : ""}${fundingDifference} SAT`}
-												</p>
-											)}
-										</div>
-									</div>
-								)}
-						</div>
-						<Wallet className="h-12 w-12 text-primary opacity-50" />
-					</div>
-				</div>
+				<AmountBadge required={contract.amount} funded={fundedAmount} />
 
 				{/* Details Section */}
 				<div className="space-y-4">
-					<div className="flex items-start gap-3">
-						<div className="flex-1">
-							<p className="text-sm text-muted-foreground">Status</p>
-							<p className="text-base font-medium text-foreground">
-								{getStatusText(me, { mySide, createdByMe }, contract.status)}
-							</p>
-						</div>
-					</div>
-
-					<Separator />
-
 					<div className="flex items-start gap-3">
 						<div
 							className={`rounded-lg p-2 ${
@@ -392,13 +328,12 @@ const InnerContractDetailSheet = ({
 							}`}
 						>
 							{mySide === "receiver" ? (
-								<ArrowDownLeft className="h-5 w-5" />
+								<ArrowDownLeft className="h-4 w-4" />
 							) : (
-								<ArrowUpRight className="h-5 w-5" />
+								<ArrowUpRight className="h-4 w-4" />
 							)}
 						</div>
 						<div className="flex-1">
-							<p className="text-sm text-muted-foreground">Your Role</p>
 							<p className="text-base font-medium text-foreground">
 								You are the {mySide} in this contract
 							</p>
@@ -407,121 +342,136 @@ const InnerContractDetailSheet = ({
 
 					<Separator />
 
-					<div className="flex items-start gap-3">
-						<User className="h-5 w-5 text-muted-foreground mt-0.5" />
-						{createdByMe ? (
+					<StatusText
+						me={me}
+						sideDetails={{ mySide, createdByMe }}
+						status={contract.status}
+						currentExecution={currentExecution}
+					/>
+
+					{mySide === "receiver" ? (
+						<div className="flex items-start gap-3">
+							<RowIcon>
+								<Wallet className="text-accent" />
+							</RowIcon>
 							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Counterparty</p>
-								<p className="text-base font-medium text-foreground">
-									{shortKey(counterParty)}
+								<p className="text-sm text-muted-foreground">Release address</p>
+								<p className="text-base font-medium text-foreground font-mono">
+									{contract.receiverAddress
+										? shortArkAddress(contract.receiverAddress)
+										: "Not set yet"}
 								</p>
 							</div>
-						) : (
-							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Created By</p>
-								<p className="text-base font-medium text-foreground">
-									{shortKey(counterParty)}
-								</p>
-							</div>
-						)}
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={handleCopyCounterparty}
-							className="shrink-0"
-						>
-							<Copy className="h-4 w-4" />
-						</Button>
-					</div>
-
-					<Separator />
-
-					<div className="flex items-start gap-3">
-						<FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-						<div className="flex-1">
-							<p className="text-sm text-muted-foreground">Request ID</p>
-							<p className="text-base font-medium text-foreground font-mono">
-								{contract.requestId}
-							</p>
-						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={handleCopyRequestId}
-							className="shrink-0"
-						>
-							<Copy className="h-4 w-4" />
-						</Button>
-					</div>
-					<div className="flex items-start gap-3">
-						<FileSignature className="h-5 w-5 text-muted-foreground mt-0.5" />
-						<div className="flex-1">
-							<p className="text-sm text-muted-foreground">Contract ID</p>
-							<p className="text-base font-medium text-foreground font-mono">
-								{contract.externalId}
-							</p>
-						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={handleCopyContractId}
-							className="shrink-0"
-						>
-							<Copy className="h-4 w-4" />
-						</Button>
-					</div>
-
-					<Separator />
-
-					<div>
-						<p className="text-sm text-muted-foreground mb-2">Description</p>
-						<p className="text-base text-foreground leading-relaxed">
-							{contract.description}
-						</p>
-					</div>
-
-					<Separator />
-
-					<div>
-						<div className="flex items-center justify-between mb-2">
-							<p className="text-sm text-muted-foreground">ARK Address</p>
-							{showBalanceWarning && balance !== null && (
-								<Badge
-									variant="outline"
-									className="bg-warning/10 text-warning border-warning/20 text-xs"
-								>
-									{`Your available balance is only ${balance} SAT`}
-								</Badge>
-							)}
-						</div>
-						<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
-							<p className="text-sm font-mono text-foreground flex-1 break-normal">
-								{truncatedArkAddress ||
-									"The address will be generated once the contract is accepted"}
-							</p>
-							{contract.arkAddress && (
+							<RowIcon>
 								<Button
 									variant="ghost"
 									size="sm"
-									onClick={handleCopyAddress}
+									onClick={handleCopyContractId}
 									className="shrink-0"
 								>
 									<Copy className="h-4 w-4" />
 								</Button>
-							)}
-							{contract.arkAddress && mySide === "sender" && (
-								<Button
-									variant="default"
-									size="sm"
-									onClick={handleFundAddress}
-									className="shrink-0"
-									disabled={!contract.arkAddress}
-								>
-									<Banknote className="h-4 w-4" />
-								</Button>
-							)}
+							</RowIcon>
 						</div>
-					</div>
+					) : null}
+
+					<Separator />
+
+					<Collapsible
+						defaultOpen={false}
+						onOpenChange={(o) => setIsAdditionalDataOpen(o)}
+					>
+						<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
+							<div className="flex items-center gap-3">
+								{isAdditionaDataOpen ? (
+									<span className="flex w-8 h-8">
+										<BookOpen className="h-8 w-8 text-muted-foreground" />
+									</span>
+								) : (
+									<span className="flex w-8 h-8 justify-center items-center">
+										<Book className="h-8 w-8 text-muted-foreground" />
+									</span>
+								)}
+								<p className="text-sm font-medium text-foreground">
+									Additional information
+								</p>
+							</div>
+							{isAdditionaDataOpen ? (
+								<span className="flex w-8 h-8 justify-center items-center">
+									<ChevronUp className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
+								</span>
+							) : (
+								<span className="flex w-8 h-8 justify-center items-center">
+									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
+								</span>
+							)}
+						</CollapsibleTrigger>
+						<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
+							<AdditionalData
+								createdByMe={createdByMe}
+								counterParty={counterParty}
+								contractId={contract.externalId}
+								requestId={contract.requestId}
+								description={contract.description}
+								onCopyItem={handleCopyItem}
+							/>
+						</CollapsibleContent>
+					</Collapsible>
+
+					<Separator />
+
+					{contract.status !== "completed" && contract.status !== "draft" && (
+						<div>
+							<div className="flex items-center justify-between mb-2">
+								<p className="text-sm text-muted-foreground">ARK Address</p>
+								{showBalanceWarning && balance !== null && (
+									<Badge
+										variant="outline"
+										className="bg-warning/10 text-warning border-warning/20 text-xs"
+									>
+										{`Your available balance is only ${balance} SAT`}
+									</Badge>
+								)}
+							</div>
+
+							<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+								<p className="text-sm font-mono text-foreground flex-1 break-normal">
+									{contract.arkAddress
+										? shortArkAddress(contract.arkAddress)
+										: "The address will be generated once the contract is accepted"}
+								</p>
+								{contract.arkAddress && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() =>
+											handleCopyItem(
+												"contractAddress",
+												contract.arkAddress ?? "",
+											)
+										}
+										className="shrink-0"
+									>
+										<Copy className="h-4 w-4" />
+									</Button>
+								)}
+								{contract.arkAddress &&
+									mySide === "sender" &&
+									(contract.status === "created" ||
+										contract.status === "funded") && (
+										<Button
+											variant="default"
+											size="sm"
+											onClick={handleFundAddress}
+											className="shrink-0"
+											disabled={!contract.arkAddress}
+										>
+											<Banknote className="h-4 w-4" />
+										</Button>
+									)}
+							</div>
+						</div>
+					)}
 
 					{/* Current Execution - Collapsible */}
 					{currentExecution && (

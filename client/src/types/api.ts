@@ -66,6 +66,7 @@ export type GetEscrowContractDto = {
 	requestId: string;
 	senderPublicKey: string;
 	receiverPublicKey: string;
+	receiverAddress?: string;
 	amount: number;
 	side: Side;
 	description: string;

@@ -13,7 +13,7 @@ import { ArrowDownLeft, Copy, Info, QrCode, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { ArkAddress } from "@arkade-os/sdk";
 import { GetEscrowRequestDto } from "@/types/api";
-import { shortKey } from "@/lib/utils";
+import { shortArkAddress, shortKey } from "@/lib/utils";
 import { RequestDescription } from "@/components/ContractCreationWizard/RequestDescription";
 import { RequestAmount } from "@/components/ContractCreationWizard/RequestAmount";
 
@@ -110,7 +110,7 @@ export const CreateContractAsReceiver = ({
 								{/** biome-ignore lint/correctness/useUniqueElementIds: unique */}
 								<Input
 									id="releaseAddress"
-									value={releaseAddress}
+									value={releaseAddress ? shortArkAddress(releaseAddress) : ""}
 									onChange={(e) => setReleaseAddress(e.target.value)}
 									className="font-mono text-xs"
 									placeholder="Enter release address"

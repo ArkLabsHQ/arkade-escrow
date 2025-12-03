@@ -13,7 +13,7 @@ type ContractSseEvent = {
  */
 export function useContractSse(
 	externalId: string,
-	onContractUpdate: (externalId: string) => void,
+	onContractUpdate?: (externalId: string) => void,
 ) {
 	const [lastEvent, setLastEvent] = useState<ContractSseEvent | undefined>();
 	const [connection, setConnection] = useState<EventSource | null>(null);
@@ -31,7 +31,7 @@ export function useContractSse(
 				const data: ContractSseEvent | undefined = JSON.parse(event.data);
 				switch (data?.type) {
 					case "contract_updated":
-						onContractUpdate(externalId);
+						onContractUpdate?.(externalId);
 						setLastEvent({ ...data, id: event.lastEventId });
 						break;
 					default:
