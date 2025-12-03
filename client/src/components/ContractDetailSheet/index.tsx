@@ -349,6 +349,13 @@ const InnerContractDetailSheet = ({
 						currentExecution={currentExecution}
 					/>
 
+					{/* Arbitration Section */}
+					{contract.status === "under-arbitration" && currentArbitration && (
+						<div className="space-y-3">
+							<ArbitrationSection arbitration={currentArbitration} me={me} />
+						</div>
+					)}
+
 					{mySide === "receiver" ? (
 						<div className="flex items-start gap-3">
 							<RowIcon>
@@ -491,24 +498,6 @@ const InnerContractDetailSheet = ({
 									<ExecutionAttempt execution={currentExecution} me={me} />
 								</CollapsibleContent>
 							</Collapsible>
-						</>
-					)}
-
-					{/* Arbitration Section - Non-collapsible */}
-					{contract.status === "under-arbitration" && currentArbitration && (
-						<>
-							<Separator />
-
-							<div className="space-y-3">
-								<div className="flex items-center gap-2">
-									<Scale className="h-5 w-5 text-destructive" />
-
-									<p className="text-base font-semibold text-foreground">
-										Arbitration
-									</p>
-								</div>
-								<ArbitrationSection arbitration={currentArbitration} me={me} />
-							</div>
 						</>
 					)}
 

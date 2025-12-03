@@ -1,7 +1,7 @@
 import { Me } from "@/types/me";
 import { getContractSideDetails } from "@/lib/utils";
 import { GetEscrowContractDto, GetExecutionByContractDto } from "@/types/api";
-import { CheckCircle, Flag, Hourglass } from "lucide-react";
+import { Ban, CheckCircle, Flag, Hourglass, Scale } from "lucide-react";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 
 const getStatusColor = (status: GetEscrowContractDto["status"]) => {
@@ -190,26 +190,132 @@ export function StatusText({
 					</span>
 				</div>
 			);
+		case "under-arbitration":
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Scale className="text-destructive" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							The contract has been
+							<b className="font-bold"> disputed</b> and is now under
+							arbitration.
+							<br />
+							Please wait for the arbitrator to decide.
+						</p>
+					</span>
+				</div>
+			);
+
 		case "canceled-by-creator":
 			if (createdByMe) {
-				return "The contract was canceled by you";
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Ban className="text-destructive" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								The contract was canceled by you
+							</p>
+						</span>
+					</div>
+				);
 			}
-			return "The contract was canceled by the creator";
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Ban className="text-destructive" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							The contract was canceled by the creator
+						</p>
+					</span>
+				</div>
+			);
 		case "rejected-by-counterparty":
 			if (createdByMe) {
-				return "The contract was rejected by the counterparty";
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Ban className="text-destructive" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								The contract was rejected by the counterparty
+							</p>
+						</span>
+					</div>
+				);
 			}
-			return "The contract was rejected by you";
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Ban className="text-destructive" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							The contract was rejected by you
+						</p>
+					</span>
+				</div>
+			);
 		case "rescinded-by-creator":
 			if (createdByMe) {
-				return "You rescinded the contract";
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Ban className="text-destructive" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								You rescinded the contract
+							</p>
+						</span>
+					</div>
+				);
 			}
-			return "The contract was rescinded by the creator";
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Ban className="text-destructive" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							The contract was rescinded by the creator
+						</p>
+					</span>
+				</div>
+			);
 		case "rescinded-by-counterparty":
 			if (createdByMe) {
-				return "The contract was rescinded by the counterparty";
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Ban className="text-destructive" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								The contract was rescinded by the counterparty
+							</p>
+						</span>
+					</div>
+				);
 			}
-			return "You rescinded the contract";
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Ban className="text-destructive" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							You rescinded the contract
+						</p>
+					</span>
+				</div>
+			);
 
 		default:
 			return <p>{status}</p>;
