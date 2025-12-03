@@ -110,7 +110,9 @@ export const CreateContractAsReceiver = ({
 								{/** biome-ignore lint/correctness/useUniqueElementIds: unique */}
 								<Input
 									id="releaseAddress"
-									value={releaseAddress ? shortArkAddress(releaseAddress) : ""}
+									value={
+										releaseAddress ? shortArkAddress(releaseAddress, 16) : ""
+									}
 									onChange={(e) => setReleaseAddress(e.target.value)}
 									className="font-mono text-xs"
 									placeholder="Enter release address"
@@ -181,7 +183,7 @@ export const CreateContractAsReceiver = ({
 								<div className="space-y-2">
 									<Label>Release Address</Label>
 									<div className="bg-muted/50 rounded-lg p-3 border border-border">
-										<p className="font-mono text-xs break-normal text-foreground">
+										<p className="font-mono text-xs break-all text-foreground text-wrap">
 											{releaseAddress}
 										</p>
 									</div>

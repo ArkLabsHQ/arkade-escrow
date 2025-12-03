@@ -352,9 +352,9 @@ const Orderbook = () => {
 				contract={selectedContract}
 				open={contractSheetOpen}
 				onOpenChange={setContractSheetOpen}
-				onContractAction={async (action: ContractAction, data) => {
+				onContractAction={async (data) => {
 					try {
-						await handleAction({ action, ...data });
+						await handleAction(data);
 						toast.success("Action executed successfully");
 					} catch (error) {
 						console.error(error);

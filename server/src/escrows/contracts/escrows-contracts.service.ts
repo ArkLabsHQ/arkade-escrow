@@ -987,7 +987,7 @@ export class EscrowsContractsService {
 			arkAddress: contract.arkAddress,
 			status: contract.status,
 			side: contract.request.side,
-			description: contract.request.description,q
+			description: contract.request.description,
 			cancelationReason: contract.cancelationReason,
 			virtualCoins: contract.virtualCoins,
 			createdBy: contract.createdBy,

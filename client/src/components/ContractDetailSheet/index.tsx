@@ -5,19 +5,16 @@ import { Badge } from "../ui/badge";
 import {
 	ArrowDownLeft,
 	ArrowUpRight,
-	User,
 	Wallet,
 	Copy,
 	Banknote,
-	FileText,
 	AlertCircle,
 	ChevronDown,
 	BadgeInfoIcon,
-	FileSignature,
-	Scale,
 	BookOpen,
 	Book,
 	ChevronUp,
+	Hourglass,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "../ui/separator";
@@ -35,11 +32,10 @@ import {
 	GetExecutionByContractDto,
 } from "@/types/api";
 import { Me } from "@/types/me";
-import { getContractSideDetails, shortArkAddress, shortKey } from "@/lib/utils";
+import { getContractSideDetails, shortArkAddress } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import Config from "@/Config";
-import { useMessageBridge } from "@/components/MessageBus";
 import ContractActions, {
 	ContractAction,
 } from "@/components/ContractDetailSheet/ContractActions";
@@ -52,23 +48,14 @@ import { AmountBadge } from "@/components/ContractDetailSheet/AmountBadge";
 import { AdditionalData } from "@/components/ContractDetailSheet/AdditionalData";
 import { StatusText } from "@/components/ContractDetailSheet/StatusText";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
+import { ActionInput } from "@/components/ContractDetailSheet/useContractActionHandler";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
 	open: boolean;
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
-	onContractAction: (
-		action: ContractAction,
-		data: {
-			contractId: string;
-			executionId?: string;
-			disputeId?: string;
-			walletAddress: string | null;
-			transaction: GetExecutionByContractDto["transaction"] | null;
-			reason?: string;
-		},
-	) => void;
+	onContractAction: (data: ActionInput) => void;
 	me: Me;
 };
 
@@ -135,17 +122,7 @@ type InnerContractDetailSheetProps = {
 	contract: GetEscrowContractDto;
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
-	onContractAction: (
-		action: ContractAction,
-		data: {
-			contractId: string;
-			executionId?: string;
-			disputeId?: string;
-			walletAddress: string | null;
-			transaction: GetExecutionByContractDto["transaction"] | null;
-			reason?: string;
-		},
-	) => void;
+	onContractAction: (data: ActionInput) => void;
 	me: Me;
 };
 
@@ -156,10 +133,10 @@ const InnerContractDetailSheet = ({
 	onContractAction,
 	me,
 }: InnerContractDetailSheetProps) => {
-	const { fundAddress, walletAddress } = useMessageBridge();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
 	const [showBalanceWarning, setShowBalanceWarning] = useState(false);
 	const [isAdditionaDataOpen, setIsAdditionalDataOpen] = useState(false);
+	const [isFunding, setIsFunding] = useState(false);
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
@@ -218,8 +195,17 @@ const InnerContractDetailSheet = ({
 		toast.error("Failed to load contract data");
 	}
 
+	const { mySide, counterParty, createdByMe } = getContractSideDetails(
+		me,
+		contract,
+	);
+
 	useEffect(() => {
-		if (contract?.status === "created" && balance !== undefined) {
+		if (
+			contract?.status === "created" &&
+			balance !== undefined &&
+			createdByMe
+		) {
 			if (balance < contract.amount) {
 				if (!showBalanceWarning) {
 					setShowBalanceWarning(true);
@@ -228,17 +214,18 @@ const InnerContractDetailSheet = ({
 				setShowBalanceWarning(false);
 			}
 		}
-	}, [contract, balance, showBalanceWarning]);
+	}, [contract, balance, showBalanceWarning, createdByMe]);
+
+	const canFund =
+		!!contract.arkAddress &&
+		mySide === "sender" &&
+		(contract.status === "created" || contract.status === "funded");
 
 	const fundedAmount =
 		contract.virtualCoins?.reduce((acc, vc) => vc.value + acc, 0) ?? 0;
 
 	const formattedDate = format(contract.createdAt, "PPP 'at' p");
 
-	const { mySide, counterParty, createdByMe } = getContractSideDetails(
-		me,
-		contract,
-	);
 	const currentExecution = dataExecutions?.data.find((execution) =>
 		execution.status.startsWith("pending-"),
 	);
@@ -254,7 +241,7 @@ const InnerContractDetailSheet = ({
 		toast.success("Contract ID copied to clipboard");
 	};
 
-	const handleCopyItem = (key: string, value: string) => {
+	const handleCopyItem = (_: string, value: string) => {
 		// it's a Promise to allow for feedback animation
 		try {
 			navigator.clipboard.writeText(value);
@@ -268,7 +255,7 @@ const InnerContractDetailSheet = ({
 	const handleFundAddress = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (!contract.arkAddress) return;
-		fundAddress(contract.arkAddress, contract.amount);
+		handleActionClick("fund-contract");
 	};
 
 	const handleActionClick = (action: ContractAction) => {
@@ -282,13 +269,16 @@ const InnerContractDetailSheet = ({
 			return;
 		}
 		try {
-			onContractAction(currentAction, {
+			onContractAction({
+				action: currentAction,
 				contractId: contract.externalId,
-				walletAddress,
+				contractAmount: contract.amount,
+				contractArkAddress: contract.arkAddress,
 				executionId: currentExecution?.externalId,
 				disputeId: currentArbitration?.externalId,
 				transaction: currentExecution?.transaction ?? null,
 				reason: data?.reason,
+				receiverAddress: contract.receiverAddress,
 			});
 		} catch (error) {
 			console.error("Error handling action:", error);
@@ -462,20 +452,21 @@ const InnerContractDetailSheet = ({
 										<Copy className="h-4 w-4" />
 									</Button>
 								)}
-								{contract.arkAddress &&
-									mySide === "sender" &&
-									(contract.status === "created" ||
-										contract.status === "funded") && (
-										<Button
-											variant="default"
-											size="sm"
-											onClick={handleFundAddress}
-											className="shrink-0"
-											disabled={!contract.arkAddress}
-										>
+								{canFund && (
+									<Button
+										variant="default"
+										size="sm"
+										onClick={handleFundAddress}
+										className="shrink-0"
+										disabled={!contract.arkAddress || isFunding}
+									>
+										{isFunding ? (
+											<Hourglass className="h-4 w-4" />
+										) : (
 											<Banknote className="h-4 w-4" />
-										</Button>
-									)}
+										)}
+									</Button>
+								)}
 							</div>
 						</div>
 					)}
@@ -556,6 +547,7 @@ const InnerContractDetailSheet = ({
 					open={actionModalOpen}
 					onOpenChange={setActionModalOpen}
 					actionType={currentAction}
+					data={{ amount: contract.amount }}
 					onConfirm={handleActionConfirm}
 				/>
 			)}

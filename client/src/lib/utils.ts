@@ -10,8 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 export const shortKey = (k: string) =>
 	k.length > 14 ? `${k.slice(0, 10)}…${k.slice(-6)}` : k;
 
-export const shortArkAddress = (a: string) =>
-	`${a.slice(0, 12)}...${a.slice(-12)}`;
+export const shortArkAddress = (a: string, n: number = 12) =>
+	`${a.slice(0, n)}...${a.slice(-n)}`;
 
 export const getContractSideDetails = (
 	me: Me,

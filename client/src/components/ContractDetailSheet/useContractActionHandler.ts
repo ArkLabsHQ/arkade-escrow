@@ -12,21 +12,23 @@ import { useSession } from "@/components/SessionProvider";
 import { Transaction, useMessageBridge } from "@/components/MessageBus";
 import { useCallback, useState } from "react";
 
-type ActionInput = {
+export type ActionInput = {
 	action: ContractAction;
 	contractId: string;
+	contractAmount: number;
+	contractArkAddress?: string;
 	executionId?: string;
 	disputeId?: string;
-	walletAddress: string | null;
 	transaction: GetExecutionByContractDto["transaction"] | null;
 	reason?: string;
+	receiverAddress?: string;
 };
 
 export default function useContractActionHandler(): {
 	handleAction: (input: ActionInput) => Promise<void>;
 	isExecuting: boolean;
 } {
-	const { signTransaction } = useMessageBridge();
+	const { signTransaction, fundAddress, walletAddress } = useMessageBridge();
 	const me = useSession();
 	const [isExecuting, setIsExecuting] = useState(false);
 
@@ -182,11 +184,13 @@ export default function useContractActionHandler(): {
 	const handleAction = async ({
 		action,
 		contractId,
+		contractArkAddress,
+		contractAmount,
 		reason,
-		walletAddress,
 		transaction,
 		executionId,
 		disputeId,
+		receiverAddress,
 	}: ActionInput) => {
 		switch (action) {
 			case "accept-draft":
@@ -206,7 +210,26 @@ export default function useContractActionHandler(): {
 				return lockExecution(() =>
 					cancelContract.mutateAsync({ contractId, reason }, {}),
 				);
+			case "fund-contract":
+				if (!contractArkAddress) {
+					throw new Error("Contract ARK address is required for funding");
+				}
+				return lockExecution(() =>
+					fundAddress(contractArkAddress, contractAmount),
+				);
 			case "execute":
+				if (receiverAddress) {
+					if (!transaction || !executionId) {
+						throw new Error("Transaction is required for approval");
+					}
+					return lockExecution(() =>
+						approveContractExecution.mutateAsync({
+							contractId,
+							executionId,
+							transaction,
+						}),
+					);
+				}
 				if (!walletAddress) {
 					return Promise.reject(
 						new Error("Wallet address is required for execution"),

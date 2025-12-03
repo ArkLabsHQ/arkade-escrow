@@ -76,11 +76,7 @@ type RpcFundAddressRequest = {
 type RpcFundAddressResponse = {
 	method: "fund-address";
 	payload: {
-		// Ark address
-		address: string;
-		// SAT
-		requestedAmount: number;
-		fundedAmount: number;
+		txid: string;
 	};
 };
 
@@ -116,6 +112,7 @@ type DataMessage = { kind: "DATA" } & (
 			topic: "signedTransaction";
 			signedTransaction: { tx: string; checkpoints: string[] };
 	  }
+	| { topic: "transactionId"; txid: string }
 );
 
 type Props = {};
@@ -205,6 +202,17 @@ export default function makeMessageHandler(_: Props) {
 								signedTransaction: payload,
 							},
 						};
+
+					case "fund-address":
+						return {
+							tag: "success",
+							result: {
+								kind: "DATA",
+								topic: "transactionId",
+								txid: payload.txid,
+							},
+						};
+
 					default:
 						return {
 							tag: "failure",

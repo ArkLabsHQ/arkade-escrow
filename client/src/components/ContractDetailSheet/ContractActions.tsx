@@ -11,6 +11,7 @@ export type ContractAction =
 	| "accept-draft"
 	| "cancel-draft"
 	| "reject-draft"
+	| "fund-contract"
 	| "execute"
 	| "approve"
 	| "recede-created"
@@ -68,6 +69,7 @@ export default function ContractActions({
 					Reject Contract
 				</Button>,
 			];
+
 		case "created":
 			// both can recede if it's not funded
 			return [

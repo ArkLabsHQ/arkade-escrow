@@ -10,13 +10,14 @@ import {
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
-import { AlertTriangle, CheckCircle, Shield } from "lucide-react";
+import { AlertTriangle, Banknote, CheckCircle, Shield } from "lucide-react";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
 interface ContractActionModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	actionType: ContractAction;
+	data: { amount?: number };
 	onConfirm: (data?: { reason?: string }) => void;
 }
 
@@ -24,6 +25,7 @@ export const ContractActionModal = ({
 	open,
 	onOpenChange,
 	actionType,
+	data,
 	onConfirm,
 }: ContractActionModalProps) => {
 	const [reason, setReason] = useState("");
@@ -70,7 +72,15 @@ export const ContractActionModal = ({
 					confirmText: "Cancel Contract",
 					confirmVariant: "destructive" as const,
 				};
-			// qui
+			case "fund-contract":
+				return {
+					icon: <Banknote className="h-12 w-12 text-success" />,
+					title: "Send funds to contract address",
+					description: `You're about to send ${data.amount} SAT. This action cannot be undone.`,
+					requiresInput: false,
+					confirmText: "Send funds",
+					confirmVariant: "default" as const,
+				};
 			case "execute":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,

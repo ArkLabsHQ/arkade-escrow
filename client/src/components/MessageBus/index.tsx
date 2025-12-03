@@ -142,6 +142,11 @@ export function MessageProvider({
 										resultContent.signedTransaction,
 									);
 									setSignedSignature(resultContent.signedTransaction);
+									break;
+								case "transactionId":
+									console.log(
+										`[escrow] funded with txid=${resultContent.txid}`,
+									);
 							}
 							break;
 						case "ARKADE_KEEP_ALIVE": {

@@ -320,9 +320,10 @@ const Contracts = () => {
 					setSheetOpen(next);
 					setTimeout(() => setSelectedContract(null), 250);
 				}}
-				onContractAction={async (action: ContractAction, data) => {
+				onContractAction={async (actionData) => {
 					try {
-						await handleAction({ action, ...data });
+						console.log("Executing action:", actionData);
+						await handleAction(actionData);
 						toast.success("Action executed successfully");
 					} catch (error) {
 						console.error(error);
