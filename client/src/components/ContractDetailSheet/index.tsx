@@ -53,6 +53,7 @@ import { ActionInput } from "@/components/ContractDetailSheet/useContractActionH
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
 	open: boolean;
+	runAction?: ContractAction;
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
 	onContractAction: (data: ActionInput) => void;
@@ -123,6 +124,7 @@ type InnerContractDetailSheetProps = {
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
 	onContractAction: (data: ActionInput) => void;
+	runAction?: ContractAction;
 	me: Me;
 };
 
@@ -131,6 +133,7 @@ const InnerContractDetailSheet = ({
 	balance,
 	onOpenChange,
 	onContractAction,
+	runAction,
 	me,
 }: InnerContractDetailSheetProps) => {
 	const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -286,8 +289,19 @@ const InnerContractDetailSheet = ({
 				description:
 					error instanceof Error ? error.message : "An unknown error occurred",
 			});
+		} finally {
+			if (runAction) {
+				onOpenChange(false);
+			}
+			setActionModalOpen(false);
 		}
 	};
+
+	useEffect(() => {
+		if (runAction) {
+			handleActionClick(runAction);
+		}
+	}, [runAction]);
 
 	return (
 		<>

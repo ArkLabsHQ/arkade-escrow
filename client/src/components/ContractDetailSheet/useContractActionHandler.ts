@@ -26,7 +26,7 @@ export type ActionInput = {
 
 export default function useContractActionHandler(): {
 	handleAction: (input: ActionInput) => Promise<void>;
-	isExecuting: boolean;
+	isHandling: boolean;
 } {
 	const { signTransaction, fundAddress, walletAddress } = useMessageBridge();
 	const me = useSession();
@@ -282,5 +282,5 @@ export default function useContractActionHandler(): {
 		}
 	};
 
-	return { handleAction, isExecuting };
+	return { handleAction, isHandling: isExecuting };
 }

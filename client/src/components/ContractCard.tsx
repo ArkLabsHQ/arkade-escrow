@@ -16,20 +16,26 @@ import { GetEscrowContractDto } from "@/types/api";
 import { Me } from "@/types/me";
 import { getContractSideDetails, shortKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
+import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
+import { ContractActionModal } from "@/components/ContractActionModal";
 
 interface ContractCardProps {
 	contract: GetEscrowContractDto;
-	onClick: () => void;
+	onClick: (action?: ContractAction) => void;
+	onContractAction: (action: ContractAction) => void;
 	me: Me;
 }
 
-export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
+export const ContractCard = ({
+	contract,
+	onClick,
+	onContractAction,
+	me,
+}: ContractCardProps) => {
 	const formattedDate = format(contract.createdAt, "MMM dd, yyyy");
 
-	const { mySide, createdByMe, counterParty } = getContractSideDetails(
-		me,
-		contract,
-	);
+	const { counterParty } = getContractSideDetails(me, contract);
 
 	const renderSide = () => {
 		return (
@@ -76,13 +82,11 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 		}
 	};
 
-	const handleQuickAction = (e: React.MouseEvent) => {
-		e.stopPropagation();
-
-		// Quick action logic - will trigger the appropriate action
-
-		onClick();
-	};
+	const handleQuickAction =
+		(action: ContractAction) => (e: React.MouseEvent) => {
+			e.stopPropagation();
+			onClick(action);
+		};
 
 	const renderFooterAction = () => {
 		switch (contract.status) {
@@ -92,7 +96,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 						size="sm"
 						variant="outline"
 						className="h-7 text-xs gap-1.5"
-						onClick={handleQuickAction}
+						onClick={handleQuickAction("fund-contract")}
 					>
 						<Wallet className="h-3.5 w-3.5" />
 						Fund
@@ -105,7 +109,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 						size="sm"
 						variant="outline"
 						className="h-7 text-xs gap-1.5"
-						onClick={handleQuickAction}
+						onClick={handleQuickAction("accept-draft")}
 					>
 						<CheckCircle className="h-3.5 w-3.5" />
 						Accept
@@ -119,7 +123,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 						size="sm"
 						variant="outline"
 						className="h-7 text-xs gap-1.5"
-						onClick={handleQuickAction}
+						onClick={handleQuickAction("execute")}
 					>
 						<Zap className="h-3.5 w-3.5" />
 						Execute

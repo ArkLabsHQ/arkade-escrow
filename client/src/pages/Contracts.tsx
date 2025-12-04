@@ -21,6 +21,7 @@ import { useMessageBridge } from "@/components/MessageBus";
 
 import { ApiEnvelopeShellDto } from "../../../server/src/common/dto/envelopes";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
+import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
 const Contracts = () => {
 	const { getWalletBalance } = useMessageBridge();
@@ -28,9 +29,12 @@ const Contracts = () => {
 
 	const [selectedContract, setSelectedContract] =
 		useState<GetEscrowContractDto | null>(null);
-	const [sheetOpen, setSheetOpen] = useState(false);
+	const [sheetOpen, setSheetOpen] = useState<{
+		open: boolean;
+		action?: ContractAction;
+	}>({ open: false });
 	const me = useSession();
-	const { handleAction, isExecuting } = useContractActionHandler();
+	const { handleAction, isHandling } = useContractActionHandler();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [statusFilter, setStatusFilter] = useState<
@@ -183,10 +187,13 @@ const Contracts = () => {
 		};
 	}, [hasNextPage, isPending, fetchNextPage]);
 
-	const handleContractClick = (contract: GetEscrowContractDto) => {
+	const handleContractClick = (
+		contract: GetEscrowContractDto,
+		action?: ContractAction,
+	) => {
 		getWalletBalance().then((wb) => setWalletBalance(wb.available));
 		setSelectedContract(contract);
-		setSheetOpen(true);
+		setSheetOpen({ open: true, action });
 	};
 
 	return (
@@ -264,7 +271,20 @@ const Contracts = () => {
 							>
 								<ContractCard
 									contract={contract}
-									onClick={() => handleContractClick(contract)}
+									onClick={(action) => handleContractClick(contract, action)}
+									onContractAction={async (action) => {
+										handleAction({
+											contractAmount: contract.amount,
+											contractArkAddress: contract.arkAddress,
+											contractId: contract.externalId,
+											disputeId: "",
+											executionId: "",
+											reason: "",
+											receiverAddress: "",
+											transaction: null,
+											action,
+										});
+									}}
 									me={me}
 								/>
 							</div>
@@ -292,10 +312,11 @@ const Contracts = () => {
 
 			<ContractDetailSheet
 				contract={selectedContract}
-				open={sheetOpen}
+				open={sheetOpen.open}
+				runAction={sheetOpen.action}
 				balance={walletBalance}
-				onOpenChange={(next) => {
-					setSheetOpen(next);
+				onOpenChange={(open) => {
+					setSheetOpen({ open });
 					setTimeout(() => setSelectedContract(null), 250);
 				}}
 				onContractAction={async (actionData) => {

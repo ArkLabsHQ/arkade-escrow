@@ -30,7 +30,7 @@ const Orderbook = () => {
 		useState<GetEscrowContractDto | null>(null);
 	const [contractSheetOpen, setContractSheetOpen] = useState(false);
 	const me = useSession();
-	const { handleAction, isExecuting } = useContractActionHandler();
+	const { handleAction, isHandling } = useContractActionHandler();
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [newRequestOpen, setNewRequestOpen] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
