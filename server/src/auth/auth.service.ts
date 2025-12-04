@@ -86,6 +86,7 @@ export class AuthService {
 		const hashHex = hashSignupPayload(payload);
 		let ok = false;
 		try {
+			console.log(`verifyin for ${publicKey}`);
 			ok = schnorr.verify(
 				hexToBytes(signatureHex),
 				hexToBytes(hashHex),

@@ -1,4 +1,3 @@
-// client/app/components/MessageProvider.tsx
 import React, {
 	createContext,
 	useCallback,
@@ -10,7 +9,9 @@ import React, {
 } from "react";
 import makeMessageHandler from "./MessageManager";
 import { nanoid } from "nanoid";
-import { amd } from "globals";
+import { SingleKey } from "@arkade-os/sdk";
+import { InboundMessage, OutboundMessage } from "@/components/MessageBus/types";
+import { AppShellImpl } from "@/components/MessageBus/AppShellImpl";
 
 export type Transaction = {
 	vtxo: {
@@ -21,6 +22,16 @@ export type Transaction = {
 	arkTx: string; // The Ark transaction as PSBT
 	checkpoints: string[]; // Checkpoint transactions as PSBTs
 };
+
+export function useIsIframe() {
+	const [isIframe, setIsIframe] = useState(false);
+
+	useEffect(() => {
+		setIsIframe(window.self !== window.top);
+	}, []);
+
+	return isIframe;
+}
 
 type MessageBridgeContextValue = {
 	signChallenge: (challenge: string) => Promise<string>;
@@ -33,27 +44,35 @@ type MessageBridgeContextValue = {
 	getWalletBalance: () => Promise<{ available: number }>;
 };
 
+export type MessageEventLike = {
+	data: InboundMessage;
+	origin: string;
+	source: MessageEventSource | null;
+};
+export interface AppShell {
+	postMessage: (
+		message: OutboundMessage,
+		targetOrigin: string,
+		transfer?: Transferable[],
+	) => void;
+}
+
 const MessageBridgeContext = createContext<
 	MessageBridgeContextValue | undefined
 >(undefined);
 
 export function MessageProvider({
 	children,
-	allowedChildOrigins,
 }: {
 	children: React.ReactNode;
 	allowedChildOrigins: string[];
 }) {
-	const allowed = useMemo(
-		() => new Set(allowedChildOrigins),
-		[allowedChildOrigins],
-	);
 	const [isAlive, setIsAlive] = useState(false);
 	const [xPublicKey, setXPublicKey] = useState<string | null>(null);
 	const [walletAddress, setWalletAddress] = useState<string | null>(null);
 	const [hostOrigin, setHostOrigin] = useState<string | null>(null);
 	const handleMessage = useMemo(() => makeMessageHandler({}), []);
-	const childWindowRef = useRef<Window | null>(null);
+	const parentWindowRef = useRef<AppShell | null>(null);
 
 	// Store pending promise handlers to avoid stale closures
 	const [signedChallenge, setSignedChallenge] = useState<string | null>(null);
@@ -84,28 +103,8 @@ export function MessageProvider({
 	}>({ available: 0 });
 
 	const onMessage = useCallback(
-		async (event: MessageEvent) => {
-			// if (!allowed.has(event.origin)) {
-			// 	console.warn(`Arkade: ignoring message from ${event.origin}`);
-			// 	return;
-			// }
-			if (event.origin !== hostOrigin) {
-				setHostOrigin(event.origin);
-			}
-			// Keep a reference to the sender window (e.g., the iframe content window)
-			if (
-				event.source &&
-				typeof (event.source as Window).postMessage === "function"
-			) {
-				childWindowRef.current = event.source as Window;
-			}
-
-			const msg = event.data;
-			if (!msg || typeof msg !== "object" || !("kind" in msg)) {
-				console.error("Arkade: invalid message", msg);
-				return;
-			}
-
+		async (event: MessageEventLike) => {
+			const msg = event.data as InboundMessage;
 			try {
 				const result = await handleMessage(msg);
 				if (result.tag === "failure") {
@@ -154,7 +153,7 @@ export function MessageProvider({
 								setIsAlive(true);
 							}
 							if (!xPublicKey) {
-								childWindowRef.current?.postMessage(
+								parentWindowRef.current?.postMessage(
 									{
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
@@ -164,7 +163,7 @@ export function MessageProvider({
 								);
 							}
 							if (!walletAddress) {
-								childWindowRef.current?.postMessage(
+								parentWindowRef.current?.postMessage(
 									{
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
@@ -172,7 +171,7 @@ export function MessageProvider({
 									},
 									event.origin,
 								);
-								childWindowRef.current?.postMessage(
+								parentWindowRef.current?.postMessage(
 									{
 										kind: "ARKADE_RPC_REQUEST",
 										id: nanoid(8),
@@ -183,7 +182,7 @@ export function MessageProvider({
 							}
 							setTimeout(
 								() =>
-									childWindowRef.current?.postMessage(
+									parentWindowRef.current?.postMessage(
 										result.result,
 										event.origin,
 									),
@@ -200,18 +199,38 @@ export function MessageProvider({
 				return;
 			}
 		},
-		[handleMessage, allowed, isAlive, hostOrigin, xPublicKey, walletAddress],
+		[handleMessage, isAlive, xPublicKey, walletAddress],
 	);
 
+	const isIframe = useIsIframe();
 	useEffect(() => {
-		if (typeof window === "undefined") {
-			return;
+		if (!isIframe && !parentWindowRef.current) {
+			setIsAlive(true);
+			// TODO: ask for key/mnemonic if they prefer
+			console.log("[escrow] creating new identity");
+			const identity = SingleKey.fromRandomBytes();
+			parentWindowRef.current = new AppShellImpl(onMessage, identity);
+			parentWindowRef.current.postMessage(
+				{ kind: "ARKADE_KEEP_ALIVE", timestamp: Date.now() },
+				"*",
+			);
+		} else {
+			if (typeof window === "undefined") {
+				return;
+			}
+			const listener = (event: MessageEvent) => {
+				// Keep a reference to the sender window (e.g., the iframe content window)
+				if (event.source) {
+					parentWindowRef.current = event.source as Window;
+				}
+				onMessage(event);
+			};
+			window.addEventListener("message", listener);
+			return () => {
+				window.removeEventListener("message", listener);
+			};
 		}
-		window.addEventListener("message", onMessage);
-		return () => {
-			window.removeEventListener("message", onMessage);
-		};
-	}, [onMessage]);
+	}, [isIframe, onMessage]);
 
 	// Resolve pending signChallenge promise when signedChallenge state updates
 	useEffect(() => {
@@ -247,7 +266,7 @@ export function MessageProvider({
 				xPublicKey,
 				walletAddress,
 				signChallenge: async (challenge: string) => {
-					if (!hostOrigin) return Promise.reject("app not ready");
+					if (isIframe && !hostOrigin) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
 					if (timeoutChallengeRef.current) {
@@ -258,7 +277,7 @@ export function MessageProvider({
 					pendingChallengeRejectRef.current = null;
 
 					setSignedChallenge(null);
-					childWindowRef.current?.postMessage(
+					parentWindowRef.current?.postMessage(
 						{
 							kind: "ARKADE_RPC_REQUEST",
 							id: nanoid(8),
@@ -281,8 +300,12 @@ export function MessageProvider({
 					});
 				},
 				getWalletBalance: () => {
+					if (!isIframe) {
+						// TODO: figure out how to get the balance from the app shell when not in an iframe
+						return Promise.resolve({ available: 0 });
+					}
 					if (!hostOrigin) return Promise.reject("app not ready");
-					childWindowRef.current?.postMessage(
+					parentWindowRef.current?.postMessage(
 						{
 							kind: "ARKADE_RPC_REQUEST",
 							id: nanoid(8),
@@ -296,7 +319,7 @@ export function MessageProvider({
 					});
 				},
 				signTransaction: (transaction: Transaction) => {
-					if (!hostOrigin) return Promise.reject("app not ready");
+					if (!hostOrigin && isIframe) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
 					if (timeoutSignatureRef.current) {
@@ -307,7 +330,7 @@ export function MessageProvider({
 					pendingSignatureRejectRef.current = null;
 
 					setSignedSignature(null);
-					childWindowRef.current?.postMessage(
+					parentWindowRef.current?.postMessage(
 						{
 							kind: "ARKADE_RPC_REQUEST",
 							id: nanoid(8),
@@ -335,9 +358,13 @@ export function MessageProvider({
 					);
 				},
 				fundAddress: async (address: string, amount: number) => {
+					if (!isIframe) {
+						// TODO: QR code? link to wallet/browser extension/...
+						return Promise.resolve();
+					}
 					if (!hostOrigin) return Promise.reject("app not ready");
 
-					childWindowRef.current?.postMessage(
+					parentWindowRef.current?.postMessage(
 						{
 							kind: "ARKADE_RPC_REQUEST",
 							id: nanoid(8),

@@ -11,7 +11,7 @@ import { ApiEnvelope } from "../../../../server/src/common/dto/envelopes";
 import { useSession } from "@/components/SessionProvider";
 import { Transaction, useMessageBridge } from "@/components/MessageBus";
 import { useCallback, useState } from "react";
-import {ArkAddress} from "@arkade-os/sdk";
+import { ArkAddress } from "@arkade-os/sdk";
 
 export type ActionInput = {
 	action: ContractAction;
@@ -22,7 +22,7 @@ export type ActionInput = {
 	disputeId?: string;
 	transaction: GetExecutionByContractDto["transaction"] | null;
 	reason?: string;
-    newReleaseAddress?: string;
+	newReleaseAddress?: string;
 	receiverAddress?: string;
 };
 
@@ -46,7 +46,7 @@ export default function useContractActionHandler(): {
 	});
 
 	const executeContract = useMutation({
-		mutationFn: async (input: { contractId: string; arkAddress: string }) => {
+		mutationFn: async (input: { contractId: string; arkAddress?: string }) => {
 			const res = await axios.post<ApiEnvelope<ExecuteEscrowContractOutDto>>(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/execute`,
 				{ arkAddress: input.arkAddress },
@@ -127,18 +127,20 @@ export default function useContractActionHandler(): {
 		},
 	});
 
-
-    const updateReleaseAddress = useMutation({
-        mutationFn: async (input: { contractId: string; releaseAddress: string }) => {
-            const r = await axios.patch(
-                `${Config.apiBaseUrl}/escrows/contracts/${input.contractId}`,
-                {
-                    releaseAddress: input.releaseAddress,
-                },
-                { headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-            );
-        },
-    });
+	const updateReleaseAddress = useMutation({
+		mutationFn: async (input: {
+			contractId: string;
+			releaseAddress: string;
+		}) => {
+			const r = await axios.patch(
+				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}`,
+				{
+					releaseAddress: input.releaseAddress,
+				},
+				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+			);
+		},
+	});
 
 	const createExecutionForDispute = useMutation({
 		mutationFn: async (input: {
@@ -201,7 +203,7 @@ export default function useContractActionHandler(): {
 		contractArkAddress,
 		contractAmount,
 		reason,
-        newReleaseAddress,
+		newReleaseAddress,
 		transaction,
 		executionId,
 		disputeId,
@@ -232,16 +234,21 @@ export default function useContractActionHandler(): {
 				return lockExecution(() =>
 					fundAddress(contractArkAddress, contractAmount),
 				);
-            case "update-release-address":
-                try {
-                    if (!newReleaseAddress) {
-                        throw new Error("New release address is required for updating");
-                    }
-                    ArkAddress.decode(newReleaseAddress)
-                    return lockExecution(() => updateReleaseAddress.mutateAsync({contractId, releaseAddress: newReleaseAddress}))
-                } catch (e) {
-                    throw new Error("Invalid ARK address provided")
-                }
+			case "update-release-address":
+				try {
+					if (!newReleaseAddress) {
+						throw new Error("New release address is required for updating");
+					}
+					ArkAddress.decode(newReleaseAddress);
+					return lockExecution(() =>
+						updateReleaseAddress.mutateAsync({
+							contractId,
+							releaseAddress: newReleaseAddress,
+						}),
+					);
+				} catch (e) {
+					throw new Error("Invalid ARK address provided");
+				}
 			case "execute":
 				if (receiverAddress) {
 					if (!transaction || !executionId) {
@@ -255,15 +262,15 @@ export default function useContractActionHandler(): {
 						}),
 					);
 				}
-				if (!walletAddress) {
-					return Promise.reject(
-						new Error("Wallet address is required for execution"),
-					);
-				}
+				// if (!walletAddress) {
+				// 	return Promise.reject(
+				// 		new Error("Wallet address is required for execution"),
+				// 	);
+				// }
 				return lockExecution(() =>
 					executeContract.mutateAsync({
 						contractId,
-						arkAddress: walletAddress,
+						arkAddress: walletAddress ?? undefined,
 					}),
 				);
 			case "approve":

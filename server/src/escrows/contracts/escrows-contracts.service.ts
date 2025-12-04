@@ -56,7 +56,7 @@ import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
 import { ActionType } from "../../common/Action.type";
 import { Contract } from "../../common/Contract.type";
-import {UpdateContractDto} from "./dto/update-contract.dto";
+import { UpdateContractDto } from "./dto/update-contract.dto";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -665,6 +665,11 @@ export class EscrowsContractsService {
 				: signature.checkpoints,
 		};
 
+		// backup if finalization fails
+		const rollbackToStatus = execution.status;
+		const rollbackToCleanTransaction = execution.cleanTransaction;
+		const rollbackToSignedTransaction = execution.signedTransaction;
+
 		await this.contractExecutionRepository.update(
 			{
 				externalId: executionId,
@@ -681,16 +686,35 @@ export class EscrowsContractsService {
 			this.logger.debug(
 				`execution ${executionId} is pending-server-confirmation`,
 			);
-			const finalTxId = await this.submitAndFinalizeExecutionTransaction({
-				signedTx: signedTransaction.arkTx,
-				signedCheckpoints: signedTransaction.checkpoints,
-				requiredSigners: cleanTransaction.requiredSigners,
-				contractId,
-				executionId,
-			});
-			this.logger.debug(
-				`execution ${executionId} successfully submitted to ark with txid ${finalTxId}`,
-			);
+			try {
+				const finalTxId = await this.submitAndFinalizeExecutionTransaction({
+					signedTx: signedTransaction.arkTx,
+					signedCheckpoints: signedTransaction.checkpoints,
+					requiredSigners: cleanTransaction.requiredSigners,
+					contractId,
+					executionId,
+				});
+				this.logger.debug(
+					`execution ${executionId} successfully submitted to ark with txid ${finalTxId}`,
+				);
+			} catch (e) {
+				this.logger.error("Failed to submit execution to ark, rollback", e);
+				await this.contractExecutionRepository.update(
+					{
+						externalId: executionId,
+						contract: { externalId: contractId },
+					},
+					{
+						status: rollbackToStatus,
+						cleanTransaction: rollbackToCleanTransaction,
+						signedTransaction: rollbackToSignedTransaction,
+					},
+				);
+				throw new InternalServerErrorException(
+					"Failed to submit execution to ark provider",
+					{ cause: e },
+				);
+			}
 		}
 
 		const persisted = await this.contractExecutionRepository.findOne({
@@ -959,25 +983,38 @@ export class EscrowsContractsService {
 		}
 	}
 
-    async updateOneByExternalId(externalId: string, pubkey: string, update: UpdateContractDto): Promise<GetEscrowContractDto> {
-        const contract = await this.getOneForPartyAndStatus(externalId, pubkey, ["draft", "created", "funded"])
-        if (!contract) {
-            throw new NotFoundException(`Contract ${externalId} not found`);
-        }
-        if (update.releaseAddress) {
-            if (pubkey !== contract.receiverPubkey) {
-                throw new ForbiddenException("Only receiver can update release address");
-            }
-            try {
-                ArkAddress.decode(update.releaseAddress);
-            } catch (e) {
-                throw new BadRequestException("Invalid release address");
-            }
-            await this.contractRepository.update({ externalId }, {...contract, receiverAddress: update.releaseAddress});
-            return await this.getOneByExternalId(externalId, pubkey);
-        }
-        throw new BadRequestException("Nothing to update");
-    }
+	async updateOneByExternalId(
+		externalId: string,
+		pubkey: string,
+		update: UpdateContractDto,
+	): Promise<GetEscrowContractDto> {
+		const contract = await this.getOneForPartyAndStatus(externalId, pubkey, [
+			"draft",
+			"created",
+			"funded",
+		]);
+		if (!contract) {
+			throw new NotFoundException(`Contract ${externalId} not found`);
+		}
+		if (update.releaseAddress) {
+			if (pubkey !== contract.receiverPubkey) {
+				throw new ForbiddenException(
+					"Only receiver can update release address",
+				);
+			}
+			try {
+				ArkAddress.decode(update.releaseAddress);
+			} catch (e) {
+				throw new BadRequestException("Invalid release address");
+			}
+			await this.contractRepository.update(
+				{ externalId },
+				{ ...contract, receiverAddress: update.releaseAddress },
+			);
+			return await this.getOneByExternalId(externalId, pubkey);
+		}
+		throw new BadRequestException("Nothing to update");
+	}
 
 	async getOneByExternalId(
 		externalId: string,
