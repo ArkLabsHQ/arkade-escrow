@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { ContractCard } from "@/components/ContractCard";
 import { ContractDetailSheet } from "@/components/ContractDetailSheet";
-import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -10,7 +9,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
+import { Filter } from "lucide-react";
 import Config from "@/Config";
 import { ApiPaginatedEnvelope, GetEscrowContractDto } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
@@ -272,19 +271,6 @@ const Contracts = () => {
 								<ContractCard
 									contract={contract}
 									onClick={(action) => handleContractClick(contract, action)}
-									onContractAction={async (action) => {
-										handleAction({
-											contractAmount: contract.amount,
-											contractArkAddress: contract.arkAddress,
-											contractId: contract.externalId,
-											disputeId: "",
-											executionId: "",
-											reason: "",
-											receiverAddress: "",
-											transaction: null,
-											action,
-										});
-									}}
 									me={me}
 								/>
 							</div>

@@ -1,41 +1,26 @@
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import {
-	ArrowDownLeft,
-	ArrowUpRight,
-	Calendar,
-	User,
-	Copy,
-	Wallet,
-	CheckCircle,
-	Zap,
-} from "lucide-react";
+import { Calendar, User, Wallet, CheckCircle, Zap } from "lucide-react";
 import { format } from "date-fns";
-import { toast } from "sonner";
 import { GetEscrowContractDto } from "@/types/api";
 import { Me } from "@/types/me";
 import { getContractSideDetails, shortKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
-import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
-import { ContractActionModal } from "@/components/ContractActionModal";
 
 interface ContractCardProps {
 	contract: GetEscrowContractDto;
 	onClick: (action?: ContractAction) => void;
-	onContractAction: (action: ContractAction) => void;
 	me: Me;
 }
 
-export const ContractCard = ({
-	contract,
-	onClick,
-	onContractAction,
-	me,
-}: ContractCardProps) => {
+export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 	const formattedDate = format(contract.createdAt, "MMM dd, yyyy");
 
-	const { counterParty } = getContractSideDetails(me, contract);
+	const { counterParty, mySide, createdByMe } = getContractSideDetails(
+		me,
+		contract,
+	);
 
 	const renderSide = () => {
 		return (
@@ -91,19 +76,33 @@ export const ContractCard = ({
 	const renderFooterAction = () => {
 		switch (contract.status) {
 			case "created":
+				if (mySide === "sender") {
+					return (
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-7 text-xs gap-1.5"
+							onClick={handleQuickAction("fund-contract")}
+						>
+							<Wallet className="h-3.5 w-3.5" />
+							Fund
+						</Button>
+					);
+				}
 				return (
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-7 text-xs gap-1.5"
-						onClick={handleQuickAction("fund-contract")}
-					>
-						<Wallet className="h-3.5 w-3.5" />
-						Fund
-					</Button>
+					<span className="text-xs text-muted-foreground">
+						{format(contract.updatedAt, "MMM dd, yyyy - HH:mm")}
+					</span>
 				);
 
 			case "draft":
+				if (createdByMe) {
+					return (
+						<span className="text-xs text-muted-foreground">
+							{format(contract.updatedAt, "MMM dd, yyyy - HH:mm")}
+						</span>
+					);
+				}
 				return (
 					<Button
 						size="sm"
@@ -152,7 +151,7 @@ export const ContractCard = ({
 	return (
 		<Card
 			className="p-6 cursor-pointer transition-all hover:shadow-elegant hover:-translate-y-0.5 border-border bg-card"
-			onClick={onClick}
+			onClick={() => onClick()}
 		>
 			<div className="flex flex-col gap-4">
 				{/* Header Row */}
