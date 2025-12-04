@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import { useMessageBridge } from "@/components/MessageBus";
 
 import { ApiEnvelopeShellDto } from "../../../server/src/common/dto/envelopes";
-import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 const Contracts = () => {
@@ -34,7 +33,6 @@ const Contracts = () => {
 	const { handleAction, isExecuting } = useContractActionHandler();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
-	const [requestIdFilter, setRequestIdFilter] = useState("");
 	const [statusFilter, setStatusFilter] = useState<
 		"all" | GetEscrowContractDto["status"]
 	>("all");
@@ -109,9 +107,6 @@ const Contracts = () => {
 						nextItems[idx] = { ...items[idx], ...updated.data };
 						const nextPages = input.pages.slice();
 						nextPages[pageIdx] = { ...input.pages[pageIdx], data: nextItems };
-						console.log(
-							`updating ${externalId} with ${updated.data.status} -> ${nextPages[pageIdx].data[idx].status}`,
-						);
 						return { ...input, pages: nextPages };
 					},
 				);
@@ -188,13 +183,6 @@ const Contracts = () => {
 		};
 	}, [hasNextPage, isPending, fetchNextPage]);
 
-	// TODO: Reset pagination when filters change
-	// useEffect(() => {
-	// 	setDisplayedContracts([]);
-	// 	setPage(1);
-	// 	setHasMore(true);
-	// }, [requestIdFilter, statusFilter, sideFilter]);
-
 	const handleContractClick = (contract: GetEscrowContractDto) => {
 		getWalletBalance().then((wb) => setWalletBalance(wb.available));
 		setSelectedContract(contract);
@@ -212,16 +200,6 @@ const Contracts = () => {
 					style={{ animationDelay: "0.1s" }}
 				>
 					<div className="flex flex-col gap-4 sm:flex-row">
-						<div className="relative flex-1">
-							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								placeholder="Search by request ID..."
-								value={requestIdFilter}
-								onChange={(e) => setRequestIdFilter(e.target.value)}
-								className="pl-10"
-							/>
-						</div>
-
 						<Select
 							value={statusFilter}
 							onValueChange={(value: any) => {
@@ -322,7 +300,6 @@ const Contracts = () => {
 				}}
 				onContractAction={async (actionData) => {
 					try {
-						console.log("Executing action:", actionData);
 						await handleAction(actionData);
 						toast.success("Action executed successfully");
 					} catch (error) {
