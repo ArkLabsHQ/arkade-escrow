@@ -11,6 +11,7 @@ export type ContractAction =
 	| "accept-draft"
 	| "cancel-draft"
 	| "reject-draft"
+    | "update-release-address"
 	| "fund-contract"
 	| "execute"
 	| "approve"

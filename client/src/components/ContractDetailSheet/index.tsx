@@ -3,18 +3,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
-	ArrowDownLeft,
-	ArrowUpRight,
-	Wallet,
-	Copy,
-	Banknote,
-	AlertCircle,
-	ChevronDown,
-	BadgeInfoIcon,
-	BookOpen,
-	Book,
-	ChevronUp,
-	Hourglass,
+    ArrowDownLeft,
+    ArrowUpRight,
+    Wallet,
+    Copy,
+    Banknote,
+    AlertCircle,
+    ChevronDown,
+    BadgeInfoIcon,
+    BookOpen,
+    Book,
+    ChevronUp,
+    Hourglass, PencilLine,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "../ui/separator";
@@ -239,10 +239,19 @@ const InnerContractDetailSheet = ({
 				execution.status !== "executed",
 		) ?? [];
 
-	const handleCopyContractId = () => {
+	const handleCopyContractId =  async (e: React.MouseEvent) => {
+        e.stopPropagation();
 		navigator.clipboard.writeText(contract.externalId);
 		toast.success("Contract ID copied to clipboard");
 	};
+
+    const canUpdateReleaseAddress = mySide === "receiver" && ["draft","created","pending-execution","under-arbitration"].includes(contract.status)
+    const handleUpdateReleaseAddress = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!canUpdateReleaseAddress) return;
+        handleActionClick("update-release-address");
+
+    }
 
 	const handleCopyItem = (_: string, value: string) => {
 		// it's a Promise to allow for feedback animation
@@ -266,7 +275,7 @@ const InnerContractDetailSheet = ({
 		setActionModalOpen(true);
 	};
 
-	const handleActionConfirm = async (data?: { reason?: string }) => {
+	const handleActionConfirm = async (data?: { reason?: string, releaseAddress?: string, disputeReason?: string }) => {
 		if (!currentAction) {
 			console.warn("No current action selected");
 			return;
@@ -280,7 +289,8 @@ const InnerContractDetailSheet = ({
 				executionId: currentExecution?.externalId,
 				disputeId: currentArbitration?.externalId,
 				transaction: currentExecution?.transaction ?? null,
-				reason: data?.reason,
+				reason: data?.reason ?? data?.disputeReason,
+                newReleaseAddress: data?.releaseAddress,
 				receiverAddress: contract.receiverAddress,
 			});
 		} catch (error) {
@@ -383,6 +393,16 @@ const InnerContractDetailSheet = ({
 									<Copy className="h-4 w-4" />
 								</Button>
 							</RowIcon>
+                            <RowIcon>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleUpdateReleaseAddress}
+                                    className="shrink-0"
+                                >
+                                    <PencilLine className="h-4 w-4" />
+                                </Button>
+                            </RowIcon>
 						</div>
 					) : null}
 

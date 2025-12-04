@@ -1,7 +1,7 @@
 import { IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class CancelRejectExcrowContractDto {
+export class CancelRejectEscrowContractDto {
 	@ApiProperty({
 		description: "Reason for rejection or cancellation",
 		example: "Insufficient funds",

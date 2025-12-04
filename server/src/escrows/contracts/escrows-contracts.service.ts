@@ -56,6 +56,7 @@ import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
 import { ActionType } from "../../common/Action.type";
 import { Contract } from "../../common/Contract.type";
+import {UpdateContractDto} from "./dto/update-contract.dto";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -957,6 +958,26 @@ export class EscrowsContractsService {
 			);
 		}
 	}
+
+    async updateOneByExternalId(externalId: string, pubkey: string, update: UpdateContractDto): Promise<GetEscrowContractDto> {
+        const contract = await this.getOneForPartyAndStatus(externalId, pubkey, ["draft", "created", "funded"])
+        if (!contract) {
+            throw new NotFoundException(`Contract ${externalId} not found`);
+        }
+        if (update.releaseAddress) {
+            if (pubkey !== contract.receiverPubkey) {
+                throw new ForbiddenException("Only receiver can update release address");
+            }
+            try {
+                ArkAddress.decode(update.releaseAddress);
+            } catch (e) {
+                throw new BadRequestException("Invalid release address");
+            }
+            await this.contractRepository.update({ externalId }, {...contract, receiverAddress: update.releaseAddress});
+            return await this.getOneByExternalId(externalId, pubkey);
+        }
+        throw new BadRequestException("Nothing to update");
+    }
 
 	async getOneByExternalId(
 		externalId: string,

@@ -15,7 +15,8 @@ interface ContractCardProps {
 }
 
 export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
-	const formattedDate = format(contract.createdAt, "MMM dd, yyyy");
+	const createdAt = format(contract.createdAt, "MMM dd, yyyy - HH:mm");
+	const updatedAt = format(contract.updatedAt, "MMM dd, yyyy - HH:mm");;
 
 	const { counterParty, mySide, createdByMe } = getContractSideDetails(
 		me,
@@ -28,7 +29,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				<div className="flex flex-col">
 					<div className="flex items-center gap-2">
 						<span className="text-sm font-medium text-muted-foreground">
-							{contract.side === "receiver" ? "Receiving from" : "Sending to"}
+							{mySide === "receiver" ? "Receiving from" : "Sending to"}
 						</span>
 					</div>
 
@@ -91,7 +92,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				}
 				return (
 					<span className="text-xs text-muted-foreground">
-						{format(contract.updatedAt, "MMM dd, yyyy - HH:mm")}
+						{updatedAt}
 					</span>
 				);
 
@@ -99,7 +100,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				if (createdByMe) {
 					return (
 						<span className="text-xs text-muted-foreground">
-							{format(contract.updatedAt, "MMM dd, yyyy - HH:mm")}
+							{updatedAt}
 						</span>
 					);
 				}
@@ -132,7 +133,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 			default:
 				return (
 					<span className="text-xs text-muted-foreground">
-						{format(contract.updatedAt, "MMM dd, yyyy - HH:mm")}
+						{updatedAt}
 					</span>
 				);
 		}
@@ -180,7 +181,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 				<div className="flex items-center justify-between gap-4 pt-2 border-t border-border">
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
 						<Calendar className="h-3.5 w-3.5" />
-						<span>{formattedDate}</span>
+						<span>{createdAt}</span>
 					</div>
 					{renderFooterAction()}
 				</div>
