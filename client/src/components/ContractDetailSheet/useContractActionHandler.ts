@@ -9,7 +9,7 @@ import axios from "axios";
 import Config from "@/Config";
 import { ApiEnvelope } from "../../../../server/src/common/dto/envelopes";
 import { useSession } from "@/components/SessionProvider";
-import { Transaction, useMessageBridge } from "@/components/MessageBus";
+import { useMessageBridge } from "@/components/AppShell/RpcProvider";
 import { useCallback, useState } from "react";
 import { ArkAddress } from "@arkade-os/sdk";
 
@@ -58,7 +58,7 @@ export default function useContractActionHandler(): {
 				});
 			}
 			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
-			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
+			const signed = await signTransaction(arkTx, checkpoints);
 			await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
 				{
@@ -98,12 +98,15 @@ export default function useContractActionHandler(): {
 		mutationFn: async (input: {
 			contractId: string;
 			executionId: string;
-			transaction: Transaction;
+			transaction: { arkTx: string; checkpoints: string[] };
 		}) => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const signed = await signTransaction(input.transaction);
+			const signed = await signTransaction(
+				input.transaction.arkTx,
+				input.transaction.checkpoints,
+			);
 			await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${input.executionId}`,
 				{
@@ -159,7 +162,7 @@ export default function useContractActionHandler(): {
 				});
 			}
 			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
-			const signed = await signTransaction({ arkTx, checkpoints, vtxo });
+			const signed = await signTransaction(arkTx, checkpoints);
 
 			await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,

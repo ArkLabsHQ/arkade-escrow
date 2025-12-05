@@ -2,7 +2,7 @@ import {
 	DataMessage,
 	InboundMessage,
 	OutboundMessage,
-} from "@/components/MessageBus/types";
+} from "@/components/AppShell/types";
 
 type Props = {};
 type Result =
@@ -23,7 +23,6 @@ export default function makeMessageHandler(_: Props) {
 				};
 			case "ARKADE_RPC_RESPONSE": {
 				const { kind, method, payload } = message;
-				// console.log("[escrow] RPC response", { id, kind, method, payload });
 				switch (method) {
 					case "get-x-public-key":
 						if (payload.xOnlyPublicKey === null) {

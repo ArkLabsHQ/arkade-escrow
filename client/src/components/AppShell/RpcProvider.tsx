@@ -7,42 +7,20 @@ import React, {
 	useRef,
 	useState,
 } from "react";
-import makeMessageHandler from "./MessageManager";
 import { nanoid } from "nanoid";
 import { SingleKey } from "@arkade-os/sdk";
-import { InboundMessage, OutboundMessage } from "@/components/MessageBus/types";
-import { AppShellImpl } from "@/components/MessageBus/AppShellImpl";
 
-export type Transaction = {
-	vtxo: {
-		txid: string;
-		vout: number;
-		value: number;
-	};
-	arkTx: string; // The Ark transaction as PSBT
-	checkpoints: string[]; // Checkpoint transactions as PSBTs
-};
+import { InboundMessage, KeepAlive, OutboundMessage } from "./types";
+import { Standalone } from "./Standalone";
+import makeMessageHandler from "./messageHandler";
 
-export function useIsIframe() {
+function useIsIframe() {
 	const [isIframe, setIsIframe] = useState(false);
-
 	useEffect(() => {
 		setIsIframe(window.self !== window.top);
 	}, []);
-
 	return isIframe;
 }
-
-type MessageBridgeContextValue = {
-	signChallenge: (challenge: string) => Promise<string>;
-	xPublicKey: string | null;
-	walletAddress: string | null;
-	signTransaction: (
-		transaction: Transaction,
-	) => Promise<{ tx: string; checkpoints: string[] }>;
-	fundAddress: (address: string, amount: number) => Promise<void>;
-	getWalletBalance: () => Promise<{ available: number }>;
-};
 
 export type MessageEventLike = {
 	data: InboundMessage;
@@ -57,15 +35,29 @@ export interface AppShell {
 	) => void;
 }
 
-const MessageBridgeContext = createContext<
-	MessageBridgeContextValue | undefined
->(undefined);
+type RpcProviderContextValue = {
+	signChallenge: (challenge: string) => Promise<string>;
+	xPublicKey: string | null;
+	walletAddress: string | null;
+	signTransaction: (
+		arkTx: string,
+		checkpoints: string[],
+	) => Promise<{ tx: string; checkpoints: string[] }>;
+	fundAddress: (address: string, amount: number) => Promise<void>;
+	getWalletBalance: () => Promise<{ available: number }>;
+};
 
-export function MessageProvider({
+const RpcProviderContext = createContext<RpcProviderContextValue | undefined>(
+	undefined,
+);
+
+export function RpcProvider({
 	children,
+	identity,
 }: {
 	children: React.ReactNode;
-	allowedChildOrigins: string[];
+	identity?: SingleKey;
+	allowedChildOrigins: string[]; // TODO: check against window.origin?
 }) {
 	const [isAlive, setIsAlive] = useState(false);
 	const [xPublicKey, setXPublicKey] = useState<string | null>(null);
@@ -106,6 +98,9 @@ export function MessageProvider({
 		async (event: MessageEventLike) => {
 			const msg = event.data as InboundMessage;
 			try {
+				if (hostOrigin === null) {
+					setHostOrigin(event.origin);
+				}
 				const result = await handleMessage(msg);
 				if (result.tag === "failure") {
 					console.error(result.error);
@@ -183,7 +178,7 @@ export function MessageProvider({
 							setTimeout(
 								() =>
 									parentWindowRef.current?.postMessage(
-										result.result,
+										resultContent as KeepAlive,
 										event.origin,
 									),
 								2000,
@@ -206,12 +201,15 @@ export function MessageProvider({
 	useEffect(() => {
 		if (!isIframe && !parentWindowRef.current) {
 			setIsAlive(true);
-			// TODO: ask for key/mnemonic if they prefer
-			console.log("[escrow] creating new identity");
-			const identity = SingleKey.fromRandomBytes();
-			parentWindowRef.current = new AppShellImpl(onMessage, identity);
+			parentWindowRef.current = new Standalone(
+				onMessage,
+				identity ?? SingleKey.fromRandomBytes(),
+			);
 			parentWindowRef.current.postMessage(
-				{ kind: "ARKADE_KEEP_ALIVE", timestamp: Date.now() },
+				{
+					kind: "ARKADE_KEEP_ALIVE",
+					timestamp: Date.now(),
+				},
 				"*",
 			);
 		} else {
@@ -261,7 +259,7 @@ export function MessageProvider({
 	}, [signedSignature]);
 
 	return (
-		<MessageBridgeContext.Provider
+		<RpcProviderContext.Provider
 			value={{
 				xPublicKey,
 				walletAddress,
@@ -284,7 +282,7 @@ export function MessageProvider({
 							method: "sign-login-challenge",
 							payload: { challenge },
 						},
-						hostOrigin,
+						hostOrigin ?? "appshell",
 					);
 
 					return new Promise<string>((resolve, reject) => {
@@ -318,7 +316,13 @@ export function MessageProvider({
 						window.setTimeout(() => resolve(walletBalance), 1000);
 					});
 				},
-				signTransaction: (transaction: Transaction) => {
+
+				/**
+				 *
+				 * @param arkTx Base64
+				 * @param checkpoints Base64
+				 */
+				signTransaction: (arkTx: string, checkpoints: string[]) => {
 					if (!hostOrigin && isIframe) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
@@ -336,8 +340,8 @@ export function MessageProvider({
 							id: nanoid(8),
 							method: "sign-transaction",
 							payload: {
-								tx: transaction.arkTx,
-								checkpoints: transaction.checkpoints,
+								tx: arkTx,
+								checkpoints: checkpoints,
 							},
 						},
 						hostOrigin,
@@ -377,12 +381,12 @@ export function MessageProvider({
 			}}
 		>
 			{children}
-		</MessageBridgeContext.Provider>
+		</RpcProviderContext.Provider>
 	);
 }
 
-export function useMessageBridge(): MessageBridgeContextValue {
-	const ctx = useContext(MessageBridgeContext);
+export function useMessageBridge(): RpcProviderContextValue {
+	const ctx = useContext(RpcProviderContext);
 	if (!ctx) {
 		throw new Error("useMessageBridge must be used within a MessageProvider");
 	}

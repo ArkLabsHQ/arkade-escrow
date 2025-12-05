@@ -15,9 +15,8 @@ import {
 	GetEscrowRequestDto,
 } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
-import { useMessageBridge } from "@/components/MessageBus";
+import { useMessageBridge } from "@/components/AppShell/RpcProvider";
 import { ContractDetailSheet } from "@/components/ContractDetailSheet";
-import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 // Orderbook page: list of all public requests

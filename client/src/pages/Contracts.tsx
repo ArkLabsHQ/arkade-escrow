@@ -16,7 +16,7 @@ import { useSession } from "@/components/SessionProvider";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
-import { useMessageBridge } from "@/components/MessageBus";
+import { useMessageBridge } from "@/components/AppShell/RpcProvider";
 
 import { ApiEnvelopeShellDto } from "../../../server/src/common/dto/envelopes";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";

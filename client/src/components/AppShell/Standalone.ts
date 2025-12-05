@@ -1,15 +1,10 @@
-import { AppShell, MessageEventLike } from "@/components/MessageBus/index";
-import {
-	InboundMessage,
-	OutboundMessage,
-	RpcLoginResponse,
-	RpcXPublicKeyResponse,
-} from "@/components/MessageBus/types";
+import { InboundMessage, OutboundMessage } from "@/components/AppShell/types";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { Identity, Transaction } from "@arkade-os/sdk";
 import { base64 } from "@scure/base";
+import { AppShell, MessageEventLike } from "./RpcProvider";
 
-export class AppShellImpl implements AppShell {
+export class Standalone implements AppShell {
 	#isAlive = false;
 	constructor(
 		private onMessage: (m: MessageEventLike) => Promise<void>,

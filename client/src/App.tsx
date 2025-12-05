@@ -8,7 +8,7 @@ import Orderbook from "./pages/Orderbook";
 import Requests from "./pages/Requests";
 import Contracts from "./pages/Contracts";
 import NotFound from "./pages/NotFound";
-import { MessageProvider } from "./components/MessageBus";
+import { RpcProvider } from "@/components/AppShell/RpcProvider";
 import { SessionProvider } from "@/components/SessionProvider";
 import Config from "@/Config";
 
@@ -16,7 +16,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
-		<MessageProvider allowedChildOrigins={Config.hostUrls}>
+		<RpcProvider allowedChildOrigins={Config.hostUrls}>
 			<SessionProvider>
 				<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
 					<TooltipProvider>
@@ -44,7 +44,7 @@ const App = () => (
 					</TooltipProvider>
 				</ThemeProvider>
 			</SessionProvider>
-		</MessageProvider>
+		</RpcProvider>
 	</QueryClientProvider>
 );
 

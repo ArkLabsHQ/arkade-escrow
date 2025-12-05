@@ -1,12 +1,12 @@
-import { Logo } from "./Logo";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Check } from "lucide-react";
 import Config from "@/Config";
-import { useMessageBridge } from "@/components/MessageBus";
+import { useMessageBridge } from "@/components/AppShell/RpcProvider";
 import { getAuth, removeAuth, setAuth } from "@/lib/storage";
 import { Me } from "@/types/me";
+import { Logo } from "./Logo";
 
 const phases = [
 	{ id: 1, label: "Getting your public key" },
@@ -53,7 +53,8 @@ export const SessionProvider = ({ children }: Props) => {
 			const res = await axios.get<{ data: { publicKey: string } }>(
 				`${Config.apiBaseUrl}/auth/session`,
 				{
-					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+					// biome-ignore lint/style/noNonNullAssertion: guarded with `enabled`
+					headers: { authorization: `Bearer ${me!.getAccessToken()}` },
 				},
 			);
 			return res.data;
