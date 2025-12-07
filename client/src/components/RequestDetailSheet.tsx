@@ -1,3 +1,15 @@
+import { ArrowDownLeft, ArrowUpRight, User, Wallet } from "lucide-react";
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
+import { useState } from "react";
+import { ContractCreationWizard } from "@/components/ContractCreationWizard";
+import { toast } from "sonner";
+
+import Config from "@/Config";
+import { Me } from "@/types/me";
+import { GetEscrowContractDto, GetEscrowRequestDto } from "@/types/api";
 import {
 	Sheet,
 	SheetContent,
@@ -5,29 +17,18 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "./ui/sheet";
+import { Separator } from "./ui/separator";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { ArrowDownLeft, ArrowUpRight, User, Wallet } from "lucide-react";
-import { format } from "date-fns";
-import { Separator } from "./ui/separator";
-import { GetEscrowContractDto, GetEscrowRequestDto } from "@/types/api";
-import { Me } from "@/types/me";
-import { Link } from "react-router-dom";
-import Config from "@/Config";
-import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
-import { useState } from "react";
-import { ContractCreationWizard } from "@/components/ContractCreationWizard";
-import { toast } from "sonner";
 
-interface RequestDetailSheetProps {
+type Props = {
 	me: Me;
 	walletAddress: string | null;
 	request: GetEscrowRequestDto | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onContractCreated?: (contract: GetEscrowContractDto) => void;
-}
+};
 
 export const RequestDetailSheet = ({
 	me,
@@ -36,7 +37,7 @@ export const RequestDetailSheet = ({
 	open,
 	onOpenChange,
 	onContractCreated,
-}: RequestDetailSheetProps) => {
+}: Props) => {
 	const [wizardOpen, setWizardOpen] = useState(false);
 
 	const cancelRequest = useMutation({
@@ -259,8 +260,3 @@ export const RequestDetailSheet = ({
 		</Sheet>
 	);
 };
-
-/*
-fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg max-h-[90vh] overflow-y-auto sm:max-w-md [&>button]:hidden
-fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg max-h-[90vh] overflow-y-auto sm:max-w-md [&>button]:hidden
- */

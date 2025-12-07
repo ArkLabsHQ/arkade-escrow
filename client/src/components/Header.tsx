@@ -1,6 +1,5 @@
-import { Inbox, FileSignature } from "lucide-react";
+import { FileSignature, Settings, NotebookTabs } from "lucide-react";
 import { Logo } from "./Logo";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
 import Config from "@/Config";
@@ -29,8 +28,7 @@ export const Header = ({ title = "" }: HeaderProps) => {
 							size="sm"
 							className="gap-2 hover:bg-secondary px-2 sm:px-3"
 						>
-							<Inbox className="h-4 w-4" />
-
+							<NotebookTabs className="h-4 w-4" />
 							<span className="hidden sm:inline">My Requests</span>
 						</Button>
 					</Link>
@@ -42,8 +40,18 @@ export const Header = ({ title = "" }: HeaderProps) => {
 							className="gap-2 hover:bg-secondary px-2 sm:px-3"
 						>
 							<FileSignature className="h-4 w-4" />
-
 							<span className="hidden sm:inline">My Contracts</span>
+						</Button>
+					</Link>
+
+					<Link to="/settings">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+						>
+							<Settings className="h-4 w-4" />
+							<span className="hidden md:inline">Settings</span>
 						</Button>
 					</Link>
 				</div>

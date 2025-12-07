@@ -15,13 +15,13 @@ import {
 	GetEscrowRequestDto,
 } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
-import { useMessageBridge } from "@/components/AppShell/RpcProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 import { ContractDetailSheet } from "@/components/ContractDetailSheet";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 
 // Orderbook page: list of all public requests
-const Orderbook = () => {
-	const { walletAddress } = useMessageBridge();
+export function Orderbook() {
+	const { walletAddress } = useAppShell();
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
 	const [requestSheetOpen, setRequestSheetOpen] = useState(false);
@@ -364,6 +364,6 @@ const Orderbook = () => {
 			/>
 		</div>
 	);
-};
+}
 
 export default Orderbook;

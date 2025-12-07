@@ -14,14 +14,6 @@ import { InboundMessage, KeepAlive, OutboundMessage } from "./types";
 import { Standalone } from "./Standalone";
 import makeMessageHandler from "./messageHandler";
 
-function useIsIframe() {
-	const [isIframe, setIsIframe] = useState(false);
-	useEffect(() => {
-		setIsIframe(window.self !== window.top);
-	}, []);
-	return isIframe;
-}
-
 export type MessageEventLike = {
 	data: InboundMessage;
 	origin: string;
@@ -45,6 +37,7 @@ type RpcProviderContextValue = {
 	) => Promise<{ tx: string; checkpoints: string[] }>;
 	fundAddress: (address: string, amount: number) => Promise<void>;
 	getWalletBalance: () => Promise<{ available: number }>;
+	getPrivateKey: () => Promise<string>;
 };
 
 const RpcProviderContext = createContext<RpcProviderContextValue | undefined>(
@@ -54,15 +47,18 @@ const RpcProviderContext = createContext<RpcProviderContextValue | undefined>(
 export function RpcProvider({
 	children,
 	identity,
+	hosted = false,
 }: {
 	children: React.ReactNode;
 	identity?: SingleKey;
-	allowedChildOrigins: string[]; // TODO: check against window.origin?
+	hosted?: boolean;
 }) {
 	const [isAlive, setIsAlive] = useState(false);
 	const [xPublicKey, setXPublicKey] = useState<string | null>(null);
 	const [walletAddress, setWalletAddress] = useState<string | null>(null);
-	const [hostOrigin, setHostOrigin] = useState<string | null>(null);
+	const [hostOrigin, setHostOrigin] = useState<string | null>(
+		hosted ? null : "appshell",
+	);
 	const handleMessage = useMemo(() => makeMessageHandler({}), []);
 	const parentWindowRef = useRef<AppShell | null>(null);
 
@@ -197,9 +193,9 @@ export function RpcProvider({
 		[handleMessage, isAlive, xPublicKey, walletAddress],
 	);
 
-	const isIframe = useIsIframe();
 	useEffect(() => {
-		if (!isIframe && !parentWindowRef.current) {
+		if (parentWindowRef.current) return;
+		if (!hosted) {
 			setIsAlive(true);
 			parentWindowRef.current = new Standalone(
 				onMessage,
@@ -212,7 +208,9 @@ export function RpcProvider({
 				},
 				"*",
 			);
-		} else {
+			return;
+		}
+		if (hosted) {
 			if (typeof window === "undefined") {
 				return;
 			}
@@ -224,11 +222,18 @@ export function RpcProvider({
 				onMessage(event);
 			};
 			window.addEventListener("message", listener);
+			window.postMessage(
+				{
+					kind: "ARKADE_KEEP_ALIVE",
+					timestamp: Date.now(),
+				},
+				"*",
+			);
 			return () => {
 				window.removeEventListener("message", listener);
 			};
 		}
-	}, [isIframe, onMessage]);
+	}, [hosted, onMessage]);
 
 	// Resolve pending signChallenge promise when signedChallenge state updates
 	useEffect(() => {
@@ -264,7 +269,7 @@ export function RpcProvider({
 				xPublicKey,
 				walletAddress,
 				signChallenge: async (challenge: string) => {
-					if (isIframe && !hostOrigin) return Promise.reject("app not ready");
+					if (hosted && !hostOrigin) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
 					if (timeoutChallengeRef.current) {
@@ -298,7 +303,7 @@ export function RpcProvider({
 					});
 				},
 				getWalletBalance: () => {
-					if (!isIframe) {
+					if (!hosted) {
 						// TODO: figure out how to get the balance from the app shell when not in an iframe
 						return Promise.resolve({ available: 0 });
 					}
@@ -323,7 +328,7 @@ export function RpcProvider({
 				 * @param checkpoints Base64
 				 */
 				signTransaction: (arkTx: string, checkpoints: string[]) => {
-					if (!hostOrigin && isIframe) return Promise.reject("app not ready");
+					if (!hostOrigin && hosted) return Promise.reject("app not ready");
 
 					// Reset any previous pending promise
 					if (timeoutSignatureRef.current) {
@@ -362,7 +367,7 @@ export function RpcProvider({
 					);
 				},
 				fundAddress: async (address: string, amount: number) => {
-					if (!isIframe) {
+					if (!hosted) {
 						// TODO: QR code? link to wallet/browser extension/...
 						return Promise.resolve();
 					}
@@ -378,6 +383,9 @@ export function RpcProvider({
 						hostOrigin,
 					);
 				},
+				getPrivateKey: async () => {
+					return "test";
+				},
 			}}
 		>
 			{children}
@@ -385,7 +393,7 @@ export function RpcProvider({
 	);
 }
 
-export function useMessageBridge(): RpcProviderContextValue {
+export function useAppShell(): RpcProviderContextValue {
 	const ctx = useContext(RpcProviderContext);
 	if (!ctx) {
 		throw new Error("useMessageBridge must be used within a MessageProvider");

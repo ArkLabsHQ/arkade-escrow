@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Check } from "lucide-react";
 import Config from "@/Config";
-import { useMessageBridge } from "@/components/AppShell/RpcProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 import { getAuth, removeAuth, setAuth } from "@/lib/storage";
 import { Me } from "@/types/me";
 import { Logo } from "./Logo";
@@ -35,7 +35,7 @@ export const SessionProvider = ({ children }: Props) => {
 	const [currentPhase, setCurrentPhase] = useState(0);
 
 	const [signingChallenge, setSigningChallenge] = useState<boolean>(false);
-	const { signChallenge, xPublicKey } = useMessageBridge();
+	const { signChallenge, xPublicKey } = useAppShell();
 	const [me, setMe] = useState<Me | undefined>(undefined);
 
 	const signupChallenge = useMutation({

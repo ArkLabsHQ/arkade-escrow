@@ -17,8 +17,10 @@ import { ApiPaginatedEnvelope, GetEscrowRequestDto } from "@/types/api";
 import axios from "axios";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSession } from "@/components/SessionProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 
-const Requests = () => {
+export function Requests() {
+	const { walletAddress } = useAppShell();
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
 
@@ -210,11 +212,12 @@ const Requests = () => {
 			<RequestDetailSheet
 				me={me}
 				request={selectedRequest}
+				walletAddress={walletAddress}
 				open={selectedRequest !== null}
 				onOpenChange={() => setSelectedRequest(null)}
 			/>
 		</div>
 	);
-};
+}
 
 export default Requests;

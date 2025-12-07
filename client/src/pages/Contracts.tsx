@@ -16,14 +16,14 @@ import { useSession } from "@/components/SessionProvider";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
-import { useMessageBridge } from "@/components/AppShell/RpcProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 
 import { ApiEnvelopeShellDto } from "../../../server/src/common/dto/envelopes";
 import useContractActionHandler from "@/components/ContractDetailSheet/useContractActionHandler";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
-const Contracts = () => {
-	const { getWalletBalance } = useMessageBridge();
+export default function Contracts() {
+	const { getWalletBalance } = useAppShell();
 	const [walletBalance, setWalletBalance] = useState<number | undefined>();
 
 	const [selectedContract, setSelectedContract] =
@@ -318,6 +318,4 @@ const Contracts = () => {
 			/>
 		</div>
 	);
-};
-
-export default Contracts;
+}

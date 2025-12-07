@@ -9,7 +9,7 @@ import axios from "axios";
 import Config from "@/Config";
 import { ApiEnvelope } from "../../../../server/src/common/dto/envelopes";
 import { useSession } from "@/components/SessionProvider";
-import { useMessageBridge } from "@/components/AppShell/RpcProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 import { useCallback, useState } from "react";
 import { ArkAddress } from "@arkade-os/sdk";
 
@@ -30,7 +30,7 @@ export default function useContractActionHandler(): {
 	handleAction: (input: ActionInput) => Promise<void>;
 	isHandling: boolean;
 } {
-	const { signTransaction, fundAddress, walletAddress } = useMessageBridge();
+	const { signTransaction, fundAddress, walletAddress } = useAppShell();
 	const me = useSession();
 	const [isExecuting, setIsExecuting] = useState(false);
 
