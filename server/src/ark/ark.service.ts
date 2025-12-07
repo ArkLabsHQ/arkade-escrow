@@ -86,6 +86,12 @@ export class ArkService {
 		// TODO: anything to clean up on Ark side?
 	}
 
+	getInfo(): (ArkInfo & { arkServerUrl: string }) | undefined {
+		if (this.arkInfo !== undefined) {
+			return { ...this.arkInfo, arkServerUrl: this.provider.serverUrl };
+		}
+	}
+
 	createArkAddressForContract(contract: Contract): ArkAddress {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");

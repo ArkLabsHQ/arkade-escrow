@@ -384,6 +384,7 @@ export function RpcProvider({
 					);
 				},
 				getPrivateKey: async () => {
+					if (hosted) throw new Error("Hosted apps don't expose private keys");
 					return "test";
 				},
 			}}

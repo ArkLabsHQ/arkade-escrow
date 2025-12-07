@@ -29,6 +29,7 @@ import {
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppShell } from "@/components/AppShell/RpcProvider";
+import BtnCopy from "@/components/BtnCopy";
 
 const OBFUSCATED =
 	"••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••";
@@ -38,21 +39,7 @@ export default function Identity() {
 	const [visiblePrivateKey, setVisiblePrivateKey] = useState<string | null>(
 		null,
 	);
-
-	const [copiedField, setCopiedField] = useState<string | null>(null);
-
-	const handleCopy = async (value: string, field: string) => {
-		await navigator.clipboard.writeText(value);
-
-		setCopiedField(field);
-
-		toast({
-			title: "Copied to clipboard",
-			description: `${field} has been copied to your clipboard.`,
-		});
-
-		setTimeout(() => setCopiedField(null), 2000);
-	};
+	const [showPrivateKey, setShowPrivateKey] = useState(false);
 
 	const handleReset = () => {
 		toast({
@@ -121,23 +108,7 @@ export default function Identity() {
 												<p className="text-sm font-medium text-muted-foreground">
 													Public Key
 												</p>
-
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-8 px-2"
-													disabled={!xPublicKey}
-													onClick={() => {
-														if (xPublicKey)
-															handleCopy(xPublicKey, "Public Key");
-													}}
-												>
-													{copiedField === "Public Key" ? (
-														<Check className="h-4 w-4 text-success" />
-													) : (
-														<Copy className="h-4 w-4" />
-													)}
-												</Button>
+												{xPublicKey ? <BtnCopy value={xPublicKey} /> : null}
 											</div>
 
 											<p className="font-mono text-sm break-all">
@@ -152,24 +123,9 @@ export default function Identity() {
 												<p className="text-sm font-medium text-muted-foreground">
 													Wallet Address
 												</p>
-
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-8 px-2"
-													disabled={!walletAddress}
-													onClick={() => {
-														if (walletAddress) {
-															handleCopy(walletAddress, "Wallet Address");
-														}
-													}}
-												>
-													{copiedField === "Wallet Address" ? (
-														<Check className="h-4 w-4 text-success" />
-													) : (
-														<Copy className="h-4 w-4" />
-													)}
-												</Button>
+												{walletAddress ? (
+													<BtnCopy value={walletAddress} />
+												) : null}
 											</div>
 
 											<p className="font-mono text-sm break-all">
@@ -229,43 +185,37 @@ export default function Identity() {
 														size="sm"
 														className="h-8 px-2"
 														onClick={() => {
-															if (visiblePrivateKey) {
-																setVisiblePrivateKey(null);
+															if (showPrivateKey) {
+																setShowPrivateKey(false);
 															} else {
-																getPrivateKey().then((_) =>
-																	setVisiblePrivateKey(_),
-																);
+																if (!visiblePrivateKey) {
+																	getPrivateKey().then((priv) => {
+																		setVisiblePrivateKey(priv);
+																		setShowPrivateKey(true);
+																	});
+																} else {
+																	setShowPrivateKey(true);
+																}
 															}
 														}}
 													>
-														{visiblePrivateKey ? (
+														{showPrivateKey ? (
 															<EyeOff className="h-4 w-4" />
 														) : (
 															<Eye className="h-4 w-4" />
 														)}
 													</Button>
 
-													<Button
-														variant="ghost"
-														size="sm"
-														className="h-8 px-2"
-														onClick={() =>
-															getPrivateKey().then((privateKey) =>
-																handleCopy(privateKey, "Private Key"),
-															)
-														}
-													>
-														{copiedField === "Private Key" ? (
-															<Check className="h-4 w-4 text-success" />
-														) : (
-															<Copy className="h-4 w-4" />
-														)}
-													</Button>
+													{visiblePrivateKey ? (
+														<BtnCopy value={visiblePrivateKey} />
+													) : (
+														<BtnCopy value={getPrivateKey()} />
+													)}
 												</div>
 											</div>
 
 											<p className="font-mono text-sm break-all">
-												{visiblePrivateKey ?? OBFUSCATED}
+												{showPrivateKey ? visiblePrivateKey : OBFUSCATED}
 											</p>
 										</div>
 									</div>

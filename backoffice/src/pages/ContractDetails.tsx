@@ -4,13 +4,7 @@ import Header from "@/components/Header";
 import StatusBadge from "@/components/StatusBadge";
 import ContractTimeline from "@/components/ContractTimeline";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Collapsible,
 	CollapsibleContent,

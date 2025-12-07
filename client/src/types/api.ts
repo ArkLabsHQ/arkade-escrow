@@ -137,3 +137,10 @@ export type GetArbitrationDto = {
 	createdAt: number;
 	updatedAt: number;
 };
+
+export type GetArkInfoOutDto = {
+	escrowServerPublicKey: string;
+	arkServerUrl: string;
+	network: string;
+	dust: string;
+};

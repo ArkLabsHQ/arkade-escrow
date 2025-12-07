@@ -4,6 +4,7 @@ import { RestArkProvider, RestIndexerProvider } from "@arkade-os/sdk";
 import { ArkService } from "./ark.service";
 import { ARK_PROVIDER, INDEXER_PROVIDER } from "./ark.constants";
 import { ArkFundingWatcher } from "./funding-watcher.service";
+import { ArkController } from "./ark.controller";
 
 @Module({
 	imports: [ConfigModule.forRoot()],
@@ -32,6 +33,7 @@ import { ArkFundingWatcher } from "./funding-watcher.service";
 		ArkService,
 		ArkFundingWatcher,
 	],
+	controllers: [ArkController],
 	exports: [ArkService, ARK_PROVIDER, ArkFundingWatcher],
 })
 export class ArkModule {}

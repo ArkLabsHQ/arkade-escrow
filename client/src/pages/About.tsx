@@ -1,73 +1,69 @@
-import { Header } from "@/components/Header";
-
 import { Link } from "react-router-dom";
+import { ArrowLeft, Server, Globe, Network, KeyRound } from "lucide-react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { toast } from "sonner";
 
-import {
-	ArrowLeft,
-	Server,
-	Globe,
-	Network,
-	KeyRound,
-	Copy,
-	Check,
-} from "lucide-react";
-
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-
-import { useState } from "react";
-
-import { toast } from "@/hooks/use-toast";
+import Config from "@/Config";
+import { ApiEnvelope, GetArkInfoOutDto } from "@/types/api";
+import BtnCopy from "@/components/BtnCopy";
 
 const aboutItems = [
 	{
+		key: "arkServerUrl",
 		label: "Ark Server URL",
-
-		value: "https://ark.example.com",
-
 		icon: Server,
 	},
-
 	{
+		key: "escrowServerUrl",
 		label: "Escrow Server URL",
-
-		value: "https://escrow.example.com",
-
 		icon: Globe,
 	},
-
 	{
+		key: "network",
 		label: "Network",
-
-		value: "Mainnet",
-
 		icon: Network,
 	},
-
 	{
+		key: "escrowServerPublicKey",
 		label: "Escrow Server Public Key",
-
-		value:
-			"02a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab",
-
 		icon: KeyRound,
 	},
 ];
 
 export default function About() {
-	const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+	const { data, error } = useQuery({
+		queryKey: ["serverInfo"],
+		queryFn: async () => {
+			const res = await axios.get<ApiEnvelope<GetArkInfoOutDto>>(
+				`${Config.apiBaseUrl}/ark/info`,
+			);
+			return res.data.data;
+		},
+	});
 
-	const handleCopy = async (value: string, index: number) => {
-		await navigator.clipboard.writeText(value);
+	useEffect(() => {
+		if (error) {
+			toast.error("Failed to fetch server info");
+		}
+	});
 
-		setCopiedIndex(index);
-
-		toast({
-			title: "Copied to clipboard",
-
-			description: "The value has been copied to your clipboard.",
-		});
-
-		setTimeout(() => setCopiedIndex(null), 2000);
+	const getValueForItem = (item: (typeof aboutItems)[number]) => {
+		switch (item.key) {
+			case "arkServerUrl":
+				return data?.arkServerUrl ?? "-";
+			case "escrowServerUrl":
+				return Config.apiBaseUrl.replace("/api/v1", "");
+			case "network":
+				return data?.network ?? "-";
+			case "escrowServerPublicKey":
+				return data?.escrowServerPublicKey ?? "-";
+			default:
+				return "not found";
+		}
 	};
 
 	return (
@@ -99,12 +95,12 @@ export default function About() {
 					<div className="space-y-3">
 						{aboutItems.map((item, index) => (
 							<div
-								key={item.label}
-								className="group relative rounded-xl border bg-card p-4 transition-all duration-300 hover:bg-accent/30 animate-slide-up"
+								key={item.key}
+								className="group relative rounded-xl border bg-card p-4 transition-all duration-300 animate-slide-up"
 								style={{ animationDelay: `${index * 0.05}s` }}
 							>
 								<div className="flex items-start gap-4">
-									<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+									<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
 										<item.icon className="h-4 w-4" />
 									</div>
 
@@ -114,22 +110,11 @@ export default function About() {
 										</p>
 
 										<p className="mt-1 font-mono text-sm break-all">
-											{item.value}
+											{getValueForItem(item)}
 										</p>
 									</div>
 
-									<Button
-										variant="ghost"
-										size="icon"
-										className="shrink-0 h-8 w-8 rounded-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-										onClick={() => handleCopy(item.value, index)}
-									>
-										{copiedIndex === index ? (
-											<Check className="h-4 w-4 text-success" />
-										) : (
-											<Copy className="h-4 w-4" />
-										)}
-									</Button>
+									<BtnCopy value={getValueForItem(item)} />
 								</div>
 							</div>
 						))}
