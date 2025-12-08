@@ -13,6 +13,7 @@ import { SingleKey } from "@arkade-os/sdk";
 import { InboundMessage, KeepAlive, OutboundMessage } from "./types";
 import { Standalone } from "./Standalone";
 import makeMessageHandler from "./messageHandler";
+import { useSyncRpc } from "@/components/AppShell/useSyncRpc";
 
 export type MessageEventLike = {
 	data: InboundMessage;
@@ -62,28 +63,23 @@ export function RpcProvider({
 	const handleMessage = useMemo(() => makeMessageHandler({}), []);
 	const parentWindowRef = useRef<AppShell | null>(null);
 
-	// Store pending promise handlers to avoid stale closures
-	const [signedChallenge, setSignedChallenge] = useState<string | null>(null);
-	const pendingChallengeResolveRef = useRef<((value: string) => void) | null>(
-		null,
+	const canExecute = useCallback(
+		() => (hosted ? hostOrigin !== null : true),
+		[hosted, hostOrigin],
 	);
-	const pendingChallengeRejectRef = useRef<((reason?: unknown) => void) | null>(
-		null,
-	);
-	const timeoutChallengeRef = useRef<number | null>(null);
 
-	// Store pending promise handlers to avoid stale closures
-	const [signedSignature, setSignedSignature] = useState<{
+	const [_a, onSignedChallenge, signChallenge] = useSyncRpc<string>({
+		canExecute,
+	});
+
+	const [_b, onSignedTransaction, signTransaction] = useSyncRpc<{
 		tx: string;
 		checkpoints: string[];
-	} | null>(null);
-	const pendingSignatureResolveRef = useRef<
-		((value: { tx: string; checkpoints: string[] }) => void) | null
-	>(null);
-	const pendingSignatureRejectRef = useRef<((reason?: unknown) => void) | null>(
-		null,
-	);
-	const timeoutSignatureRef = useRef<number | null>(null);
+	}>({
+		canExecute,
+	});
+
+	const [_c, onPrivateKey, getPrivateKey] = useSyncRpc<string>({ canExecute });
 
 	// Store pending promise handlers to avoid stale closures
 	const [walletBalance, setWalletBalance] = useState<{
@@ -92,11 +88,16 @@ export function RpcProvider({
 
 	const onMessage = useCallback(
 		async (event: MessageEventLike) => {
+			if (event.origin === window.location.origin) {
+				// ignore broadcasted messages from the same origin
+				return;
+			}
+
+			if (hostOrigin === null) {
+				setHostOrigin(event.origin);
+			}
 			const msg = event.data as InboundMessage;
 			try {
-				if (hostOrigin === null) {
-					setHostOrigin(event.origin);
-				}
 				const result = await handleMessage(msg);
 				if (result.tag === "failure") {
 					console.error(result.error);
@@ -108,35 +109,26 @@ export function RpcProvider({
 								case "xOnlyPublicKey":
 									setXPublicKey(resultContent.xOnlyPublicKey);
 									break;
+								case "privateKey":
+									onPrivateKey(resultContent.privateKey);
+									break;
 								case "signedChallenge":
-									console.log(
-										"[escrow] signed challenge",
-										resultContent.signedChallenge,
-									);
-									setSignedChallenge(resultContent.signedChallenge);
+									onSignedChallenge(resultContent.signedChallenge);
 									break;
 								case "arkWalletAddress":
-									console.log(
-										"[escrow] ark wallet address",
-										resultContent.arkWalletAddress,
-									);
 									setWalletAddress(resultContent.arkWalletAddress);
 									break;
 								case "arkWalletBalance":
-									console.log("[escrow] ark wallet balance", resultContent);
 									setWalletBalance({ available: resultContent.available });
 									break;
 								case "signedTransaction":
-									console.log(
-										"[escrow] signed transaction",
-										resultContent.signedTransaction,
-									);
-									setSignedSignature(resultContent.signedTransaction);
+									onSignedTransaction(resultContent.signedTransaction);
 									break;
 								case "transactionId":
 									console.log(
 										`[escrow] funded with txid=${resultContent.txid}`,
 									);
+									break;
 							}
 							break;
 						case "ARKADE_KEEP_ALIVE": {
@@ -153,7 +145,7 @@ export function RpcProvider({
 									event.origin,
 								);
 							}
-							if (!walletAddress) {
+							if (!walletAddress && hosted) {
 								parentWindowRef.current?.postMessage(
 									{
 										kind: "ARKADE_RPC_REQUEST",
@@ -190,27 +182,25 @@ export function RpcProvider({
 				return;
 			}
 		},
-		[handleMessage, isAlive, xPublicKey, walletAddress],
+		[
+			handleMessage,
+			isAlive,
+			xPublicKey,
+			walletAddress,
+			hostOrigin,
+			onPrivateKey,
+			onSignedChallenge,
+			onSignedTransaction,
+			hosted,
+		],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `hosted` cannot change at runtime
 	useEffect(() => {
-		if (parentWindowRef.current) return;
-		if (!hosted) {
-			setIsAlive(true);
-			parentWindowRef.current = new Standalone(
-				onMessage,
-				identity ?? SingleKey.fromRandomBytes(),
-			);
-			parentWindowRef.current.postMessage(
-				{
-					kind: "ARKADE_KEEP_ALIVE",
-					timestamp: Date.now(),
-				},
-				"*",
-			);
-			return;
-		}
+		const needsInit = parentWindowRef.current === null;
 		if (hosted) {
+			console.log("hosted mode");
+			// we are inside an iframe
 			if (typeof window === "undefined") {
 				return;
 			}
@@ -222,86 +212,57 @@ export function RpcProvider({
 				onMessage(event);
 			};
 			window.addEventListener("message", listener);
-			window.postMessage(
-				{
-					kind: "ARKADE_KEEP_ALIVE",
-					timestamp: Date.now(),
-				},
-				"*",
-			);
+			if (needsInit) {
+				// broadcast the first keep alive message
+				window.postMessage(
+					{
+						kind: "ARKADE_KEEP_ALIVE",
+						timestamp: Date.now(),
+					},
+					"*",
+				);
+			}
 			return () => {
 				window.removeEventListener("message", listener);
 			};
+		} else {
+			setIsAlive(true);
+			parentWindowRef.current = new Standalone(
+				// rebinding is necessary to ensure that the `onMessage` callback sees the latest values
+				(event: MessageEventLike) => onMessage(event),
+				identity ?? SingleKey.fromRandomBytes(),
+			);
+			if (needsInit) {
+				parentWindowRef.current.postMessage(
+					{
+						kind: "ARKADE_KEEP_ALIVE",
+						timestamp: Date.now(),
+					},
+					"*",
+				);
+			}
+			return;
 		}
-	}, [hosted, onMessage]);
-
-	// Resolve pending signChallenge promise when signedChallenge state updates
-	useEffect(() => {
-		if (!signedChallenge) return;
-		if (pendingChallengeResolveRef.current) {
-			pendingChallengeResolveRef.current(signedChallenge);
-		}
-		if (timeoutChallengeRef.current) {
-			clearTimeout(timeoutChallengeRef.current);
-			timeoutChallengeRef.current = null;
-		}
-		pendingChallengeResolveRef.current = null;
-		pendingChallengeRejectRef.current = null;
-	}, [signedChallenge]);
-
-	// Resolve pending signSignature promise when signedSignature state updates
-	useEffect(() => {
-		if (!signedSignature) return;
-		if (pendingSignatureResolveRef.current) {
-			pendingSignatureResolveRef.current(signedSignature);
-		}
-		if (timeoutSignatureRef.current) {
-			clearTimeout(timeoutSignatureRef.current);
-			timeoutSignatureRef.current = null;
-		}
-		pendingSignatureResolveRef.current = null;
-		pendingSignatureRejectRef.current = null;
-	}, [signedSignature]);
+	}, [onMessage]);
 
 	return (
 		<RpcProviderContext.Provider
 			value={{
 				xPublicKey,
 				walletAddress,
-				signChallenge: async (challenge: string) => {
-					if (hosted && !hostOrigin) return Promise.reject("app not ready");
-
-					// Reset any previous pending promise
-					if (timeoutChallengeRef.current) {
-						clearTimeout(timeoutChallengeRef.current);
-						timeoutChallengeRef.current = null;
-					}
-					pendingChallengeResolveRef.current = null;
-					pendingChallengeRejectRef.current = null;
-
-					setSignedChallenge(null);
-					parentWindowRef.current?.postMessage(
-						{
-							kind: "ARKADE_RPC_REQUEST",
-							id: nanoid(8),
-							method: "sign-login-challenge",
-							payload: { challenge },
-						},
-						hostOrigin ?? "appshell",
-					);
-
-					return new Promise<string>((resolve, reject) => {
-						pendingChallengeResolveRef.current = resolve;
-						pendingChallengeRejectRef.current = reject;
-
-						timeoutChallengeRef.current = window.setTimeout(() => {
-							pendingChallengeResolveRef.current = null;
-							pendingChallengeRejectRef.current = null;
-							timeoutChallengeRef.current = null;
-							reject("timeout");
-						}, 10000);
-					});
-				},
+				signChallenge: (challenge: string): Promise<string> =>
+					signChallenge(() => {
+						console.log(`signChallenge to ${hostOrigin}`);
+						parentWindowRef.current?.postMessage(
+							{
+								kind: "ARKADE_RPC_REQUEST",
+								id: nanoid(8),
+								method: "sign-login-challenge",
+								payload: { challenge },
+							},
+							hostOrigin ?? "appshell",
+						);
+					}),
 				getWalletBalance: () => {
 					if (!hosted) {
 						// TODO: figure out how to get the balance from the app shell when not in an iframe
@@ -324,48 +285,24 @@ export function RpcProvider({
 
 				/**
 				 *
-				 * @param arkTx Base64
+				 * @param tx Base64
 				 * @param checkpoints Base64
 				 */
-				signTransaction: (arkTx: string, checkpoints: string[]) => {
-					if (!hostOrigin && hosted) return Promise.reject("app not ready");
-
-					// Reset any previous pending promise
-					if (timeoutSignatureRef.current) {
-						clearTimeout(timeoutSignatureRef.current);
-						timeoutSignatureRef.current = null;
-					}
-					pendingSignatureResolveRef.current = null;
-					pendingSignatureRejectRef.current = null;
-
-					setSignedSignature(null);
-					parentWindowRef.current?.postMessage(
-						{
-							kind: "ARKADE_RPC_REQUEST",
-							id: nanoid(8),
-							method: "sign-transaction",
-							payload: {
-								tx: arkTx,
-								checkpoints: checkpoints,
+				signTransaction: (tx: string, checkpoints: string[]) =>
+					signTransaction(() =>
+						parentWindowRef.current?.postMessage(
+							{
+								kind: "ARKADE_RPC_REQUEST",
+								id: nanoid(8),
+								method: "sign-transaction",
+								payload: {
+									tx,
+									checkpoints,
+								},
 							},
-						},
-						hostOrigin,
-					);
-
-					return new Promise<{ tx: string; checkpoints: string[] }>(
-						(resolve, reject) => {
-							pendingSignatureResolveRef.current = resolve;
-							pendingSignatureRejectRef.current = reject;
-
-							timeoutSignatureRef.current = window.setTimeout(() => {
-								pendingSignatureResolveRef.current = null;
-								pendingSignatureRejectRef.current = null;
-								timeoutSignatureRef.current = null;
-								reject("timeout");
-							}, 10000);
-						},
-					);
-				},
+							hostOrigin ?? "appshell",
+						),
+					),
 				fundAddress: async (address: string, amount: number) => {
 					if (!hosted) {
 						// TODO: QR code? link to wallet/browser extension/...
@@ -383,10 +320,17 @@ export function RpcProvider({
 						hostOrigin,
 					);
 				},
-				getPrivateKey: async () => {
-					if (hosted) throw new Error("Hosted apps don't expose private keys");
-					return "test";
-				},
+				getPrivateKey: () =>
+					getPrivateKey(() =>
+						parentWindowRef.current?.postMessage(
+							{
+								kind: "ARKADE_RPC_REQUEST",
+								id: nanoid(8),
+								method: "get-private-key",
+							},
+							hostOrigin ?? "appshell",
+						),
+					),
 			}}
 		>
 			{children}

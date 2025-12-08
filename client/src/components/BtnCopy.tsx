@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 type Props = {
-	value: string | Promise<string>;
+	value: string | (() => Promise<string>);
 	onSuccess?: () => void;
 };
 
@@ -13,7 +13,7 @@ export default function BtnCopy({ value, onSuccess }: Props) {
 		e.stopPropagation();
 		const v = await (typeof value === "string"
 			? Promise.resolve(value)
-			: value);
+			: value());
 		await navigator.clipboard.writeText(v);
 		if (onSuccess) onSuccess();
 		setCopied(true);

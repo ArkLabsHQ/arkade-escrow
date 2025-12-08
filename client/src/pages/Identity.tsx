@@ -209,7 +209,7 @@ export default function Identity() {
 													{visiblePrivateKey ? (
 														<BtnCopy value={visiblePrivateKey} />
 													) : (
-														<BtnCopy value={getPrivateKey()} />
+														<BtnCopy value={() => getPrivateKey()} />
 													)}
 												</div>
 											</div>

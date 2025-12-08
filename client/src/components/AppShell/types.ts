@@ -78,6 +78,16 @@ export type RpcFundAddressResponse = {
 	};
 };
 
+export type RpcGetPrivateKeyRequest = {
+	method: "get-private-key";
+};
+export type RpcGetPrivateKeyResponse = {
+	method: "get-private-key";
+	payload: {
+		privateKey: string;
+	};
+};
+
 export type RpcRequest = {
 	kind: "ARKADE_RPC_REQUEST";
 	id: string;
@@ -88,6 +98,7 @@ export type RpcRequest = {
 	| RpcArkWalletBalanceRequest
 	| RpcArkSignTransactionRequest
 	| RpcFundAddressRequest
+	| RpcGetPrivateKeyRequest
 );
 export type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcLoginResponse
@@ -96,6 +107,7 @@ export type RpcResponse = { kind: "ARKADE_RPC_RESPONSE"; id: string } & (
 	| RpcArkWalletBalanceResponse
 	| RpcArkSignTransactionResponse
 	| RpcFundAddressResponse
+	| RpcGetPrivateKeyResponse
 );
 
 export type InboundMessage = RpcResponse | KeepAlive;
@@ -103,6 +115,7 @@ export type InboundMessage = RpcResponse | KeepAlive;
 export type OutboundMessage = KeepAlive | RpcRequest;
 export type DataMessage = { kind: "DATA" } & (
 	| { topic: "xOnlyPublicKey"; xOnlyPublicKey: string }
+	| { topic: "privateKey"; privateKey: string }
 	| { topic: "signedChallenge"; signedChallenge: string }
 	| { topic: "arkWalletAddress"; arkWalletAddress: string }
 	| { topic: "arkWalletBalance"; available: number }

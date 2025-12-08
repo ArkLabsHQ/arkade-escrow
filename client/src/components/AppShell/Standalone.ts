@@ -4,6 +4,8 @@ import { Identity, Transaction } from "@arkade-os/sdk";
 import { base64 } from "@scure/base";
 import { AppShell, MessageEventLike } from "./RpcProvider";
 
+const KEEP_ALIVE_INTERVAL = 5000;
+
 export class Standalone implements AppShell {
 	#isAlive = false;
 	constructor(
@@ -12,17 +14,20 @@ export class Standalone implements AppShell {
 	) {}
 	postMessage(message: OutboundMessage): void {
 		if (message.kind === "ARKADE_KEEP_ALIVE") {
-			let delay = 5000;
 			if (!this.#isAlive) {
 				this.#isAlive = true;
-				delay = 50;
+				// first keep alive answers immediately
+				this.onMessage(
+					this.#wrap({ kind: "ARKADE_KEEP_ALIVE", timestamp: Date.now() }),
+				);
+				return;
 			}
 			setTimeout(
 				() =>
 					this.onMessage(
 						this.#wrap({ kind: "ARKADE_KEEP_ALIVE", timestamp: Date.now() }),
 					),
-				delay,
+				KEEP_ALIVE_INTERVAL,
 			);
 		}
 		if (message.kind === "ARKADE_RPC_REQUEST") {
@@ -41,6 +46,9 @@ export class Standalone implements AppShell {
 						message.payload.checkpoints,
 					);
 					return;
+				case "get-private-key":
+					this.#answerPrivateKey(id);
+					return;
 				default:
 				// no-op
 			}
@@ -54,6 +62,17 @@ export class Standalone implements AppShell {
 				id,
 				method: "get-x-public-key",
 				payload: { xOnlyPublicKey: bytesToHex(xOnlyPublicKey) },
+			}),
+		);
+	}
+	async #answerPrivateKey(id: string) {
+		const privateKey = await this.identity.xOnlyPublicKey();
+		this.onMessage(
+			this.#wrap({
+				kind: "ARKADE_RPC_RESPONSE",
+				id,
+				method: "get-private-key",
+				payload: { privateKey: bytesToHex(privateKey) },
 			}),
 		);
 	}

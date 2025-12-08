@@ -57,7 +57,7 @@ export default function useContractActionHandler(): {
 					cause: new Error(`${res.status} - ${res.statusText}`),
 				});
 			}
-			const { externalId, arkTx, checkpoints, vtxo } = res.data.data;
+			const { externalId, arkTx, checkpoints } = res.data.data;
 			const signed = await signTransaction(arkTx, checkpoints);
 			await axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,

@@ -19,16 +19,8 @@ import About from "./pages/About";
 
 const queryClient = new QueryClient();
 
-function useIsIframe() {
-	const [isIframe, setIsIframe] = useState(false);
-	useEffect(() => {
-		setIsIframe(window.self !== window.top);
-	}, []);
-	return isIframe;
-}
-
 const App = () => {
-	const isIframe = useIsIframe();
+	const isIframe = window.self !== window.top;
 	const rpcProviderProps = isIframe
 		? { hosted: true }
 		: { identity: SingleKey.fromRandomBytes(), hosted: false };

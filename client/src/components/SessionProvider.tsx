@@ -33,7 +33,6 @@ const SessionContext = createContext<Me | undefined>(undefined);
 
 export const SessionProvider = ({ children }: Props) => {
 	const [currentPhase, setCurrentPhase] = useState(0);
-
 	const [signingChallenge, setSigningChallenge] = useState<boolean>(false);
 	const { signChallenge, xPublicKey } = useAppShell();
 	const [me, setMe] = useState<Me | undefined>(undefined);
