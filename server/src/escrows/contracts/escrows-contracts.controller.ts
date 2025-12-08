@@ -69,7 +69,7 @@ import {
 } from "../../common/server-sent-events.service";
 import { map, Observable } from "rxjs";
 import { CancelRejectEscrowContractDto } from "./dto/cancel-reject-escrow-contract.dto";
-import {UpdateContractDto} from "./dto/update-contract.dto";
+import { UpdateContractDto } from "./dto/update-contract.dto";
 
 @ApiTags("2 - Escrow Contracts")
 @ApiExtraModels(
@@ -281,31 +281,31 @@ export class EscrowsContractsController {
 		return envelope(contract);
 	}
 
-    @Patch(":contractId")
-    @UseGuards(AuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: "Update contract data by externalId" })
-    @ApiParam({ name: "contractId", description: "Contract external id" })
-    @ApiBody({ type: UpdateContractDto })
-    @ApiOkResponse({
-        description: "Execution transaction initiated",
-        schema: getSchemaPathForDto(GetEscrowContractDto),
-    })
-    @ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
-    @ApiForbiddenResponse({ description: "Not allowed to access this contract" })
-    @ApiNotFoundResponse({ description: "Escrow contract not found" })
-    async updateContract(
-        @UserFromJwt() user: User,
-        @Param("contractId") contractId: string,
-        @Body() dto: UpdateContractDto,
-    ): Promise<ApiEnvelope<GetEscrowContractDto>> {
-        const contract = await this.service.updateOneByExternalId(
-            contractId,
-            user.publicKey,
-            dto,
-        );
-        return envelope(contract);
-    }
+	@Patch(":contractId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Update contract data by externalId" })
+	@ApiParam({ name: "contractId", description: "Contract external id" })
+	@ApiBody({ type: UpdateContractDto })
+	@ApiOkResponse({
+		description: "Execution transaction initiated",
+		schema: getSchemaPathForDto(GetEscrowContractDto),
+	})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow contract not found" })
+	async updateContract(
+		@UserFromJwt() user: User,
+		@Param("contractId") contractId: string,
+		@Body() dto: UpdateContractDto,
+	): Promise<ApiEnvelope<GetEscrowContractDto>> {
+		const contract = await this.service.updateOneByExternalId(
+			contractId,
+			user.publicKey,
+			dto,
+		);
+		return envelope(contract);
+	}
 
 	@Patch(":contractId/accept")
 	@UseGuards(AuthGuard)
