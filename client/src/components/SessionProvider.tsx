@@ -80,6 +80,7 @@ export const SessionProvider = ({ children }: Props) => {
 		},
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: WIP
 	useEffect(() => {
 		const challengeResponse = signupChallenge.data?.data;
 		if (currentPhase === 0) setCurrentPhase(1);
@@ -100,8 +101,14 @@ export const SessionProvider = ({ children }: Props) => {
 		}
 		if (authData && authData.xPubKey === xPublicKey && !me) {
 			setCurrentPhase(3);
-			console.log("session is ", getSession.data);
-			console.log(`Logged in as ${xPublicKey}`);
+			console.log(`[auth] Logged in as ${xPublicKey}`);
+			getSession.refetch().then(({ data }) => {
+				if (data?.data.publicKey !== xPublicKey) {
+					console.log("[auth] Stale session detected, removing it.");
+					removeAuth();
+					return;
+				}
+			});
 			setMe(new Me(authData.xPubKey, authData.accessToken));
 			return;
 		}
@@ -133,10 +140,10 @@ export const SessionProvider = ({ children }: Props) => {
 				// TODO: unused for now
 				expiresAt: 0,
 			});
-			console.log(`Signed up as ${xPublicKey}`);
+			console.log(`[auth] Signed up as ${xPublicKey}`);
 			setMe(new Me(xPublicKey, signupVerification.data.data.accessToken));
 		} else if (signupVerification.isError) {
-			console.error("Error verifying signup:", signupVerification.error);
+			console.error("[auth] Error verifying signup:", signupVerification.error);
 			signupVerification.reset();
 			setSigningChallenge(false);
 		}

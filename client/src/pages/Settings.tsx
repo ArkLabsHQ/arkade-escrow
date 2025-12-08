@@ -3,30 +3,28 @@ import { Header } from "@/components/Header";
 import { Link } from "react-router-dom";
 
 import { Info, Key, ChevronRight } from "lucide-react";
-
-const settingsItems = [
-	{
-		title: "About",
-
-		description: "Server configuration and network info",
-
-		icon: Info,
-
-		href: "/settings/about",
-	},
-
-	{
-		title: "Identity",
-
-		description: "Manage your keys and wallet",
-
-		icon: Key,
-
-		href: "/settings/identity",
-	},
-];
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 
 export default function Settings() {
+	const { isHosted } = useAppShell();
+	console.log(`isHosted: ${isHosted}`);
+	const settingsItems = [
+		{
+			title: "About",
+			description: "Server configuration and network info",
+			icon: Info,
+			href: "/settings/about",
+		},
+		// hosted apps rely on the gues Wallet's identity management
+		isHosted
+			? null
+			: {
+					title: "Identity",
+					description: "Manage your keys and wallet",
+					icon: Key,
+					href: "/settings/identity",
+				},
+	].filter((_) => _ !== null);
 	return (
 		<div className="min-h-screen bg-background">
 			<Header title={"Setting"} />

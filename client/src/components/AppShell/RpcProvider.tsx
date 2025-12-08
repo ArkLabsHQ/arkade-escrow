@@ -29,6 +29,7 @@ export interface AppShell {
 }
 
 type RpcProviderContextValue = {
+	isHosted: boolean;
 	signChallenge: (challenge: string) => Promise<string>;
 	xPublicKey: string | null;
 	walletAddress: string | null;
@@ -199,7 +200,6 @@ export function RpcProvider({
 	useEffect(() => {
 		const needsInit = parentWindowRef.current === null;
 		if (hosted) {
-			console.log("hosted mode");
 			// we are inside an iframe
 			if (typeof window === "undefined") {
 				return;
@@ -213,6 +213,10 @@ export function RpcProvider({
 			};
 			window.addEventListener("message", listener);
 			if (needsInit) {
+				console.log(
+					"[escrow] Hosted mode: ",
+					hostOrigin ?? window.location.origin,
+				);
 				// broadcast the first keep alive message
 				window.postMessage(
 					{
@@ -233,6 +237,7 @@ export function RpcProvider({
 				identity ?? SingleKey.fromRandomBytes(),
 			);
 			if (needsInit) {
+				console.log("[escrow] Standalone mode");
 				parentWindowRef.current.postMessage(
 					{
 						kind: "ARKADE_KEEP_ALIVE",
@@ -248,11 +253,11 @@ export function RpcProvider({
 	return (
 		<RpcProviderContext.Provider
 			value={{
+				isHosted: Boolean(hosted),
 				xPublicKey,
 				walletAddress,
 				signChallenge: (challenge: string): Promise<string> =>
 					signChallenge(() => {
-						console.log(`signChallenge to ${hostOrigin}`);
 						parentWindowRef.current?.postMessage(
 							{
 								kind: "ARKADE_RPC_REQUEST",

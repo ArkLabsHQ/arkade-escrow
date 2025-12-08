@@ -35,7 +35,7 @@ const OBFUSCATED =
 	"••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••";
 
 export default function Identity() {
-	const { xPublicKey, walletAddress, getPrivateKey } = useAppShell();
+	const { xPublicKey, walletAddress, getPrivateKey, isHosted } = useAppShell();
 	const [visiblePrivateKey, setVisiblePrivateKey] = useState<string | null>(
 		null,
 	);
