@@ -1,6 +1,6 @@
 import { InboundMessage, OutboundMessage } from "@/components/AppShell/types";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import { Identity, Transaction } from "@arkade-os/sdk";
+import { Identity, Transaction, Wallet } from "@arkade-os/sdk";
 import { base64 } from "@scure/base";
 import { AppShell, MessageEventLike } from "./RpcProvider";
 
@@ -46,9 +46,6 @@ export class Standalone implements AppShell {
 						message.payload.checkpoints,
 					);
 					return;
-				case "get-private-key":
-					this.#answerPrivateKey(id);
-					return;
 				default:
 				// no-op
 			}
@@ -62,17 +59,6 @@ export class Standalone implements AppShell {
 				id,
 				method: "get-x-public-key",
 				payload: { xOnlyPublicKey: bytesToHex(xOnlyPublicKey) },
-			}),
-		);
-	}
-	async #answerPrivateKey(id: string) {
-		const privateKey = await this.identity.xOnlyPublicKey();
-		this.onMessage(
-			this.#wrap({
-				kind: "ARKADE_RPC_RESPONSE",
-				id,
-				method: "get-private-key",
-				payload: { privateKey: bytesToHex(privateKey) },
 			}),
 		);
 	}

@@ -12,10 +12,9 @@ import Settings from "./pages/Settings";
 import { RpcProvider } from "@/components/AppShell/RpcProvider";
 import { SessionProvider } from "@/components/SessionProvider";
 import Config from "@/Config";
-import { useEffect, useState } from "react";
 import { SingleKey } from "@arkade-os/sdk";
-import Identity from "@/pages/Identity";
 import About from "./pages/About";
+import Identity from "@/pages/Identity";
 
 const queryClient = new QueryClient();
 

@@ -26,7 +26,7 @@ export const Header = ({ title = "" }: HeaderProps) => {
 						<Button
 							variant="ghost"
 							size="sm"
-							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+							className="gap-2  hover:bg-accent px-2 sm:px-3"
 						>
 							<NotebookTabs className="h-4 w-4" />
 							<span className="hidden sm:inline">My Requests</span>
@@ -37,7 +37,7 @@ export const Header = ({ title = "" }: HeaderProps) => {
 						<Button
 							variant="ghost"
 							size="sm"
-							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+							className="gap-2  hover:bg-accent px-2 sm:px-3"
 						>
 							<FileSignature className="h-4 w-4" />
 							<span className="hidden sm:inline">My Contracts</span>
@@ -48,7 +48,7 @@ export const Header = ({ title = "" }: HeaderProps) => {
 						<Button
 							variant="ghost"
 							size="sm"
-							className="gap-2 hover:bg-secondary px-2 sm:px-3"
+							className="gap-2  hover:bg-accent px-2 sm:px-3"
 						>
 							<Settings className="h-4 w-4" />
 							<span className="hidden md:inline">Settings</span>

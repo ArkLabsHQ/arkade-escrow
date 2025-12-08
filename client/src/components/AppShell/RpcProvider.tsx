@@ -39,7 +39,6 @@ type RpcProviderContextValue = {
 	) => Promise<{ tx: string; checkpoints: string[] }>;
 	fundAddress: (address: string, amount: number) => Promise<void>;
 	getWalletBalance: () => Promise<{ available: number }>;
-	getPrivateKey: () => Promise<string>;
 };
 
 const RpcProviderContext = createContext<RpcProviderContextValue | undefined>(
@@ -325,17 +324,6 @@ export function RpcProvider({
 						hostOrigin,
 					);
 				},
-				getPrivateKey: () =>
-					getPrivateKey(() =>
-						parentWindowRef.current?.postMessage(
-							{
-								kind: "ARKADE_RPC_REQUEST",
-								id: nanoid(8),
-								method: "get-private-key",
-							},
-							hostOrigin ?? "appshell",
-						),
-					),
 			}}
 		>
 			{children}

@@ -40,22 +40,6 @@ export default function makeMessageHandler(_: Props) {
 							},
 						};
 
-					case "get-private-key":
-						if (payload.privateKey === null) {
-							return {
-								tag: "failure",
-								error: new Error(`${message.kind}/${method} returned null`),
-							};
-						}
-						return {
-							tag: "success",
-							result: {
-								kind: "DATA",
-								topic: "privateKey",
-								privateKey: payload.privateKey,
-							},
-						};
-
 					case "get-ark-wallet-address":
 						if (payload.arkAddress === null) {
 							return {

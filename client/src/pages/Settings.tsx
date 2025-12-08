@@ -7,7 +7,6 @@ import { useAppShell } from "@/components/AppShell/RpcProvider";
 
 export default function Settings() {
 	const { isHosted } = useAppShell();
-	console.log(`isHosted: ${isHosted}`);
 	const settingsItems = [
 		{
 			title: "About",
@@ -15,12 +14,12 @@ export default function Settings() {
 			icon: Info,
 			href: "/settings/about",
 		},
-		// hosted apps rely on the gues Wallet's identity management
+		// hosted apps rely on the guest wallet's management
 		isHosted
 			? null
 			: {
 					title: "Identity",
-					description: "Manage your keys and wallet",
+					description: "Manage your identity",
 					icon: Key,
 					href: "/settings/identity",
 				},
@@ -47,7 +46,7 @@ export default function Settings() {
 								className="group relative flex items-center gap-4 rounded-xl border bg-card p-4 transition-all duration-300 hover:bg-accent/50 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 animate-slide-up"
 								style={{ animationDelay: `${index * 0.1}s` }}
 							>
-								<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary transition-transform duration-300 group-hover:scale-110">
+								<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform duration-300 group-hover:scale-110">
 									<item.icon className="h-5 w-5" />
 								</div>
 

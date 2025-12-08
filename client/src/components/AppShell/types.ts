@@ -78,16 +78,6 @@ export type RpcFundAddressResponse = {
 	};
 };
 
-export type RpcGetPrivateKeyRequest = {
-	method: "get-private-key";
-};
-export type RpcGetPrivateKeyResponse = {
-	method: "get-private-key";
-	payload: {
-		privateKey: string;
-	};
-};
-
 export type RpcRequest = {
 	kind: "ARKADE_RPC_REQUEST";
 	id: string;

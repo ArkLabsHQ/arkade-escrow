@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Check } from "lucide-react";
@@ -29,7 +35,9 @@ type ChallengeResponse = {
 	expiresAt: string;
 };
 
-const SessionContext = createContext<Me | undefined>(undefined);
+const SessionContext = createContext<
+	{ me: Me; logout: () => void } | undefined
+>(undefined);
 
 export const SessionProvider = ({ children }: Props) => {
 	const [currentPhase, setCurrentPhase] = useState(0);
@@ -171,9 +179,17 @@ export const SessionProvider = ({ children }: Props) => {
 		};
 	}, []);
 
+	const logout = useCallback(() => {
+		removeAuth();
+		setMe(undefined);
+		window.location.reload();
+	}, []);
+
 	if (me) {
 		return (
-			<SessionContext.Provider value={me}>{children}</SessionContext.Provider>
+			<SessionContext.Provider value={{ me, logout }}>
+				{children}
+			</SessionContext.Provider>
 		);
 	}
 
@@ -247,5 +263,13 @@ export function useSession(): Me {
 	if (!ctx) {
 		throw new Error("useSession must be used within a SessionProvider");
 	}
-	return ctx;
+	return ctx.me;
+}
+
+export function useLogout() {
+	const ctx = useContext(SessionContext);
+	if (!ctx) {
+		throw new Error("useLogout must be used within a SessionProvider");
+	}
+	return ctx.logout;
 }
