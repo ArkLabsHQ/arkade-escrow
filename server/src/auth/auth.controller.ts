@@ -6,6 +6,7 @@ import {
 	HttpCode,
 	HttpStatus,
 	InternalServerErrorException,
+	NotFoundException,
 	Post,
 	UseGuards,
 } from "@nestjs/common";
@@ -24,6 +25,7 @@ import { AuthService } from "./auth.service";
 import { RequestChallengeDto } from "./dto/request-challenge.dto";
 import { VerifySignupDto } from "./dto/verify-signup.dto";
 import { ConfigService } from "@nestjs/config";
+import { envelope } from "../common/dto/envelopes";
 
 @ApiTags("0 - Authentication")
 @ApiExtraModels(RequestChallengeDto, VerifySignupDto)
@@ -112,12 +114,12 @@ export class AuthController {
 		// return { data: {} };
 		throw new InternalServerErrorException("Not implemented");
 	}
-
 	@Get("/session")
 	@ApiOperation({ summary: "Get the current session if existing" })
 	async getSession(@Headers("authorization") authorization?: string) {
 		const token = authorization?.replace("Bearer ", "");
-		if (!token) return { data: null };
-		return this.auth.getSession(token);
+		if (!token) return new NotFoundException("No token found");
+		const session = await this.auth.getSession(token);
+		return envelope(session);
 	}
 }

@@ -4,6 +4,7 @@ import {
 	InternalServerErrorException,
 	UnauthorizedException,
 	Logger,
+	NotFoundException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -86,7 +87,6 @@ export class AuthService {
 		const hashHex = hashSignupPayload(payload);
 		let ok = false;
 		try {
-			console.log(`verifyin for ${publicKey}`);
 			ok = schnorr.verify(
 				hexToBytes(signatureHex),
 				hexToBytes(hashHex),
@@ -127,19 +127,17 @@ export class AuthService {
 
 	async getSession(token: string) {
 		try {
-			const verified = await this.jwt.verifyAsync(token);
-			console.log("verified -> ", verified);
-			const { userId, publicKey } = this.jwt.decode<{
-				userId: string;
-				publicKey: string;
+			await this.jwt.verifyAsync(token);
+			const decoded = this.jwt.decode<{
+				sub: string;
 			}>(token);
-			const user = await this.users.findOneOrFail({
-				where: { id: userId, publicKey: publicKey as string },
+			const user = await this.users.findOne({
+				where: { id: decoded.sub },
 			});
 			if (user) {
-				return { userId, publicKey };
+				return { userId: user.id, publicKey: user.publicKey };
 			}
-			return null;
+			return new NotFoundException("Session not found") as never;
 		} catch (e) {
 			this.logger.error("Invalid token", e);
 			throw new UnauthorizedException("Invalid token");

@@ -54,21 +54,6 @@ export const SessionProvider = ({ children }: Props) => {
 		},
 	});
 
-	const getSession = useQuery({
-		queryKey: ["session", me?.getAccessToken() ?? "[no-token"],
-		queryFn: async () => {
-			const res = await axios.get<{ data: { publicKey: string } }>(
-				`${Config.apiBaseUrl}/auth/session`,
-				{
-					// biome-ignore lint/style/noNonNullAssertion: guarded with `enabled`
-					headers: { authorization: `Bearer ${me!.getAccessToken()}` },
-				},
-			);
-			return res.data;
-		},
-		enabled: !!me,
-	});
-
 	type VerifySignupRequest = {
 		signature: string;
 		publicKey: string;
@@ -110,13 +95,24 @@ export const SessionProvider = ({ children }: Props) => {
 		if (authData && authData.xPubKey === xPublicKey && !me) {
 			setCurrentPhase(3);
 			console.log(`[auth] Logged in as ${xPublicKey}`);
-			getSession.refetch().then(({ data }) => {
-				if (data?.data.publicKey !== xPublicKey) {
-					console.log("[auth] Stale session detected, removing it.");
+			axios
+				.get<{ data: { publicKey: string } }>(
+					`${Config.apiBaseUrl}/auth/session`,
+					{
+						headers: { authorization: `Bearer ${authData.accessToken}` },
+					},
+				)
+				.then((res) => {
+					if (res.data?.data.publicKey !== xPublicKey) {
+						console.log("[auth] Stale session detected, removing it.");
+						removeAuth();
+						return;
+					}
+				})
+				.catch(() => {
+					console.log("[auth] Invalid session detected, removing it.");
 					removeAuth();
-					return;
-				}
-			});
+				});
 			setMe(new Me(authData.xPubKey, authData.accessToken));
 			return;
 		}
