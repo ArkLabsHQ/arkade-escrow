@@ -10,7 +10,13 @@ import {
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
-import {AlertTriangle, Banknote, CheckCircle, PencilLine, Shield} from "lucide-react";
+import {
+	AlertTriangle,
+	Banknote,
+	CheckCircle,
+	PencilLine,
+	Shield,
+} from "lucide-react";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
 type InputId = "reason" | "releaseAddress" | "disputeReason";
@@ -20,7 +26,7 @@ type ContractActionModalProps = {
 	actionType: ContractAction;
 	data: { amount?: number };
 	onConfirm: (data?: { [K in InputId]?: string }) => void;
-}
+};
 
 export const ContractActionModal = ({
 	open,
@@ -29,7 +35,10 @@ export const ContractActionModal = ({
 	data,
 	onConfirm,
 }: ContractActionModalProps) => {
-	const [inputData, setInputData] = useState<{id: "reason" | "releaseAddress" | "disputeReason", content: string}|null>();
+	const [inputData, setInputData] = useState<{
+		id: "reason" | "releaseAddress" | "disputeReason";
+		content: string;
+	} | null>();
 
 	const handleConfirm = () => {
 		onConfirm(inputData ? { [inputData.id]: inputData.content } : undefined);
@@ -57,7 +66,7 @@ export const ContractActionModal = ({
 						"You're about to reject the contract. This action cannot be undone.",
 					requiresInput: true,
 					inputLabel: "Reason for rejecting",
-                    inputId: "reason",
+					inputId: "reason",
 					inputPlaceholder: "Explain why you're rejecting this contract...",
 					confirmText: "Reject Contract",
 					confirmVariant: "destructive" as const,
@@ -70,8 +79,8 @@ export const ContractActionModal = ({
 						"You're about to cancel the contract. This action cannot be undone.",
 					requiresInput: true,
 					inputLabel: "Reason for canceling",
-                    inputId: "reason",
-                    inputPlaceholder: "Explain why you're canceling this contract...",
+					inputId: "reason",
+					inputPlaceholder: "Explain why you're canceling this contract...",
 					confirmText: "Cancel Contract",
 					confirmVariant: "destructive" as const,
 				};
@@ -84,18 +93,19 @@ export const ContractActionModal = ({
 					confirmText: "Send funds",
 					confirmVariant: "default" as const,
 				};
-                case "update-release-address":
-                    return {
-                        icon: <PencilLine className="h-12 w-12 text-success" />,
-                        title: "Update Release Address",
-                        description: "Please provide a new ARK address. The funds will be released to this address upon contract fulfillment.",
-                        requiresInput: true,
-                        inputLabel: "ARK Address",
-                        inputId: "releaseAddress",
-                        inputPlaceholder: "ARK address to release funds to.",
-                        confirmText: "Update Release Address",
-                        confirmVariant: "default" as const,
-                    }
+			case "update-release-address":
+				return {
+					icon: <PencilLine className="h-12 w-12 text-success" />,
+					title: "Update Release Address",
+					description:
+						"Please provide a new ARK address. The funds will be released to this address upon contract fulfillment.",
+					requiresInput: true,
+					inputLabel: "ARK Address",
+					inputId: "releaseAddress",
+					inputPlaceholder: "ARK address to release funds to.",
+					confirmText: "Update Release Address",
+					confirmVariant: "default" as const,
+				};
 			case "execute":
 				return {
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
@@ -124,8 +134,8 @@ export const ContractActionModal = ({
 						"Please provide a reason for receding from this contract.",
 					requiresInput: true,
 					inputLabel: "Reason for receding",
-                    inputId: "reason",
-                    inputPlaceholder: "Explain why you're receding from this contract...",
+					inputId: "reason",
+					inputPlaceholder: "Explain why you're receding from this contract...",
 					confirmText: "Recede from Contract",
 					confirmVariant: "outline" as const,
 				};
@@ -137,8 +147,8 @@ export const ContractActionModal = ({
 						"Please provide detailed information about the issue. A dispute resolution process will be initiated.",
 					requiresInput: true,
 					inputLabel: "Dispute details",
-                    inputId: "disputeDetails",
-                    inputPlaceholder: "Describe the issue in detail...",
+					inputId: "disputeReason",
+					inputPlaceholder: "Describe the issue in detail...",
 					confirmText: "Open Dispute",
 					confirmVariant: "destructive" as const,
 				};
@@ -181,7 +191,12 @@ export const ContractActionModal = ({
 							id={config.inputId}
 							placeholder={config.inputPlaceholder}
 							value={inputData?.content ?? ""}
-							onChange={(e) => setInputData({id: config.inputId as InputId, content: e.target.value})}
+							onChange={(e) =>
+								setInputData({
+									id: config.inputId as InputId,
+									content: e.target.value,
+								})
+							}
 							className="min-h-[100px] resize-none"
 						/>
 					</div>
