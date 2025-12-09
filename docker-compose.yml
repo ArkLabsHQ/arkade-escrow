@@ -12,8 +12,13 @@ services:
       - PORT=3000
       - NODE_ENV=production
       - SQLITE_DB_PATH=/app/data/db.sqlite
+      # from config
       - ARK_SERVER_URL
-      - VITE_API_BASE_URL
+      - VITE_BACKOFFICE_API_BASE_URL
+      - VITE_BACKOFFICE_APP_ROOT_URL
+      - VITE_CLIENT_API_BASE_URL
+      - VITE_CLIENT_APP_ROOT_URL
+      - VITE_ITEMS_PER_PAGE
       # secrets in Dockploy/envs
       - JWT_SECRET
       - ARBITRATOR_PUB_KEY
