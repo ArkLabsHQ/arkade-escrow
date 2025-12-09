@@ -338,3 +338,11 @@ export function useAppShell(): RpcProviderContextValue {
 	}
 	return ctx;
 }
+
+export function useIsHosted(): boolean {
+	const ctx = useContext(RpcProviderContext);
+	if (!ctx) {
+		throw new Error("useMessageBridge must be used within a MessageProvider");
+	}
+	return ctx.isHosted;
+}
