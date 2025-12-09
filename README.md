@@ -13,14 +13,10 @@ Designed for performance, clarity, and usability, Arkade Escrow provides a polis
 
 ## Screenshots
 
-<div style="display: flex; flex-direction: row; justify-content: space-evenly;">
-    <div style="display:flex; width: 40%;">
-      <img style="display: flex" src="./docs/standalone.png" alt="Home page in standalone version">
-    </div>
-    <div style="display:flex; width: 40%;">
-      <img style="display: flex" src="./docs/hosted.png" alt="A completed contract in hosted version">
-    </div>
-</div>
+| Standalone (Orderbook)                                                              | Hosted (Contract funded)                                                                 | Hosted (Contract completed)                                                            |
+|-------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| <img width="300" src="./docs/standalone.png" alt="Home page in standalone version"> | <img width="300" src="./docs/hosted-2.png" alt="A completed contract in hosted version"> | <img width="300" src="./docs/hosted.png" alt="A completed contract in hosted version"> |
+
 
 ## Environment Variables
 
