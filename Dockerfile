@@ -14,7 +14,13 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
 FROM deps AS build
 WORKDIR /app
 COPY . .
-# Build API
+# Capture build arguments for Vite
+ARG VITE_BACKOFFICE_API_BASE_URL
+ARG VITE_BACKOFFICE_APP_ROOT_URL
+ARG VITE_CLIENT_API_BASE_URL
+ARG VITE_CLIENT_APP_ROOT_URL
+ARG VITE_ITEMS_PER_PAGE
+# Build the entire repository (API + client + backoffice)
 RUN npm run build
 # Build client and backoffice apps (install per-app deps to avoid mutating root node_modules)
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm bash -lc "cd client && npm ci --no-audit --fund=false && npm run build"
