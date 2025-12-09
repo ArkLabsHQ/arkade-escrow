@@ -51,6 +51,7 @@ import { StatusText } from "@/components/ContractDetailSheet/StatusText";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 import { ActionInput } from "@/components/ContractDetailSheet/useContractActionHandler";
 import { useIsHosted } from "@/components/AppShell/RpcProvider";
+import BtnCopy from "@/components/BtnCopy";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
@@ -142,7 +143,6 @@ const InnerContractDetailSheet = ({
 	const [actionModalOpen, setActionModalOpen] = useState(false);
 	const [showBalanceWarning, setShowBalanceWarning] = useState(false);
 	const [isAdditionaDataOpen, setIsAdditionalDataOpen] = useState(false);
-	const [isFunding, setIsFunding] = useState(false);
 	const [currentAction, setCurrentAction] = useState<
 		ContractAction | undefined
 	>();
@@ -250,9 +250,7 @@ const InnerContractDetailSheet = ({
 
 	const canUpdateReleaseAddress =
 		mySide === "receiver" &&
-		["draft", "created", "pending-execution", "under-arbitration"].includes(
-			contract.status,
-		);
+		["draft", "created", "funded"].includes(contract.status);
 	const handleUpdateReleaseAddress = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (!canUpdateReleaseAddress) return;
@@ -377,6 +375,7 @@ const InnerContractDetailSheet = ({
 						sideDetails={{ mySide, createdByMe }}
 						status={contract.status}
 						currentExecution={currentExecution}
+						releaseAddres={contract.receiverAddress}
 					/>
 
 					{/* Arbitration Section */}
@@ -400,14 +399,10 @@ const InnerContractDetailSheet = ({
 								</p>
 							</div>
 							<RowIcon>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={handleCopyContractId}
-									className="shrink-0"
-								>
-									<Copy className="h-4 w-4" />
-								</Button>
+								<BtnCopy
+									value={contract.receiverAddress ?? ""}
+									disabled={contract.receiverAddress === null}
+								/>
 							</RowIcon>
 							<RowIcon>
 								<Button
@@ -415,6 +410,7 @@ const InnerContractDetailSheet = ({
 									size="sm"
 									onClick={handleUpdateReleaseAddress}
 									className="shrink-0"
+									disabled={!canUpdateReleaseAddress}
 								>
 									<PencilLine className="h-4 w-4" />
 								</Button>
@@ -508,13 +504,9 @@ const InnerContractDetailSheet = ({
 										size="sm"
 										onClick={handleFundAddress}
 										className="shrink-0"
-										disabled={!contract.arkAddress || isFunding || !isHosted}
+										disabled={!contract.arkAddress || !isHosted}
 									>
-										{isHosted ? (
-											<Hourglass className="h-4 w-4" />
-										) : (
-											<Banknote className="h-4 w-4" />
-										)}
+										<Banknote className="h-4 w-4" />
 									</Button>
 								)}
 							</div>

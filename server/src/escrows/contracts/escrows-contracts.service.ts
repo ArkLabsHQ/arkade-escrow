@@ -12,7 +12,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
 import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
-import { randomUUID } from "node:crypto";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import {
 	ArkAddress,
@@ -30,6 +29,7 @@ import {
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
+	CONTRACT_UPDATED,
 	CONTRACT_VOIDED_ID,
 	ContractCreated,
 	ContractDrafted,
@@ -110,7 +110,7 @@ export class EscrowsContractsService {
 		setTimeout(() => {
 			contractsWaitingForFunding.forEach((entity) => {
 				this.events.emit(CONTRACT_CREATED_ID, {
-					eventId: randomUUID(),
+					eventId: nanoid(4),
 					contractId: entity.externalId,
 					// biome-ignore lint/style/noNonNullAssertion: checked in the query
 					arkAddress: ArkAddress.decode(entity.arkAddress!),
@@ -145,7 +145,7 @@ export class EscrowsContractsService {
 			createdBy: input.initiator,
 		});
 		this.events.emit(CONTRACT_DRAFTED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: entity.externalId,
 			senderPubkey: input.senderPubkey,
 			receiverPubkey: input.receiverPubkey,
@@ -221,7 +221,7 @@ export class EscrowsContractsService {
 		);
 
 		this.events.emit(CONTRACT_CREATED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: draft.externalId,
 			arkAddress,
 			createdAt: new Date().toISOString(),
@@ -285,7 +285,7 @@ export class EscrowsContractsService {
 		);
 
 		this.events.emit(CONTRACT_VOIDED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: draft.externalId,
 			// there shouldn't be an arkAddress here
 			arkAddress: draft.arkAddress
@@ -353,7 +353,7 @@ export class EscrowsContractsService {
 		);
 
 		this.events.emit(CONTRACT_VOIDED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: draft.externalId,
 			// there shouldn't be an arkAddress here
 			arkAddress: draft.arkAddress
@@ -429,7 +429,7 @@ export class EscrowsContractsService {
 		);
 
 		this.events.emit(CONTRACT_VOIDED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: created.externalId,
 			// there shouldn't be an arkAddress here
 			arkAddress: created.arkAddress
@@ -727,7 +727,7 @@ export class EscrowsContractsService {
 			);
 		}
 		this.events.emit(CONTRACT_EXECUTED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId,
 			arkAddress: ArkAddress.decode(contract.arkAddress),
 			executedAt: new Date().toISOString(),
@@ -1000,6 +1000,11 @@ export class EscrowsContractsService {
 				{ externalId },
 				{ ...contract, receiverAddress: update.releaseAddress },
 			);
+			this.events.emit(CONTRACT_UPDATED, {
+				eventId: nanoid(4),
+				contractId: externalId,
+				releaseAddress: update.releaseAddress,
+			});
 			return await this.getOneByExternalId(externalId, pubkey);
 		}
 		throw new BadRequestException("Nothing to update");

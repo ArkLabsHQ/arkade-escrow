@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { type Repository, Brackets } from "typeorm";
-import { customAlphabet } from "nanoid";
+import { customAlphabet, nanoid } from "nanoid";
 import { ConfigService } from "@nestjs/config";
 
 import { EscrowRequest } from "./escrow-request.entity";
@@ -22,7 +22,6 @@ import {
 	emptyCursor,
 	cursorToString,
 } from "../../common/dto/envelopes";
-import { randomUUID } from "node:crypto";
 import { REQUEST_CREATED_ID, RequestCreated } from "../../common/request.event";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
@@ -71,7 +70,7 @@ export class EscrowRequestsService {
 			});
 			await this.repo.save(entity);
 			this.events.emit(REQUEST_CREATED_ID, {
-				eventId: randomUUID(),
+				eventId: nanoid(4),
 				requestId: entity.externalId,
 				creatorPubkey: entity.creatorPubkey,
 				createdAt: new Date().toISOString(),

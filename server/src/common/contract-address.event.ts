@@ -53,3 +53,10 @@ export type ContractDisputed = {
 	arbitrationId: string;
 	disputedAt: string;
 };
+
+export const CONTRACT_UPDATED = "contract.updated";
+export type ContractUpdated = {
+	eventId: string;
+	contractId: ContractId;
+	updatedAt: string;
+};

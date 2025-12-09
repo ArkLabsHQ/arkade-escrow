@@ -11,7 +11,7 @@ export type ContractAction =
 	| "accept-draft"
 	| "cancel-draft"
 	| "reject-draft"
-    | "update-release-address"
+	| "update-release-address"
 	| "fund-contract"
 	| "execute"
 	| "approve"
@@ -25,6 +25,7 @@ type Props = {
 	sideDetails: ReturnType<typeof getContractSideDetails>;
 	currentExecution?: GetExecutionByContractDto;
 	currentArbitration?: GetArbitrationDto;
+	releaseAddres?: string;
 	onClick: (ca: ContractAction) => void;
 };
 export default function ContractActions({
@@ -33,6 +34,7 @@ export default function ContractActions({
 	sideDetails,
 	currentExecution,
 	currentArbitration,
+	releaseAddres,
 	onClick,
 }: Props) {
 	const createdByMe = sideDetails.createdByMe;
@@ -84,6 +86,18 @@ export default function ContractActions({
 				</Button>,
 			];
 		case "funded":
+			if (!releaseAddres) {
+				return [
+					<Button
+						key={"dispute-funded"}
+						variant="destructive"
+						className="w-full"
+						onClick={() => onClick("dispute")}
+					>
+						Open Dispute
+					</Button>,
+				];
+			}
 			// both can execute or dispute
 			return [
 				<Button

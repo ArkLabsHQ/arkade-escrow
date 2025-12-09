@@ -1,7 +1,7 @@
 import { Me } from "@/types/me";
 import { getContractSideDetails } from "@/lib/utils";
 import { GetEscrowContractDto, GetExecutionByContractDto } from "@/types/api";
-import { Ban, CheckCircle, Flag, Hourglass, Scale } from "lucide-react";
+import { Ban, CheckCircle, Flag, Hourglass, Scale, Zap } from "lucide-react";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 
 const getStatusColor = (status: GetEscrowContractDto["status"]) => {
@@ -35,15 +35,15 @@ type Props = {
 	>;
 	status: GetEscrowContractDto["status"];
 	currentExecution?: GetExecutionByContractDto;
+	releaseAddres?: string;
 };
 export function StatusText({
 	me,
 	sideDetails: { mySide, createdByMe },
 	status,
 	currentExecution,
+	releaseAddres,
 }: Props) {
-	// 						<p className="text-base font-medium text-foreground">
-	// 						</p>
 	switch (status) {
 		case "completed":
 			if (mySide === "sender") {
@@ -74,7 +74,51 @@ export function StatusText({
 				</div>
 			);
 		case "funded":
-			return "Contract is funded and can be executed";
+			if (releaseAddres) {
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Zap className="text-accent" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								Contract is <b className="font-bold">funded</b> and can be
+								executed!
+							</p>
+						</span>
+					</div>
+				);
+			}
+			if (mySide === "sender")
+				return (
+					<div className="flex items-center gap-3">
+						<RowIcon>
+							<Flag className="text-accent" />
+						</RowIcon>
+						<span className={textContainerStyle}>
+							<p className="text-base font-medium text-foreground">
+								Contract is <b className="font-bold">funded</b> but the release
+								address is not set yet.
+								<br />
+								Please wait for the receiver to set it!
+							</p>
+						</span>
+					</div>
+				);
+			return (
+				<div className="flex items-center gap-3">
+					<RowIcon>
+						<Flag className="text-accent" />
+					</RowIcon>
+					<span className={textContainerStyle}>
+						<p className="text-base font-medium text-foreground">
+							Contract is <b className="font-bold">funded</b>.
+							<br /> Please update the release address in the contract details
+							to execute it.
+						</p>
+					</span>
+				</div>
+			);
 		case "pending-execution": {
 			if (!currentExecution)
 				// TODO: this is an error state on the server, we should never get here

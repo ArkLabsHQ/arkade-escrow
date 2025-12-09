@@ -35,7 +35,6 @@ import {
 	CONTRACT_DISPUTED_ID,
 	ContractDisputed,
 } from "../../common/contract-address.event";
-import { randomUUID } from "node:crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
 type ArbitrationQueryFilter = {
@@ -110,7 +109,7 @@ export class ArbitrationService {
 			},
 		);
 		this.events.emit(CONTRACT_DISPUTED_ID, {
-			eventId: randomUUID(),
+			eventId: nanoid(4),
 			contractId: contract.externalId,
 			arbitrationId: newArbitration.externalId,
 			disputedAt: new Date().toISOString(),

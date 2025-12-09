@@ -4,10 +4,11 @@ import { useState } from "react";
 
 type Props = {
 	value: string | (() => Promise<string>);
+	disabled?: boolean;
 	onSuccess?: () => void;
 };
 
-export default function BtnCopy({ value, onSuccess }: Props) {
+export default function BtnCopy({ value, disabled, onSuccess }: Props) {
 	const [copied, setCopied] = useState(false);
 	const handleCopy = async (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -20,7 +21,13 @@ export default function BtnCopy({ value, onSuccess }: Props) {
 		setTimeout(() => setCopied(false), 1500);
 	};
 	return (
-		<Button variant="ghost" size="sm" onClick={handleCopy} className="shrink-0">
+		<Button
+			disabled={disabled}
+			variant="ghost"
+			size="sm"
+			onClick={handleCopy}
+			className="shrink-0"
+		>
 			{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
 		</Button>
 	);

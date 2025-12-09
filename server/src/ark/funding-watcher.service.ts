@@ -18,6 +18,7 @@ import {
 } from "../common/contract-address.event";
 import { ArkService } from "./ark.service";
 import { ArkAddress, VirtualCoin } from "@arkade-os/sdk";
+import { nanoid } from "nanoid";
 // import your event types
 
 type WatchEntry = {
@@ -138,7 +139,7 @@ export class ArkFundingWatcher implements OnModuleInit, OnModuleDestroy {
 
 				// Emit funded event
 				const fundedEvent: ContractFunded = {
-					eventId: randomUUID(),
+					eventId: nanoid(4),
 					contractId: entry.contractId,
 					arkAddress: entry.arkAddress,
 					amountSats: BigInt(
