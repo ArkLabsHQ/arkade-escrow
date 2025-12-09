@@ -6,6 +6,8 @@
 		"start": "nest start",
 		"dev": "concurrently -k -n SERVER,CLIENT,BACKOFFICE -c yellow,cyan,magenta \"nest start --watch\" \"npm run watch:client\" \"npm run watch:backoffice\"",
 		"dev:api": "nest start --watch",
+		"dev:client": "cd client && npm run dev",
+		"dev:backoffice": "cd backoffice && npm run dev",
 		"watch:client": "cd client && vite build --watch --mode development",
 		"watch:backoffice": "cd backoffice && vite build --watch --mode development",
 		"clean": "rm -rf dist node_modules",

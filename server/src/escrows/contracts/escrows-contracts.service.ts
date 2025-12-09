@@ -571,13 +571,6 @@ export class EscrowsContractsService {
 			checkpoints: string[];
 		},
 	): Promise<GetExecutionByContractDto> {
-		console.log(
-			"signContractExecution",
-			contractId,
-			executionId,
-			signerPubKey,
-			signature,
-		);
 		const contract = await this.getOneForPartyAndStatus(
 			contractId,
 			signerPubKey,
@@ -750,15 +743,11 @@ export class EscrowsContractsService {
 	}
 
 	private isExecutionSignedByAll(extx: ExecutionTransaction): boolean {
-		console.log("PORCO CAZZO");
-		console.log(extx.requiredSigners);
-		let c = extx.requiredSigners.filter(
-			(s) => s === "sender" || s === "receiver",
-		).length;
-		console.log(c);
-		console.log(extx.approvedByPubKeys);
-		console.log(extx.approvedByPubKeys.length === c);
-		return extx.approvedByPubKeys.length === c;
+		return (
+			extx.approvedByPubKeys.length ===
+			extx.requiredSigners.filter((s) => s === "sender" || s === "receiver")
+				.length
+		);
 	}
 
 	private async submitAndFinalizeExecutionTransaction(input: {
