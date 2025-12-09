@@ -1,5 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -15,14 +13,38 @@ import Config from "@/Config";
 import { SingleKey } from "@arkade-os/sdk";
 import About from "./pages/About";
 import Identity from "@/pages/Identity";
+import IdentitySetup from "@/pages/IdentitySetup";
+import { Toaster } from "sonner";
+import { useState } from "react";
 
 const queryClient = new QueryClient();
 
 const App = () => {
 	const isIframe = window.self !== window.top;
+	const [identity, setIdentity] = useState<SingleKey | undefined>();
+
+	const onIdentity = (identity: SingleKey) => {
+		setIdentity(identity);
+	};
+
+	if (!isIframe && !identity) {
+		return (
+			<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+				<Toaster />
+				<BrowserRouter>
+					<Routes>
+						<Route
+							path="*"
+							element={<IdentitySetup onNewIdentity={onIdentity} />}
+						/>
+					</Routes>
+				</BrowserRouter>
+			</ThemeProvider>
+		);
+	}
 	const rpcProviderProps = isIframe
 		? { hosted: true }
-		: { identity: SingleKey.fromRandomBytes(), hosted: false };
+		: { identity, hosted: false };
 
 	return (
 		<RpcProvider {...rpcProviderProps}>
@@ -31,7 +53,6 @@ const App = () => {
 					<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
 						<TooltipProvider>
 							<Toaster />
-							<Sonner />
 							<BrowserRouter>
 								<Routes>
 									<Route path={Config.appRootUrl} element={<Orderbook />} />

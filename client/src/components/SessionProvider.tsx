@@ -164,14 +164,10 @@ export const SessionProvider = ({ children }: Props) => {
 		const phase1Timer = setTimeout(() => setCurrentPhase(1), 800);
 		const phase2Timer = setTimeout(() => setCurrentPhase(2), 1800);
 		const phase3Timer = setTimeout(() => setCurrentPhase(3), 2600);
-		// const completeTimer = setTimeout(() => {
-		// 	onLoadComplete();
-		// }, 3200);
 		return () => {
 			clearTimeout(phase1Timer);
 			clearTimeout(phase2Timer);
 			clearTimeout(phase3Timer);
-			// clearTimeout(completeTimer);
 		};
 	}, []);
 

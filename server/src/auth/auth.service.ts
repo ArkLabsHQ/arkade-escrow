@@ -104,9 +104,6 @@ export class AuthService {
 		user.challengeExpiresAt = null;
 		user.lastLoginAt = new Date();
 
-		this.logger.debug("User logged in", {
-			publicKey,
-		});
 		try {
 			await this.users.save(user);
 		} catch (e) {

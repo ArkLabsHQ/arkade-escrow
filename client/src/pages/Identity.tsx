@@ -6,12 +6,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppShell } from "@/components/AppShell/RpcProvider";
 import BtnCopy from "@/components/BtnCopy";
 import { useLogout } from "@/components/SessionProvider";
+import { removeEncryptedPrivateKey } from "@/lib/storage";
 
 export default function Identity() {
 	const { xPublicKey } = useAppShell();
 	const logout = useLogout();
 
 	const handleReset = () => {
+		removeEncryptedPrivateKey();
 		logout();
 	};
 
