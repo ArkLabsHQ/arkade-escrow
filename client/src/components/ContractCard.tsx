@@ -16,7 +16,7 @@ interface ContractCardProps {
 
 export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 	const createdAt = format(contract.createdAt, "MMM dd, yyyy - HH:mm");
-	const updatedAt = format(contract.updatedAt, "MMM dd, yyyy - HH:mm");;
+	const updatedAt = format(contract.updatedAt, "MMM dd, yyyy - HH:mm");
 
 	const { counterParty, mySide, createdByMe } = getContractSideDetails(
 		me,
@@ -91,17 +91,13 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 					);
 				}
 				return (
-					<span className="text-xs text-muted-foreground">
-						{updatedAt}
-					</span>
+					<span className="text-xs text-muted-foreground">{updatedAt}</span>
 				);
 
 			case "draft":
 				if (createdByMe) {
 					return (
-						<span className="text-xs text-muted-foreground">
-							{updatedAt}
-						</span>
+						<span className="text-xs text-muted-foreground">{updatedAt}</span>
 					);
 				}
 				return (
@@ -118,23 +114,26 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 
 			case "funded":
 			case "pending-execution":
+				if (contract.receiverAddress) {
+					return (
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-7 text-xs gap-1.5"
+							onClick={handleQuickAction("execute")}
+						>
+							<Zap className="h-3.5 w-3.5" />
+							Execute
+						</Button>
+					);
+				}
 				return (
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-7 text-xs gap-1.5"
-						onClick={handleQuickAction("execute")}
-					>
-						<Zap className="h-3.5 w-3.5" />
-						Execute
-					</Button>
+					<span className="text-xs text-muted-foreground">{updatedAt}</span>
 				);
 
 			default:
 				return (
-					<span className="text-xs text-muted-foreground">
-						{updatedAt}
-					</span>
+					<span className="text-xs text-muted-foreground">{updatedAt}</span>
 				);
 		}
 	};
