@@ -178,7 +178,7 @@ export const RequestDetailSheet = ({
 
 						<div>
 							<p className="text-sm text-muted-foreground mb-2">Description</p>
-							<p className="text-base text-foreground leading-relaxed">
+							<p className="text-base text-foreground leading-relaxed overflow-ellipsis whitespace-nowrap overflow-hidden">
 								{request.description}
 							</p>
 						</div>
@@ -197,7 +197,7 @@ export const RequestDetailSheet = ({
 								Your contracts
 							</p>
 							{request.contractsCount > 0 ? (
-								<p className="text-base text-foreground leading-relaxed">
+								<p className="text-base text-foreground leading-relaxed overflow-ellipsis whitespace-nowrap overflow-hidden">
 									You have {request.contractsCount}{" "}
 									{request.contractsCount === 1 ? "contract" : "contracts"} for
 									this request

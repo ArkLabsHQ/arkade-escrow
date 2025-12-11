@@ -52,7 +52,7 @@ export const RequestCard = ({ me, request, onClick }: RequestCardProps) => {
 					</div>
 
 					{/* Description */}
-					<p className="text-sm text-muted-foreground line-clamp-2">
+					<p className="text-sm text-muted-foreground line-clamp-2 w-48 sm:w-56 md:w-full overflow-ellipsis whitespace-nowrap overflow-hidden">
 						{request.description}
 					</p>
 

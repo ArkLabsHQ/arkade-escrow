@@ -3,7 +3,6 @@ import { Button } from "../ui/button";
 import { ArrowUpRight } from "lucide-react";
 import { GetEscrowRequestDto } from "@/types/api";
 import { shortKey } from "@/lib/utils";
-import { RequestDescription } from "@/components/ContractCreationWizard/RequestDescription";
 import { RequestAmount } from "@/components/ContractCreationWizard/RequestAmount";
 
 type Props = {
@@ -51,8 +50,18 @@ export const CreateContractAsSender = ({
 							</p>
 						</div>
 
-						<RequestDescription description={request.description} />
+						{/*<RequestDescription description={request.description} />*/}
 						<RequestAmount amount={request.amount} side={"sender"} />
+					</div>
+
+					<div className="space-y-6 animate-fade-in">
+						<div className="space-y-2">
+							<div className="bg-muted/30 rounded-lg p-3 border border-border">
+								<p className="text-sm text-foreground leading-relaxed">
+									{request.description}
+								</p>
+							</div>
+						</div>
 					</div>
 
 					{/* Actions */}

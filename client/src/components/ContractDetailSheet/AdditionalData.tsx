@@ -19,11 +19,14 @@ export function AdditionalData({
 }) {
 	return (
 		<>
-			<div>
-				<p className="text-sm text-muted-foreground mb-2">Description</p>
-				<p className="text-base text-foreground leading-relaxed">
-					{description}
-				</p>
+			<div className="flex items-start gap-3">
+				<div className="space-y-2">
+					<div className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg border border-border">
+						<p className="text-base text-muted-foreground leading-relaxed pt-1">
+							{description}
+						</p>
+					</div>
+				</div>
 			</div>
 			<div className="flex items-start gap-3">
 				<User className="h-5 w-5 text-muted-foreground mt-0.5" />
