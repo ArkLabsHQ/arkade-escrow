@@ -7,12 +7,14 @@ import {
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
+	CONTRACT_UPDATED_ID,
 	CONTRACT_VOIDED_ID,
 	type ContractCreated,
 	ContractDisputed,
 	type ContractDrafted,
 	type ContractExecuted,
 	type ContractFunded,
+	ContractUpdated,
 	type ContractVoided,
 } from "./contract-address.event";
 import { REQUEST_CREATED_ID, RequestCreated } from "./request.event";
@@ -75,5 +77,10 @@ export class ServerSentEventsService {
 	@OnEvent(REQUEST_CREATED_ID)
 	onRequestCreated(evt: RequestCreated) {
 		this.events$.next({ type: "new_request", externalId: evt.requestId });
+	}
+
+	@OnEvent(CONTRACT_UPDATED_ID)
+	onContractUpdated(evt: ContractUpdated) {
+		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
 	}
 }

@@ -29,7 +29,7 @@ import {
 	CONTRACT_DRAFTED_ID,
 	CONTRACT_EXECUTED_ID,
 	CONTRACT_FUNDED_ID,
-	CONTRACT_UPDATED,
+	CONTRACT_UPDATED_ID,
 	CONTRACT_VOIDED_ID,
 	ContractCreated,
 	ContractDrafted,
@@ -1000,7 +1000,8 @@ export class EscrowsContractsService {
 				{ externalId },
 				{ ...contract, receiverAddress: update.releaseAddress },
 			);
-			this.events.emit(CONTRACT_UPDATED, {
+			console.log("contract updated!");
+			this.events.emit(CONTRACT_UPDATED_ID, {
 				eventId: nanoid(4),
 				contractId: externalId,
 				releaseAddress: update.releaseAddress,

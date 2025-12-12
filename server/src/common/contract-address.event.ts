@@ -54,7 +54,7 @@ export type ContractDisputed = {
 	disputedAt: string;
 };
 
-export const CONTRACT_UPDATED = "contract.updated";
+export const CONTRACT_UPDATED_ID = "contract.updated";
 export type ContractUpdated = {
 	eventId: string;
 	contractId: ContractId;
