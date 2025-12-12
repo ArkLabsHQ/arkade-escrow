@@ -18,6 +18,7 @@ import {
 	type ContractVoided,
 } from "./contract-address.event";
 import { REQUEST_CREATED_ID, RequestCreated } from "./request.event";
+import { ARBITRATION_RESOLVED, ArbitrationResolved } from "./arbitration.event";
 
 type ArkSse =
 	| { type: "new_contract"; externalId: string }
@@ -81,6 +82,12 @@ export class ServerSentEventsService {
 
 	@OnEvent(CONTRACT_UPDATED_ID)
 	onContractUpdated(evt: ContractUpdated) {
+		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
+	}
+
+	// Admin events
+	@OnEvent(ARBITRATION_RESOLVED)
+	OnArbitrationResolved(evt: ArbitrationResolved) {
 		this.events$.next({ type: "contract_updated", externalId: evt.contractId });
 	}
 }
