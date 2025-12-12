@@ -633,7 +633,10 @@ const InnerContractDetailSheet = ({
 					open={actionModalOpen}
 					onOpenChange={setActionModalOpen}
 					actionType={currentAction}
-					data={{ amount: contract.amount }}
+					data={{
+						amount: contract.amount,
+						walletAddress: walletAddress ?? undefined,
+					}}
 					onConfirm={handleActionConfirm}
 				/>
 			)}

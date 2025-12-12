@@ -143,6 +143,8 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 		switch (status) {
 			case "pending-execution":
 				return "ready";
+			case "under-arbitration":
+				return "disputed";
 			default:
 				return status;
 		}
@@ -159,7 +161,7 @@ export const ContractCard = ({ contract, onClick, me }: ContractCardProps) => {
 					{renderSide()}
 
 					<Badge
-						className={`${getStatusColor(contract.status)} w-24 justify-center truncate`}
+						className={`${getStatusColor(contract.status)} w-24 justify-center overflow-ellipsis whitespace-nowrap`}
 					>
 						{getStatusText(contract.status)}
 					</Badge>

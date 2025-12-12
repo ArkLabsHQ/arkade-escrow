@@ -31,7 +31,7 @@ export default function useContractActionHandler(): {
 	handleAction: (input: ActionInput) => Promise<void>;
 	isHandling: boolean;
 } {
-	const { signTransaction, fundAddress, walletAddress } = useAppShell();
+	const { signTransaction, fundAddress } = useAppShell();
 	const me = useSession();
 	const [isExecuting, setIsExecuting] = useState(false);
 
@@ -255,10 +255,7 @@ export default function useContractActionHandler(): {
 					throw new Error("Invalid ARK address provided");
 				}
 			case "execute":
-				if (receiverAddress) {
-					if (!transaction || !executionId) {
-						throw new Error("Transaction is required for approval");
-					}
+				if (transaction && executionId) {
 					return lockExecution(() =>
 						approveContractExecution.mutateAsync({
 							contractId,
@@ -267,16 +264,10 @@ export default function useContractActionHandler(): {
 						}),
 					);
 				}
-				// TODO: check against release address!
-				// if (!walletAddress) {
-				// 	return Promise.reject(
-				// 		new Error("Wallet address is required for execution"),
-				// 	);
-				// }
 				return lockExecution(() =>
 					executeContract.mutateAsync({
 						contractId,
-						arkAddress: walletAddress ?? undefined,
+						arkAddress: receiverAddress ?? undefined,
 					}),
 				);
 			case "approve":

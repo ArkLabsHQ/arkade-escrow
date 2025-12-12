@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -33,7 +33,7 @@ type ContractActionModalProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	actionType: ContractAction;
-	data: { amount?: number };
+	data: { amount?: number; walletAddress?: string };
 	onConfirm: (data?: { [K in InputId]?: string }) => void;
 };
 
@@ -170,6 +170,7 @@ export const ContractActionModal = ({
 					requiresInput: true,
 					inputLabel: "ARK Address",
 					inputId: "arbitrationTransferAddress", // can be either a release or a refund
+					inputDefaultValue: data.walletAddress,
 					inputPlaceholder: "ARK address to transfer the funds to.",
 					confirmText: "Approve Dispute Execution",
 					confirmVariant: "default" as const,
@@ -180,6 +181,16 @@ export const ContractActionModal = ({
 	};
 
 	const config = getConfig();
+
+	useEffect(() => {
+		if (config.inputDefaultValue !== undefined) {
+			setInputData({
+				id: config.inputId as InputId,
+				content: config.inputDefaultValue,
+			});
+		}
+	}, [config.inputId, config.inputDefaultValue]);
+
 	const isConfirmDisabled = config.requiresInput && !inputData?.content?.trim();
 
 	return (

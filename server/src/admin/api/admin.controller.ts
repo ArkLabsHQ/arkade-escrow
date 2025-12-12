@@ -10,6 +10,7 @@ import {
 	Post,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
 } from "@nestjs/common";
 import {
 	ApiTags,

@@ -214,22 +214,30 @@ export class AdminService {
 			);
 		}
 
-		// TODO 4. invalidate all contract executions
-		const invalidationResult = await this.contractExecutionRepository
-			.createQueryBuilder()
-			.update(ContractExecution)
-			.set({ status: "canceled-by-arbitrator" })
-			.where("status IN :statuses", {
-				statuses: [
-					"pending-initiator-signature",
-					"pending-counterparty-signature",
-					"pending-server-confirmation",
-				],
-			})
-			.execute();
-		this.logger.log(
-			`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
-		);
+		try {
+			// invalidate all contract executions
+			const invalidationResult = await this.contractExecutionRepository
+				.createQueryBuilder()
+				.update(ContractExecution)
+				.set({ status: "canceled-by-arbitrator" })
+				.where("status IN :statuses", {
+					statuses: [
+						"pending-initiator-signature",
+						"pending-counterparty-signature",
+						"pending-server-confirmation",
+					],
+				})
+				.execute();
+
+			this.logger.log(
+				`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
+			);
+		} catch (e) {
+			this.logger.error(
+				`Failed to invalidate contract executions for contract ${input.contractId}`,
+				e,
+			);
+		}
 
 		const persisted = await this.arbitrationRepository.save({
 			...arbitration,
