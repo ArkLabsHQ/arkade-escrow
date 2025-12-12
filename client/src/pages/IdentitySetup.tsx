@@ -65,7 +65,6 @@ export default function IdentitySetup({ onNewIdentity }: Props) {
 		toast.success("Private key has been pasted.");
 	};
 	const onPrivateKeyChange = (value: string) => {
-		console.log(value);
 		setPrivateKey(value);
 	};
 

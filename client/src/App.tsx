@@ -55,6 +55,7 @@ const App = () => {
 							<Toaster />
 							<BrowserRouter>
 								<Routes>
+									<Route path={"/"} element={<Orderbook />} />
 									<Route path={Config.appRootUrl} element={<Orderbook />} />
 									{/*<Route*/}
 									{/*	path={`${Config.appRootUrl}/notifications`}*/}
