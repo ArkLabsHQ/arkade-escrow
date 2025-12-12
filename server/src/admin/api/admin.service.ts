@@ -220,7 +220,10 @@ export class AdminService {
 				.createQueryBuilder()
 				.update(ContractExecution)
 				.set({ status: "canceled-by-arbitrator" })
-				.where("status IN :statuses", {
+				.where("contractExternalId = :contractId", {
+					contractId: input.contractId,
+				})
+				.andWhere("status IN (:...statuses)", {
 					statuses: [
 						"pending-initiator-signature",
 						"pending-counterparty-signature",
