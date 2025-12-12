@@ -37,7 +37,7 @@ type RpcProviderContextValue = {
 		arkTx: string,
 		checkpoints: string[],
 	) => Promise<{ tx: string; checkpoints: string[] }>;
-	fundAddress: (address: string, amount: number) => Promise<void>;
+	fundAddress: (address: string, amount: number) => Promise<string>;
 	getWalletBalance: () => Promise<{ available: number }>;
 };
 
@@ -80,6 +80,10 @@ export function RpcProvider({
 	});
 
 	const [_c, onPrivateKey, getPrivateKey] = useSyncRpc<string>({ canExecute });
+
+	const [_f, onAddressFunded, fundAddress] = useSyncRpc<string>({
+		canExecute,
+	});
 
 	// Store pending promise handlers to avoid stale closures
 	const [walletBalance, setWalletBalance] = useState<{
@@ -125,9 +129,7 @@ export function RpcProvider({
 									onSignedTransaction(resultContent.signedTransaction);
 									break;
 								case "transactionId":
-									console.log(
-										`[escrow] funded with txid=${resultContent.txid}`,
-									);
+									onAddressFunded(resultContent.txid);
 									break;
 							}
 							break;
@@ -307,21 +309,24 @@ export function RpcProvider({
 							hostOrigin ?? "appshell",
 						),
 					),
-				fundAddress: async (address: string, amount: number) => {
+				fundAddress: async (
+					address: string,
+					amount: number,
+				): Promise<string> => {
 					if (!hosted) {
 						// TODO: QR code? link to wallet/browser extension/...
-						return Promise.resolve();
+						return Promise.reject("Cannot send bitcoin from standalone escrow");
 					}
-					if (!hostOrigin) return Promise.reject("app not ready");
-
-					parentWindowRef.current?.postMessage(
-						{
-							kind: "ARKADE_RPC_REQUEST",
-							id: nanoid(8),
-							method: "fund-address",
-							payload: { address, amount },
-						},
-						hostOrigin,
+					return fundAddress(() =>
+						parentWindowRef.current?.postMessage(
+							{
+								kind: "ARKADE_RPC_REQUEST",
+								id: nanoid(8),
+								method: "fund-address",
+								payload: { address, amount },
+							},
+							hostOrigin ?? "appshell",
+						),
 					);
 				},
 			}}
