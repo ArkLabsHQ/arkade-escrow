@@ -295,6 +295,7 @@ export default function useContractActionHandler(): {
 					requestArbitration.mutateAsync({ contractId, reason }, {}),
 				);
 			case "create-execution-for-dispute":
+				// TODO: if no wallet address, ask for one!
 				if (!disputeId || !walletAddress) {
 					throw new Error("Wallet address is required for dispute");
 				}

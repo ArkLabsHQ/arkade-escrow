@@ -25,7 +25,7 @@ type Props = {
 	sideDetails: ReturnType<typeof getContractSideDetails>;
 	currentExecution?: GetExecutionByContractDto;
 	currentArbitration?: GetArbitrationDto;
-	releaseAddres?: string;
+	releaseAddress?: string;
 	onClick: (ca: ContractAction) => void;
 };
 export default function ContractActions({
@@ -34,7 +34,7 @@ export default function ContractActions({
 	sideDetails,
 	currentExecution,
 	currentArbitration,
-	releaseAddres,
+	releaseAddress,
 	onClick,
 }: Props) {
 	const createdByMe = sideDetails.createdByMe;
@@ -86,7 +86,7 @@ export default function ContractActions({
 				</Button>,
 			];
 		case "funded":
-			if (!releaseAddres) {
+			if (!releaseAddress) {
 				return [
 					<Button
 						key={"dispute-funded"}

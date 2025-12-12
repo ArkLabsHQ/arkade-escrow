@@ -571,6 +571,7 @@ const InnerContractDetailSheet = ({
 						sideDetails={getContractSideDetails(me, contract)}
 						currentExecution={currentExecution}
 						currentArbitration={currentArbitration}
+						releaseAddress={contract.receiverAddress}
 						onClick={handleActionClick}
 					/>
 					{/* Close button - always visible */}
