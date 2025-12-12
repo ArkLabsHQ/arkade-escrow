@@ -19,7 +19,16 @@ import {
 } from "lucide-react";
 import { ContractAction } from "@/components/ContractDetailSheet/ContractActions";
 
-type InputId = "reason" | "releaseAddress" | "disputeReason";
+type InputId =
+	// generic reason for rejecting/cancelling/receding contracts
+	| "reason"
+	// reason for creating a dispute
+	| "disputeReason"
+	// the release ARK address of a generic contract
+	| "releaseAddress"
+	// the ARK address to transfer funds to upon dispute resolution
+	| "arbitrationTransferAddress";
+
 type ContractActionModalProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -36,7 +45,7 @@ export const ContractActionModal = ({
 	onConfirm,
 }: ContractActionModalProps) => {
 	const [inputData, setInputData] = useState<{
-		id: "reason" | "releaseAddress" | "disputeReason";
+		id: InputId;
 		content: string;
 	} | null>();
 
@@ -158,7 +167,10 @@ export const ContractActionModal = ({
 					title: "Approve Dispute Execution",
 					description:
 						"You're about to approve the execution of this dispute. This will complete the contract and move the funds to the ARK address provided.",
-					requiresInput: false,
+					requiresInput: true,
+					inputLabel: "ARK Address",
+					inputId: "arbitrationTransferAddress", // can be either a release or a refund
+					inputPlaceholder: "ARK address to transfer the funds to.",
 					confirmText: "Approve Dispute Execution",
 					confirmVariant: "default" as const,
 				};

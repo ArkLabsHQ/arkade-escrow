@@ -24,6 +24,7 @@ export type ActionInput = {
 	reason?: string;
 	newReleaseAddress?: string;
 	receiverAddress?: string;
+	arbitrationTransferAddress?: string;
 };
 
 export default function useContractActionHandler(): {
@@ -164,7 +165,7 @@ export default function useContractActionHandler(): {
 			const { externalId, arkTx, checkpoints } = res.data.data;
 			const signed = await signTransaction(arkTx, checkpoints);
 
-			await axios.patch(
+			return axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/executions/${externalId}`,
 				{
 					arkTx: signed.tx,
@@ -211,6 +212,7 @@ export default function useContractActionHandler(): {
 		executionId,
 		disputeId,
 		receiverAddress,
+		arbitrationTransferAddress,
 	}: ActionInput) => {
 		switch (action) {
 			case "accept-draft":
@@ -265,6 +267,7 @@ export default function useContractActionHandler(): {
 						}),
 					);
 				}
+				// TODO: check against release address!
 				// if (!walletAddress) {
 				// 	return Promise.reject(
 				// 		new Error("Wallet address is required for execution"),
@@ -295,15 +298,15 @@ export default function useContractActionHandler(): {
 					requestArbitration.mutateAsync({ contractId, reason }, {}),
 				);
 			case "create-execution-for-dispute":
-				// TODO: if no wallet address, ask for one!
-				if (!disputeId || !walletAddress) {
-					throw new Error("Wallet address is required for dispute");
+				if (!disputeId || !arbitrationTransferAddress) {
+					throw new Error("An ARK address is required for dispute execution");
 				}
+				ArkAddress.decode(arbitrationTransferAddress);
 				return lockExecution(() =>
 					createExecutionForDispute.mutateAsync({
 						contractId,
 						disputeId,
-						arkAddress: walletAddress,
+						arkAddress: arbitrationTransferAddress,
 					}),
 				);
 			case "recede-created":

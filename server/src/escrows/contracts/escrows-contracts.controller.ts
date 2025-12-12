@@ -7,6 +7,7 @@ import {
 	ForbiddenException,
 	Get,
 	HttpCode,
+	InternalServerErrorException,
 	Logger,
 	NotFoundException,
 	Param,
@@ -493,13 +494,17 @@ export class EscrowsContractsController {
 		@Param("executionId") executionId: string,
 		@Body() dto: SignExecutionInDto,
 	): Promise<ApiEnvelope<GetExecutionByContractDto>> {
-		const execution = await this.service.signContractExecution(
-			externalId,
-			executionId,
-			user.publicKey,
-			dto,
-		);
-
-		return envelope(execution);
+		try {
+			const execution = await this.service.signContractExecution(
+				externalId,
+				executionId,
+				user.publicKey,
+				dto,
+			);
+			return envelope(execution);
+		} catch (e) {
+			this.logger.error(e);
+			throw new InternalServerErrorException(e);
+		}
 	}
 }

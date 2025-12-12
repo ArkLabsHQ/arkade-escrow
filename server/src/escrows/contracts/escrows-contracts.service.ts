@@ -612,11 +612,10 @@ export class EscrowsContractsService {
 		}
 
 		try {
-			this.logger.debug("verifying tapscript signatures");
 			const txBytes = base64.decode(signature.arkTx);
 			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
 			verifyTapscriptSignatures(tx, 0, [signerPubKey]);
-			this.logger.debug("OK tapscript signatures");
+			this.logger.debug(`Signatures for execution ${executionId} are valid`);
 		} catch (e) {
 			this.logger.error(e);
 			throw new BadRequestException("Invalid signature");
@@ -632,6 +631,7 @@ export class EscrowsContractsService {
 
 		const nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByAll(
 			cleanTransaction,
+			contract,
 		)
 			? "pending-server-confirmation"
 			: "pending-signatures";
@@ -742,12 +742,35 @@ export class EscrowsContractsService {
 		};
 	}
 
-	private isExecutionSignedByAll(extx: ExecutionTransaction): boolean {
-		return (
-			extx.approvedByPubKeys.length ===
-			extx.requiredSigners.filter((s) => s === "sender" || s === "receiver")
-				.length
-		);
+	private isExecutionSignedByAll(
+		extx: ExecutionTransaction,
+		contract: EscrowContract,
+	): boolean {
+		for (let i = 0; i < extx.requiredSigners.length; i++) {
+			switch (extx.requiredSigners[i]) {
+				case "arbitrator":
+					if (!extx.approvedByPubKeys.includes(this.arbitratorPublicKey)) {
+						return false;
+					}
+
+					break;
+				case "sender":
+					if (!extx.approvedByPubKeys.includes(contract.senderPubkey)) {
+						return false;
+					}
+					break;
+				case "receiver":
+					if (!extx.approvedByPubKeys.includes(contract.receiverPubkey)) {
+						return false;
+					}
+					break;
+				case "server":
+					continue;
+				default:
+					throw new Error(`Invalid required signer ${extx.requiredSigners[i]}`);
+			}
+		}
+		return true;
 	}
 
 	private async submitAndFinalizeExecutionTransaction(input: {

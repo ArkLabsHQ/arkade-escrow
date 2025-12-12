@@ -250,10 +250,6 @@ const InnerContractDetailSheet = ({
 		if (!canUpdateReleaseAddress) return;
 		handleActionClick("update-release-address");
 	};
-	const handleUpdateArbitrationReleaseAddress = async (e: React.MouseEvent) => {
-		e.stopPropagation();
-		handleActionClick("update-release-address");
-	};
 
 	const handleCopyItem = (_: string, value: string) => {
 		// it's a Promise to allow for feedback animation
@@ -287,6 +283,7 @@ const InnerContractDetailSheet = ({
 		reason?: string;
 		releaseAddress?: string;
 		disputeReason?: string;
+		arbitrationTransferAddress?: string;
 	}) => {
 		if (!currentAction) {
 			console.warn("No current action selected");
@@ -304,6 +301,7 @@ const InnerContractDetailSheet = ({
 				reason: data?.reason ?? data?.disputeReason,
 				newReleaseAddress: data?.releaseAddress,
 				receiverAddress: contract.receiverAddress,
+				arbitrationTransferAddress: data?.arbitrationTransferAddress,
 			});
 		} catch (error) {
 			console.error("Error handling action:", error);

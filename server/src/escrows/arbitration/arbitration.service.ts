@@ -264,7 +264,6 @@ export class ArbitrationService {
 			where: { externalId: arbitration.contract.externalId },
 		});
 		if (!contract) throw new NotFoundException("Contract not found");
-		this.logger.debug(contract);
 		if (contract.status !== "under-arbitration") {
 			throw new InternalServerErrorException(
 				"Contract is not under arbitration",

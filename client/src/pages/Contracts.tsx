@@ -14,7 +14,7 @@ import Config from "@/Config";
 import { ApiPaginatedEnvelope, GetEscrowContractDto } from "@/types/api";
 import { useSession } from "@/components/SessionProvider";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { toast } from "sonner";
 import { useAppShell } from "@/components/AppShell/RpcProvider";
 
@@ -311,7 +311,14 @@ export default function Contracts() {
 						toast.success("Action executed successfully");
 					} catch (error) {
 						console.error(error);
-						toast.error("Failed to execute contract action");
+						const errMessage = (
+							error as AxiosError<{ errors: string[] }>
+						)?.response?.data?.errors.join(", ");
+						if (errMessage) {
+							toast.error(errMessage);
+						} else {
+							toast.error("Failed to execute contract action");
+						}
 					}
 				}}
 				me={me}
