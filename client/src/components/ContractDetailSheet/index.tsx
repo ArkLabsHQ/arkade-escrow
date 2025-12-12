@@ -50,7 +50,7 @@ import { AdditionalData } from "@/components/ContractDetailSheet/AdditionalData"
 import { StatusText } from "@/components/ContractDetailSheet/StatusText";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 import { ActionInput } from "@/components/ContractDetailSheet/useContractActionHandler";
-import { useIsHosted } from "@/components/AppShell/RpcProvider";
+import { useAppShell, useIsHosted } from "@/components/AppShell/RpcProvider";
 import BtnCopy from "@/components/BtnCopy";
 
 type ContractDetailSheetProps = {
@@ -139,7 +139,7 @@ const InnerContractDetailSheet = ({
 	runAction,
 	me,
 }: InnerContractDetailSheetProps) => {
-	const isHosted = useIsHosted();
+	const { walletAddress, isHosted } = useAppShell();
 	const [actionModalOpen, setActionModalOpen] = useState(false);
 	const [showBalanceWarning, setShowBalanceWarning] = useState(false);
 	const [isAdditionaDataOpen, setIsAdditionalDataOpen] = useState(false);
@@ -242,18 +242,16 @@ const InnerContractDetailSheet = ({
 				execution.status !== "executed",
 		) ?? [];
 
-	const handleCopyContractId = async (e: React.MouseEvent) => {
-		e.stopPropagation();
-		navigator.clipboard.writeText(contract.externalId);
-		toast.success("Contract ID copied to clipboard");
-	};
-
 	const canUpdateReleaseAddress =
 		mySide === "receiver" &&
 		["draft", "created", "funded"].includes(contract.status);
 	const handleUpdateReleaseAddress = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		if (!canUpdateReleaseAddress) return;
+		handleActionClick("update-release-address");
+	};
+	const handleUpdateArbitrationReleaseAddress = async (e: React.MouseEvent) => {
+		e.stopPropagation();
 		handleActionClick("update-release-address");
 	};
 
@@ -327,6 +325,10 @@ const InnerContractDetailSheet = ({
 		}
 	}, [runAction]);
 
+	const arbitrationInMyFavor =
+		(currentArbitration?.verdict === "release" && mySide === "receiver") ||
+		(currentArbitration?.verdict === "refund" && mySide === "sender");
+
 	return (
 		<>
 			<SheetHeader className="space-y-3">
@@ -375,17 +377,57 @@ const InnerContractDetailSheet = ({
 						sideDetails={{ mySide, createdByMe }}
 						status={contract.status}
 						currentExecution={currentExecution}
+						arbitration={currentArbitration}
 						releaseAddres={contract.receiverAddress}
 					/>
+
+					{/*{arbitrationInMyFavor ? (*/}
+					{/*	<div className="flex items-start gap-3">*/}
+					{/*		<RowIcon>*/}
+					{/*			<Wallet className="text-accent" />*/}
+					{/*		</RowIcon>*/}
+					{/*		<div className="flex-1">*/}
+					{/*			<p className="text-sm text-muted-foreground capitalize">*/}
+					{/*				{currentArbitration.verdict} address*/}
+					{/*			</p>*/}
+					{/*			<p className="text-base font-medium text-foreground font-mono">*/}
+					{/*				{walletAddress*/}
+					{/*					? shortArkAddress(walletAddress)*/}
+					{/*					: "Not set yet"}*/}
+					{/*			</p>*/}
+					{/*		</div>*/}
+					{/*		<RowIcon>*/}
+					{/*			<BtnCopy*/}
+					{/*				value={walletAddress ?? ""}*/}
+					{/*				disabled={walletAddress === null}*/}
+					{/*			/>*/}
+					{/*		</RowIcon>*/}
+					{/*		<RowIcon>*/}
+					{/*			<Button*/}
+					{/*				variant="ghost"*/}
+					{/*				size="sm"*/}
+					{/*				onClick={handleUpdateReleaseAddress}*/}
+					{/*				className="shrink-0"*/}
+					{/*				disabled={currentArbitration?.status !== "pending"}*/}
+					{/*			>*/}
+					{/*				<PencilLine className="h-4 w-4" />*/}
+					{/*			</Button>*/}
+					{/*		</RowIcon>*/}
+					{/*	</div>*/}
+					{/*) : null}*/}
 
 					{/* Arbitration Section */}
 					{contract.status === "under-arbitration" && currentArbitration && (
 						<div className="space-y-3">
-							<ArbitrationSection arbitration={currentArbitration} me={me} />
+							<ArbitrationSection
+								sideDetails={{ mySide, createdByMe }}
+								arbitration={currentArbitration}
+								me={me}
+							/>
 						</div>
 					)}
 
-					{mySide === "receiver" ? (
+					{mySide === "receiver" && contract.status !== "under-arbitration" ? (
 						<div className="flex items-start gap-3">
 							<RowIcon>
 								<Wallet className="text-accent" />
@@ -456,6 +498,7 @@ const InnerContractDetailSheet = ({
 								contractId={contract.externalId}
 								requestId={contract.requestId}
 								description={contract.description}
+								contractAddress={contract.arkAddress}
 								onCopyItem={handleCopyItem}
 							/>
 						</CollapsibleContent>
@@ -463,55 +506,57 @@ const InnerContractDetailSheet = ({
 
 					<Separator />
 
-					{contract.status !== "completed" && contract.status !== "draft" && (
-						<div>
-							<div className="flex items-center justify-between mb-2">
-								<p className="text-sm text-muted-foreground">ARK Address</p>
-								{showBalanceWarning && balance !== null && (
-									<Badge
-										variant="outline"
-										className="bg-warning/10 text-warning border-warning/20 text-xs"
-									>
-										{`Your available balance is only ${balance} SAT`}
-									</Badge>
-								)}
-							</div>
+					{contract.status !== "completed" &&
+						contract.status !== "draft" &&
+						contract.status !== "under-arbitration" && (
+							<div>
+								<div className="flex items-center justify-between mb-2">
+									<p className="text-sm text-muted-foreground">ARK Address</p>
+									{showBalanceWarning && balance !== null && (
+										<Badge
+											variant="outline"
+											className="bg-warning/10 text-warning border-warning/20 text-xs"
+										>
+											{`Your available balance is only ${balance} SAT`}
+										</Badge>
+									)}
+								</div>
 
-							<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
-								<p className="text-sm font-mono text-foreground flex-1 break-normal">
-									{contract.arkAddress
-										? shortArkAddress(contract.arkAddress)
-										: "The address will be generated once the contract is accepted"}
-								</p>
-								{contract.arkAddress && (
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() =>
-											handleCopyItem(
-												"contractAddress",
-												contract.arkAddress ?? "",
-											)
-										}
-										className="shrink-0"
-									>
-										<Copy className="h-4 w-4" />
-									</Button>
-								)}
-								{canFund && (
-									<Button
-										variant="default"
-										size="sm"
-										onClick={handleFundAddress}
-										className="shrink-0"
-										disabled={!contract.arkAddress || !isHosted}
-									>
-										<Banknote className="h-4 w-4" />
-									</Button>
-								)}
+								<div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+									<p className="text-sm font-mono text-foreground flex-1 break-normal">
+										{contract.arkAddress
+											? shortArkAddress(contract.arkAddress)
+											: "The address will be generated once the contract is accepted"}
+									</p>
+									{contract.arkAddress && (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() =>
+												handleCopyItem(
+													"contractAddress",
+													contract.arkAddress ?? "",
+												)
+											}
+											className="shrink-0"
+										>
+											<Copy className="h-4 w-4" />
+										</Button>
+									)}
+									{canFund && (
+										<Button
+											variant="default"
+											size="sm"
+											onClick={handleFundAddress}
+											className="shrink-0"
+											disabled={!contract.arkAddress || !isHosted}
+										>
+											<Banknote className="h-4 w-4" />
+										</Button>
+									)}
+								</div>
 							</div>
-						</div>
-					)}
+						)}
 
 					{/* Current Execution - Collapsible */}
 					{currentExecution && (

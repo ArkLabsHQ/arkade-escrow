@@ -157,7 +157,7 @@ export const ContractActionModal = ({
 					icon: <CheckCircle className="h-12 w-12 text-success" />,
 					title: "Approve Dispute Execution",
 					description:
-						"You're about to approve the execution of this dispute. This will complete the contract and move the funds.",
+						"You're about to approve the execution of this dispute. This will complete the contract and move the funds to the ARK address provided.",
 					requiresInput: false,
 					confirmText: "Approve Dispute Execution",
 					confirmVariant: "default" as const,

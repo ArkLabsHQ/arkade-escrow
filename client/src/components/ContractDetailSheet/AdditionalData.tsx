@@ -1,5 +1,5 @@
 import { Copy, FileSignature, FileText, User } from "lucide-react";
-import { shortKey } from "@/lib/utils";
+import { shortArkAddress, shortKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export function AdditionalData({
@@ -8,6 +8,7 @@ export function AdditionalData({
 	contractId,
 	requestId,
 	description,
+	contractAddress,
 	onCopyItem,
 }: {
 	createdByMe: boolean;
@@ -15,6 +16,7 @@ export function AdditionalData({
 	contractId: string;
 	requestId: string;
 	description: string;
+	contractAddress?: string;
 	onCopyItem: (key: string, value: string) => Promise<void>;
 }) {
 	return (
@@ -88,6 +90,27 @@ export function AdditionalData({
 					<Copy className="h-4 w-4" />
 				</Button>
 			</div>
+			{contractAddress && (
+				<div className="flex items-start gap-3">
+					<FileSignature className="h-5 w-5 text-muted-foreground mt-0.5" />
+					<div className="flex-1">
+						<p className="text-sm text-muted-foreground">
+							Contract ARK Address
+						</p>
+						<p className="text-base font-medium text-foreground font-mono">
+							{shortArkAddress(contractAddress)}
+						</p>
+					</div>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => onCopyItem("contractArkAddress", contractAddress)}
+						className="shrink-0"
+					>
+						<Copy className="h-4 w-4" />
+					</Button>
+				</div>
+			)}
 		</>
 	);
 }

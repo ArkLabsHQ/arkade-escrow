@@ -1,6 +1,10 @@
 import { Me } from "@/types/me";
 import { getContractSideDetails } from "@/lib/utils";
-import { GetEscrowContractDto, GetExecutionByContractDto } from "@/types/api";
+import {
+	GetArbitrationDto,
+	GetEscrowContractDto,
+	GetExecutionByContractDto,
+} from "@/types/api";
 import { Ban, CheckCircle, Flag, Hourglass, Scale, Zap } from "lucide-react";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 
@@ -35,6 +39,7 @@ type Props = {
 	>;
 	status: GetEscrowContractDto["status"];
 	currentExecution?: GetExecutionByContractDto;
+	arbitration?: GetArbitrationDto;
 	releaseAddres?: string;
 };
 export function StatusText({
@@ -42,6 +47,7 @@ export function StatusText({
 	sideDetails: { mySide, createdByMe },
 	status,
 	currentExecution,
+	arbitration,
 	releaseAddres,
 }: Props) {
 	switch (status) {
@@ -234,23 +240,74 @@ export function StatusText({
 					</span>
 				</div>
 			);
-		case "under-arbitration":
-			return (
-				<div className="flex items-center gap-3">
-					<RowIcon>
-						<Scale className="text-destructive" />
-					</RowIcon>
-					<span className={textContainerStyle}>
-						<p className="text-base font-medium text-foreground">
-							The contract has been
-							<b className="font-bold"> disputed</b> and is now under
-							arbitration.
-							<br />
-							Please wait for the arbitrator to decide.
-						</p>
-					</span>
-				</div>
-			);
+		case "under-arbitration": {
+			switch (arbitration?.status) {
+				case "pending":
+					return (
+						<div className="flex items-center gap-3">
+							<RowIcon>
+								<Scale className="text-destructive" />
+							</RowIcon>
+							<span className={textContainerStyle}>
+								<p className="text-base font-medium text-foreground">
+									The contract has been
+									<b className="font-bold"> disputed</b> and is now under
+									arbitration.
+									<br />
+									Please wait for the arbitrator to decide.
+								</p>
+							</span>
+						</div>
+					);
+				case "executed":
+					return (
+						<div className="flex items-center gap-3">
+							<RowIcon>
+								<Scale className="text-destructive" />
+							</RowIcon>
+							<span className={textContainerStyle}>
+								<p className="text-base font-medium text-foreground">
+									The arbitration verdict was
+									<b className="font-bold"> {arbitration.verdict}</b> and it was
+									fully executed.
+									<br />
+									Funds have been transferred to the ARK address provided.
+								</p>
+							</span>
+						</div>
+					);
+				case "resolved": {
+					const releaseFundsToMe =
+						(arbitration.verdict === "release" && mySide === "receiver") ||
+						(arbitration.verdict === "refund" && mySide === "sender");
+					return (
+						<div className="flex items-center gap-3">
+							<RowIcon>
+								<Scale className="text-destructive" />
+							</RowIcon>
+							<span className={textContainerStyle}>
+								{releaseFundsToMe ? (
+									<p className="text-sm font-medium text-foreground">
+										The verdict is
+										<b className="font-bold"> {arbitration.verdict}</b>, you can
+										now confirm the{" "}
+										<b className="font-bold">{arbitration.verdict} address</b>{" "}
+										and execute the contract to receive the funds.
+									</p>
+								) : (
+									<p className="text-sm font-medium text-foreground">
+										The arbitration verdict is
+										<b className="font-bold"> {arbitration.verdict}</b>.
+									</p>
+								)}
+							</span>
+						</div>
+					);
+				}
+				default:
+					return null;
+			}
+		}
 
 		case "canceled-by-creator":
 			if (createdByMe) {
