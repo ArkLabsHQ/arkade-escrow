@@ -23,7 +23,7 @@ type Props = {
 	me: Me;
 	contractStatus: GetEscrowContractDto["status"];
 	sideDetails: ReturnType<typeof getContractSideDetails>;
-	currentExecution?: GetExecutionByContractDto;
+	pendingExecutions?: GetExecutionByContractDto[];
 	currentArbitration?: GetArbitrationDto;
 	releaseAddress?: string;
 	onClick: (ca: ContractAction) => void;
@@ -32,7 +32,7 @@ export default function ContractActions({
 	me,
 	contractStatus,
 	sideDetails,
-	currentExecution,
+	pendingExecutions,
 	currentArbitration,
 	releaseAddress,
 	onClick,
@@ -118,11 +118,7 @@ export default function ContractActions({
 			];
 		case "pending-execution":
 			// only dispute if already approved the execution
-			if (
-				currentExecution?.transaction.approvedByPubKeys.some((_) =>
-					me.isMyPubkey(_),
-				)
-			) {
+			if (pendingExecutions && pendingExecutions.length > 0) {
 				return [
 					<Button
 						key={"dispute-funded"}
@@ -137,11 +133,11 @@ export default function ContractActions({
 			// can approve or dispute
 			return [
 				<Button
-					key={"approve-pending-execution"}
+					key={"execute-funded"}
 					className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-					onClick={() => onClick("approve")}
+					onClick={() => onClick("execute")}
 				>
-					{"Approve Execution"}
+					Execute Contract
 				</Button>,
 				<Button
 					key={"dispute-funded"}

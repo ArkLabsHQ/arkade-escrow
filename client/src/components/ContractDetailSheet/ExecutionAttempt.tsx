@@ -2,13 +2,23 @@ import { XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { shortKey } from "@/lib/utils";
-import { GetExecutionByContractDto } from "@/types/api";
+import { ExecutionStatus, GetExecutionByContractDto } from "@/types/api";
 import { Me } from "@/types/me";
 
 type Props = {
 	execution: GetExecutionByContractDto;
 	me: Me;
 	isPast?: boolean;
+};
+
+const getStatus = (execution: GetExecutionByContractDto, me: Me) => {
+	switch (execution.status) {
+		case "canceled-by-initiator":
+		case "rejected-by-counterparty":
+			return "Canceled";
+		default:
+			return execution.status;
+	}
 };
 
 export default function ExecutionAttempt({
@@ -29,7 +39,7 @@ export default function ExecutionAttempt({
 							variant="outline"
 							className={`bg-${variant}/10 text-${variant} border-${variant}/20`}
 						>
-							{execution.status}
+							{getStatus(execution, me)}
 						</Badge>
 						<span className="text-xs text-muted-foreground">
 							{format(execution.createdAt, "PPp")}
@@ -42,12 +52,12 @@ export default function ExecutionAttempt({
 						</span>
 					</p>
 					{execution.cancelationReason && (
-						<p className="text-xs text-muted-foreground mt-1 italic">
+						<p className="text-xs text-muted-foreground mt-1 italic truncate">
 							"{execution.cancelationReason}"
 						</p>
 					)}
 					{execution.rejectionReason && (
-						<p className="text-xs text-muted-foreground mt-1 italic">
+						<p className="text-xs text-muted-foreground mt-1 italic truncate">
 							"{execution.rejectionReason}"
 						</p>
 					)}

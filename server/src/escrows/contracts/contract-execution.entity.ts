@@ -24,9 +24,8 @@ export const EXECUTION_STATUS = [
 	"executed",
 
 	// voided
-	"canceled-by-initiator",
-	"rejected-by-counterparty",
-	"canceled-by-arbitrator",
+	"canceled",
+	"failed",
 ] as const;
 export type ExecutionStatus = (typeof EXECUTION_STATUS)[number];
 

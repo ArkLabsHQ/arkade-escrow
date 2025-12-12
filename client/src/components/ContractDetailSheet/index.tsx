@@ -10,11 +10,9 @@ import {
 	Banknote,
 	AlertCircle,
 	ChevronDown,
-	BadgeInfoIcon,
 	BookOpen,
 	Book,
 	ChevronUp,
-	Hourglass,
 	PencilLine,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -34,7 +32,7 @@ import {
 } from "@/types/api";
 import { Me } from "@/types/me";
 import { getContractSideDetails, shortArkAddress } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import Config from "@/Config";
 import ContractActions, {
@@ -50,8 +48,9 @@ import { AdditionalData } from "@/components/ContractDetailSheet/AdditionalData"
 import { StatusText } from "@/components/ContractDetailSheet/StatusText";
 import { RowIcon } from "@/components/ContractDetailSheet/RowIcon";
 import { ActionInput } from "@/components/ContractDetailSheet/useContractActionHandler";
-import { useAppShell, useIsHosted } from "@/components/AppShell/RpcProvider";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 import BtnCopy from "@/components/BtnCopy";
+import PendingExecutions from "@/components/ContractDetailSheet/PendingExecutions";
 
 type ContractDetailSheetProps = {
 	contract: GetEscrowContractDto | null;
@@ -126,7 +125,7 @@ type InnerContractDetailSheetProps = {
 	contract: GetEscrowContractDto;
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
-	onContractAction: (data: ActionInput) => void;
+	onContractAction: (data: ActionInput) => Promise<void>;
 	runAction?: ContractAction;
 	me: Me;
 };
@@ -147,9 +146,16 @@ const InnerContractDetailSheet = ({
 		ContractAction | undefined
 	>();
 	const lastContractEvent = useContractSse(inputContract.externalId);
+	const [cacheNonce, setCacheNonce] = useState(1);
+	const { signTransaction } = useAppShell();
 
 	const { data: latestContract, error: latestContractError } = useQuery({
-		queryKey: ["contract", inputContract.externalId, lastContractEvent],
+		queryKey: [
+			"contract",
+			inputContract.externalId,
+			lastContractEvent,
+			cacheNonce,
+		],
 		queryFn: async () => {
 			const res = await axios.get<ApiEnvelopeShellDto<GetEscrowContractDto>>(
 				`${Config.apiBaseUrl}/escrows/contracts/${inputContract.externalId}`,
@@ -164,7 +170,12 @@ const InnerContractDetailSheet = ({
 	const contract = latestContract ?? inputContract;
 
 	const { data: dataExecutions, error: dataExecutionsError } = useQuery({
-		queryKey: ["contract-executions", contract.externalId, lastContractEvent],
+		queryKey: [
+			"contract-executions",
+			contract.externalId,
+			lastContractEvent,
+			cacheNonce,
+		],
 		queryFn: async () => {
 			const res = await axios.get<
 				ApiPaginatedEnvelope<GetExecutionByContractDto>
@@ -188,6 +199,40 @@ const InnerContractDetailSheet = ({
 				},
 			);
 			return res.data;
+		},
+	});
+
+	const rejectContractExecution = useMutation({
+		mutationFn: async (executionId: string) =>
+			axios
+				.delete(
+					`${Config.apiBaseUrl}/escrows/contracts/${contract?.externalId}/executions/${executionId}`,
+					{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+				)
+				.then(() => {
+					setCacheNonce(cacheNonce + 1);
+				}),
+	});
+
+	const signContractExecution = useMutation({
+		mutationFn: async (input: {
+			executionId: string;
+			arkTx: string;
+			checkpoints: string[];
+		}) => {
+			const signed = await signTransaction(input.arkTx, input.checkpoints);
+			return axios
+				.patch(
+					`${Config.apiBaseUrl}/escrows/contracts/${contract?.externalId}/executions/${input.executionId}`,
+					{
+						arkTx: signed.tx,
+						checkpoints: signed.checkpoints,
+					},
+					{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
+				)
+				.then(() => {
+					setCacheNonce(cacheNonce + 1);
+				});
 		},
 	});
 
@@ -232,9 +277,11 @@ const InnerContractDetailSheet = ({
 
 	const formattedDate = format(contract.createdAt, "PPP 'at' p");
 
-	const currentExecution = dataExecutions?.data.find((execution) =>
-		execution.status.startsWith("pending-"),
-	);
+	const pendingExecutions =
+		dataExecutions?.data.filter((execution) =>
+			execution.status.startsWith("pending-"),
+		) ?? [];
+	const currentExecution = pendingExecutions?.[0] ?? undefined;
 	const pastFailedExecutions =
 		dataExecutions?.data.filter(
 			(execution) =>
@@ -290,7 +337,7 @@ const InnerContractDetailSheet = ({
 			return;
 		}
 		try {
-			onContractAction({
+			await onContractAction({
 				action: currentAction,
 				contractId: contract.externalId,
 				contractAmount: contract.amount,
@@ -314,6 +361,7 @@ const InnerContractDetailSheet = ({
 				onOpenChange(false);
 			}
 			setActionModalOpen(false);
+			setCacheNonce(cacheNonce + 1);
 		}
 	};
 
@@ -378,41 +426,6 @@ const InnerContractDetailSheet = ({
 						arbitration={currentArbitration}
 						releaseAddres={contract.receiverAddress}
 					/>
-
-					{/*{arbitrationInMyFavor ? (*/}
-					{/*	<div className="flex items-start gap-3">*/}
-					{/*		<RowIcon>*/}
-					{/*			<Wallet className="text-accent" />*/}
-					{/*		</RowIcon>*/}
-					{/*		<div className="flex-1">*/}
-					{/*			<p className="text-sm text-muted-foreground capitalize">*/}
-					{/*				{currentArbitration.verdict} address*/}
-					{/*			</p>*/}
-					{/*			<p className="text-base font-medium text-foreground font-mono">*/}
-					{/*				{walletAddress*/}
-					{/*					? shortArkAddress(walletAddress)*/}
-					{/*					: "Not set yet"}*/}
-					{/*			</p>*/}
-					{/*		</div>*/}
-					{/*		<RowIcon>*/}
-					{/*			<BtnCopy*/}
-					{/*				value={walletAddress ?? ""}*/}
-					{/*				disabled={walletAddress === null}*/}
-					{/*			/>*/}
-					{/*		</RowIcon>*/}
-					{/*		<RowIcon>*/}
-					{/*			<Button*/}
-					{/*				variant="ghost"*/}
-					{/*				size="sm"*/}
-					{/*				onClick={handleUpdateReleaseAddress}*/}
-					{/*				className="shrink-0"*/}
-					{/*				disabled={currentArbitration?.status !== "pending"}*/}
-					{/*			>*/}
-					{/*				<PencilLine className="h-4 w-4" />*/}
-					{/*			</Button>*/}
-					{/*		</RowIcon>*/}
-					{/*	</div>*/}
-					{/*) : null}*/}
 
 					{/* Arbitration Section */}
 					{contract.status === "under-arbitration" && currentArbitration && (
@@ -557,52 +570,54 @@ const InnerContractDetailSheet = ({
 						)}
 
 					{/* Current Execution - Collapsible */}
-					{currentExecution && (
-						<>
-							<Separator />
-							<Collapsible defaultOpen={true}>
-								<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
-									<div className="flex items-center gap-2">
-										<BadgeInfoIcon className="h-4 w-4 text-neutral" />
-										<p className="text-sm font-medium text-foreground">
-											Current Execution Attempt
-										</p>
-									</div>
-									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
-								</CollapsibleTrigger>
-								<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-									<ExecutionAttempt execution={currentExecution} me={me} />
-								</CollapsibleContent>
-							</Collapsible>
-						</>
-					)}
+					<PendingExecutions
+						executions={pendingExecutions}
+						me={me}
+						onRejectExecution={(executionId) =>
+							rejectContractExecution
+								.mutateAsync(executionId)
+								.catch((error) => {
+									console.error("Failed to reject execution:", error);
+									toast.error("Failed to reject execution");
+								})
+						}
+						onSignExecution={(executionId, transaction) =>
+							signContractExecution
+								.mutateAsync({
+									executionId,
+									arkTx: transaction.arkTx,
+									checkpoints: transaction.checkpoints,
+								})
+								.catch((error) => {
+									console.error("Failed to sign execution:", error);
+									toast.error("Failed to sign execution");
+								})
+						}
+					/>
 
 					{/* Past Executions - Collapsible */}
 					{pastFailedExecutions.length > 0 && (
-						<>
-							<Separator />
-							<Collapsible>
-								<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
-									<div className="flex items-center gap-2">
-										<AlertCircle className="h-4 w-4 text-destructive" />
-										<p className="text-sm font-medium text-foreground">
-											Past Execution Attempts ({pastFailedExecutions.length})
-										</p>
-									</div>
-									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
-								</CollapsibleTrigger>
-								<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
-									{pastFailedExecutions.map((execution) => (
-										<ExecutionAttempt
-											key={execution.externalId}
-											execution={execution}
-											me={me}
-											isPast
-										/>
-									))}
-								</CollapsibleContent>
-							</Collapsible>
-						</>
+						<Collapsible>
+							<CollapsibleTrigger className="flex items-center justify-between w-full py-2 hover:opacity-70 transition-opacity">
+								<div className="flex items-center gap-2">
+									<AlertCircle className="h-4 w-4 text-destructive" />
+									<p className="text-sm font-medium text-foreground">
+										Past Execution Attempts ({pastFailedExecutions.length})
+									</p>
+								</div>
+								<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 data-[state=open]:rotate-180" />
+							</CollapsibleTrigger>
+							<CollapsibleContent className="space-y-3 pt-3 animate-accordion-down">
+								{pastFailedExecutions.map((execution) => (
+									<ExecutionAttempt
+										key={execution.externalId}
+										execution={execution}
+										me={me}
+										isPast
+									/>
+								))}
+							</CollapsibleContent>
+						</Collapsible>
 					)}
 				</div>
 
@@ -612,9 +627,9 @@ const InnerContractDetailSheet = ({
 						me={me}
 						contractStatus={contract.status}
 						sideDetails={getContractSideDetails(me, contract)}
-						currentExecution={currentExecution}
 						currentArbitration={currentArbitration}
 						releaseAddress={contract.receiverAddress}
+						pendingExecutions={pendingExecutions}
 						onClick={handleActionClick}
 					/>
 					{/* Close button - always visible */}

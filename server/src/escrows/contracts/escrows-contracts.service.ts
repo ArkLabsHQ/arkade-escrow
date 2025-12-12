@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
-import { Brackets, Repository } from "typeorm";
+import { Brackets, In, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import {
@@ -385,7 +385,7 @@ export class EscrowsContractsService {
 		};
 	}
 
-	async recedFromContract({
+	async recedeFromContract({
 		externalId,
 		rejectorPubkey,
 		reason,
@@ -562,38 +562,42 @@ export class EscrowsContractsService {
 		return { items, nextCursor, total };
 	}
 
-	async signContractExecution(
-		contractId: string,
-		executionId: string,
-		signerPubKey: PublicKey,
-		signature: {
-			arkTx: string;
-			checkpoints: string[];
-		},
-	): Promise<GetExecutionByContractDto> {
-		const contract = await this.getOneForPartyAndStatus(
-			contractId,
-			signerPubKey,
-			["pending-execution", "under-arbitration"],
-		);
+	private async getContractExecutionPendingForUser({
+		contractId,
+		executionId,
+		userPubKey,
+	}: {
+		contractId: string;
+		executionId: string;
+		userPubKey: string;
+	}) {
 		const execution = await this.contractExecutionRepository.findOne({
-			where: { externalId: executionId, contract: { externalId: contractId } },
+			where: {
+				status: "pending-signatures",
+				externalId: executionId,
+				contract: { externalId: contractId },
+			},
 		});
-		if (!contract || !execution) {
+		if (!execution) {
 			throw new NotFoundException(
-				`Contract ${contractId} or execution ${executionId} not found`,
+				`Pending contract execution ${executionId} not found for ${userPubKey}`,
 			);
 		}
-		if (execution.status !== "pending-signatures") {
-			throw new ForbiddenException(
-				`Cannot sign an execution with status ${execution.status}`,
-			);
-		}
-		if (execution.cleanTransaction.approvedByPubKeys.includes(signerPubKey)) {
+		if (execution.cleanTransaction.approvedByPubKeys.includes(userPubKey)) {
 			throw new ConflictException("Signer has already signed");
 		}
-		if (execution.cleanTransaction.rejectedByPubKeys.includes(signerPubKey)) {
-			throw new ConflictException("Signer has already rejected");
+		if (execution.cleanTransaction.rejectedByPubKeys.includes(userPubKey)) {
+			throw new ConflictException("User has already rejected");
+		}
+		const contract = await this.getOneForPartyAndStatus(
+			contractId,
+			userPubKey,
+			["pending-execution", "under-arbitration"],
+		);
+		if (!contract) {
+			throw new NotFoundException(
+				`Pending contract ${contractId} not found for ${userPubKey}`,
+			);
 		}
 		const requiredPubkeys = execution.cleanTransaction.requiredSigners.flatMap(
 			(s) => {
@@ -607,9 +611,48 @@ export class EscrowsContractsService {
 				}
 			},
 		);
-		if (!requiredPubkeys.includes(signerPubKey)) {
+		if (!requiredPubkeys.includes(userPubKey)) {
 			throw new ConflictException("Signer is not a required signer");
 		}
+		return { contract, execution };
+	}
+
+	async rejectContractExecution(
+		rejectorPubkey: string,
+		input: { contractId: string; executionId: string; reason: string },
+	): Promise<void> {
+		const { execution } = await this.getContractExecutionPendingForUser({
+			contractId: input.contractId,
+			executionId: input.executionId,
+			userPubKey: rejectorPubkey,
+		});
+		await this.contractExecutionRepository.update(
+			{
+				externalId: input.executionId,
+				contract: { externalId: input.contractId },
+			},
+			{
+				status: "canceled",
+				cancelationReason: input.reason,
+			},
+		);
+	}
+
+	async signContractExecution(
+		contractId: string,
+		executionId: string,
+		signerPubKey: PublicKey,
+		signature: {
+			arkTx: string;
+			checkpoints: string[];
+		},
+	): Promise<GetExecutionByContractDto> {
+		const { contract, execution } =
+			await this.getContractExecutionPendingForUser({
+				contractId,
+				executionId,
+				userPubKey: signerPubKey,
+			});
 
 		try {
 			const txBytes = base64.decode(signature.arkTx);
@@ -658,11 +701,6 @@ export class EscrowsContractsService {
 				: signature.checkpoints,
 		};
 
-		// backup if finalization fails
-		const rollbackToStatus = execution.status;
-		const rollbackToCleanTransaction = execution.cleanTransaction;
-		const rollbackToSignedTransaction = execution.signedTransaction;
-
 		await this.contractExecutionRepository.update(
 			{
 				externalId: executionId,
@@ -691,16 +729,15 @@ export class EscrowsContractsService {
 					`execution ${executionId} successfully submitted to ark with txid ${finalTxId}`,
 				);
 			} catch (e) {
-				this.logger.error("Failed to submit execution to ark, rollback", e);
+				this.logger.error("Failed to submit transaction", e);
 				await this.contractExecutionRepository.update(
 					{
 						externalId: executionId,
 						contract: { externalId: contractId },
 					},
 					{
-						status: rollbackToStatus,
-						cleanTransaction: rollbackToCleanTransaction,
-						signedTransaction: rollbackToSignedTransaction,
+						status: "failed",
+						cancelationReason: "Failed to submit transaction to ARK server",
 					},
 				);
 				throw new InternalServerErrorException(
@@ -842,8 +879,25 @@ export class EscrowsContractsService {
 		const contract = await this.getOneForPartyAndStatus(
 			externalId,
 			initiatorPubKey,
-			"funded",
+			["funded", "pending-execution"],
 		);
+		if (contract?.status === "pending-execution") {
+			const pendingExecutions = await this.contractExecutionRepository.find({
+				where: {
+					contract: { externalId: externalId },
+					status: In([
+						"pending-signatures",
+						"pending-server-confirmation",
+						"executed",
+					]),
+				},
+			});
+			if (pendingExecutions.length > 0) {
+				throw new ConflictException(
+					"Contract has pending or completed executions",
+				);
+			}
+		}
 		if (!contract) {
 			throw new NotFoundException(
 				`Contract ${externalId} with status 'funded' not found for ${initiatorPubKey}`,
@@ -854,7 +908,7 @@ export class EscrowsContractsService {
 		}
 		if (contract.receiverPubkey !== initiatorPubKey) {
 			throw new ForbiddenException(
-				"Only the receiver can initiate a direct settlement execution",
+				"Only the receiver can initiate a direct settlement execution with address",
 			);
 		}
 

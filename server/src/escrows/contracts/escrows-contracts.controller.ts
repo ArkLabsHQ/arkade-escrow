@@ -4,6 +4,7 @@ import {
 	ConflictException,
 	Controller,
 	DefaultValuePipe,
+	Delete,
 	ForbiddenException,
 	Get,
 	HttpCode,
@@ -379,7 +380,7 @@ export class EscrowsContractsController {
 		@Param("contractId") contractId: string,
 		@Body() dto: CancelRejectEscrowContractDto,
 	): Promise<ApiEnvelope<GetEscrowContractDto>> {
-		const contract = await this.service.recedFromContract({
+		const contract = await this.service.recedeFromContract({
 			externalId: contractId,
 			rejectorPubkey: user.publicKey,
 			reason: dto.reason,
@@ -494,17 +495,41 @@ export class EscrowsContractsController {
 		@Param("executionId") executionId: string,
 		@Body() dto: SignExecutionInDto,
 	): Promise<ApiEnvelope<GetExecutionByContractDto>> {
-		try {
-			const execution = await this.service.signContractExecution(
-				externalId,
-				executionId,
-				user.publicKey,
-				dto,
-			);
-			return envelope(execution);
-		} catch (e) {
-			this.logger.error(e);
-			throw new InternalServerErrorException(e);
-		}
+		const execution = await this.service.signContractExecution(
+			externalId,
+			executionId,
+			user.publicKey,
+			dto,
+		);
+		return envelope(execution);
+	}
+
+	@Delete(":externalId/executions/:executionId")
+	@UseGuards(AuthGuard)
+	@ApiBearerAuth()
+	@ApiOperation({ summary: "Reject contract execution" })
+	@ApiParam({
+		name: "externalId",
+		description: "Contract external id",
+	})
+	@ApiParam({
+		name: "executionId",
+		description: "Contract execution external id",
+	})
+	@ApiOkResponse({})
+	@ApiUnauthorizedResponse({ description: "Missing/invalid JWT" })
+	@ApiForbiddenResponse({ description: "Not allowed to access this contract" })
+	@ApiNotFoundResponse({ description: "Escrow execution not found" })
+	async rejectContractExecution(
+		@UserFromJwt() user: User,
+		@Param("externalId") contractId: string,
+		@Param("executionId") executionId: string,
+	): Promise<ApiEnvelope<void>> {
+		await this.service.rejectContractExecution(user.publicKey, {
+			contractId,
+			executionId,
+			reason: `not implemented - ${user.publicKey} `,
+		});
+		return envelope();
 	}
 }

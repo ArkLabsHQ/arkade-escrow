@@ -108,6 +108,34 @@ export class ArbitrationService {
 				status: "under-arbitration",
 			},
 		);
+		try {
+			const invalidationResult = await this.contractExecutionRepository
+				.createQueryBuilder()
+				.update(ContractExecution)
+				.set({
+					status: "canceled",
+					cancelationReason: "Canceled due to dispute",
+				})
+				.where("contractExternalId = :contractId", {
+					contractId: input.contractId,
+				})
+				.andWhere("status IN (:...statuses)", {
+					statuses: [
+						"pending-initiator-signature",
+						"pending-counterparty-signature",
+						"pending-server-confirmation",
+					],
+				})
+				.execute();
+			this.logger.debug(
+				`Invalidated ${invalidationResult.affected} contract executions for contract ${contract.externalId}`,
+			);
+		} catch (e) {
+			this.logger.error(
+				`Failed to cancel contract executions for contract ${contract.externalId}`,
+				e,
+			);
+		}
 		this.events.emit(CONTRACT_DISPUTED_ID, {
 			eventId: nanoid(4),
 			contractId: contract.externalId,

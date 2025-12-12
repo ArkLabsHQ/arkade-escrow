@@ -120,30 +120,25 @@ export default function useContractActionHandler(): {
 	});
 
 	const recedeFromContract = useMutation({
-		mutationFn: async (input: { contractId: string; reason: string }) => {
-			const r = await axios.patch(
+		mutationFn: async (input: { contractId: string; reason: string }) =>
+			axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}/recede`,
 				{
 					reason: input.reason,
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-		},
+			),
 	});
 
 	const updateReleaseAddress = useMutation({
-		mutationFn: async (input: {
-			contractId: string;
-			releaseAddress: string;
-		}) => {
-			const r = await axios.patch(
+		mutationFn: async (input: { contractId: string; releaseAddress: string }) =>
+			axios.patch(
 				`${Config.apiBaseUrl}/escrows/contracts/${input.contractId}`,
 				{
 					releaseAddress: input.releaseAddress,
 				},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
-			);
-		},
+			),
 	});
 
 	const createExecutionForDispute = useMutation({

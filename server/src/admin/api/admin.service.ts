@@ -179,6 +179,31 @@ export class AdminService {
 		};
 	}
 
+	private async invalidatePendingContractExecutions(
+		contractId: string,
+	): Promise<number> {
+		// invalidate all contract executions
+		const invalidationResult = await this.contractExecutionRepository
+			.createQueryBuilder()
+			.update(ContractExecution)
+			.set({
+				status: "canceled",
+				cancelationReason: "Canceled due to dispute",
+			})
+			.where("contractExternalId = :contractId", {
+				contractId,
+			})
+			.andWhere("status IN (:...statuses)", {
+				statuses: [
+					"pending-initiator-signature",
+					"pending-counterparty-signature",
+					"pending-server-confirmation",
+				],
+			})
+			.execute();
+		return invalidationResult.affected ?? 0;
+	}
+
 	async arbitrateDispute(input: {
 		contractId: string;
 		arbitrationId: string;
@@ -215,25 +240,11 @@ export class AdminService {
 		}
 
 		try {
-			// invalidate all contract executions
-			const invalidationResult = await this.contractExecutionRepository
-				.createQueryBuilder()
-				.update(ContractExecution)
-				.set({ status: "canceled-by-arbitrator" })
-				.where("contractExternalId = :contractId", {
-					contractId: input.contractId,
-				})
-				.andWhere("status IN (:...statuses)", {
-					statuses: [
-						"pending-initiator-signature",
-						"pending-counterparty-signature",
-						"pending-server-confirmation",
-					],
-				})
-				.execute();
-
+			const invalidated = await this.invalidatePendingContractExecutions(
+				input.contractId,
+			);
 			this.logger.log(
-				`${invalidationResult.affected} executions invalidated for contract ${input.contractId}`,
+				`${invalidated} executions invalidated for contract ${input.contractId}`,
 			);
 		} catch (e) {
 			this.logger.error(
