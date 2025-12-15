@@ -10,7 +10,7 @@ import Config from "@/Config";
 import { ApiEnvelope } from "../../../../server/src/common/dto/envelopes";
 import { useSession } from "@/components/SessionProvider";
 import { useAppShell } from "@/components/AppShell/RpcProvider";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ArkAddress } from "@arkade-os/sdk";
 
 export type ActionInput = {
@@ -29,11 +29,12 @@ export type ActionInput = {
 
 export default function useContractActionHandler(): {
 	handleAction: (input: ActionInput) => Promise<void>;
-	isHandling: boolean;
 } {
 	const { signTransaction, fundAddress } = useAppShell();
 	const me = useSession();
-	const [isExecuting, setIsExecuting] = useState(false);
+
+	// need a ref to work with promises
+	const isExecuting = useRef(false);
 
 	const acceptContract = useMutation({
 		mutationFn: async (contractId: string) => {
@@ -184,17 +185,16 @@ export default function useContractActionHandler(): {
 		},
 	});
 
-	const lockExecution = useCallback(
-		async (task: () => Promise<unknown>) => {
-			if (isExecuting) return;
-			setIsExecuting(true);
-			await task().finally(() => {
-				setIsExecuting(false);
-			});
-			return;
-		},
-		[isExecuting],
-	);
+	const lockExecution = useCallback(async (task: () => Promise<unknown>) => {
+		if (isExecuting.current) return;
+		isExecuting.current = true;
+		try {
+			await task();
+		} finally {
+			isExecuting.current = false;
+		}
+		return;
+	}, []);
 
 	const handleAction = async ({
 		action,
@@ -307,5 +307,5 @@ export default function useContractActionHandler(): {
 		}
 	};
 
-	return { handleAction, isHandling: isExecuting };
+	return { handleAction };
 }

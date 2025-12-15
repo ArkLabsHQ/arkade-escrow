@@ -5,7 +5,7 @@
 		"paths": {
 			"@/*": ["./src/*"]
 		},
-		"jsx": "preserve",
+		"jsx": "react-jsx",
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"noEmit": true,
