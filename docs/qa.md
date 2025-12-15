@@ -80,6 +80,37 @@ Same flow, but step 1 is:
     - Contract creator can **cancel** it **before it’s funded**
     - Either party can **dispute** the Contract (where applicable)
 
+## Standalone version
+
+In the **standalone** version, user identity is managed locally rather than via the host wallet.
+
+### Identity creation
+A user identity is created in one of two ways:
+- The user **imports a private key**, or
+- The app **generates a new private key** for the user
+
+**Important:** the private key is **shown only once**. After that, the user must rely on their own backup; the app does not re-display it.
+
+### How the flow compares to the hosted version
+After identity creation, the Request → Contract → Accept → Fund → Execute lifecycle is **conceptually the same** as the hosted version, with two key differences:
+
+1. **Receiver wallet address must be provided before execution**
+    - In standalone mode, the app does **not have a readily-available wallet address** for the receiver.
+    - Therefore, the **receiver must explicitly specify a wallet address** (where funds should be released) **before the contract can be executed**.
+
+2. **Funding happens outside the app**
+    - Because the standalone app doesn’t provide an in-app wallet for sending funds, the sender cannot “fund” from within the app UI.
+    - Instead, the sender must:
+        - **Copy the contract’s ARK address** shown by the app, and
+        - **Fund it from an external wallet** (Ark wallet/app).
+    - Once the on-chain funding transaction is detected, both parties should see that the funds have arrived and can proceed to execution.
+
+### QA focus points specific to standalone
+- Private key is displayed **only once** (verify there is no “show again” path).
+- Execution should be blocked until a **receiver address is provided**.
+- Funding UX should clearly guide the sender to **copy the contract ARK address** and fund externally.
+- After external funding, the contract should correctly reflect “funds received” and allow execution.
+
 ---
 
 ## Key QA checkpoints
