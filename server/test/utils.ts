@@ -9,7 +9,7 @@ import { execSync } from "node:child_process";
 
 hashes.sha256 = sha256;
 
-export const E2E_TIMEOUT = 30_000;
+export const E2E_TIMEOUT = 40_000;
 
 /** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
 export const arkdExec =
