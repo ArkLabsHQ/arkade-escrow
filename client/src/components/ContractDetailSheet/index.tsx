@@ -25,6 +25,7 @@ import {
 	CollapsibleTrigger,
 } from "../ui/collapsible";
 import {
+	ApiEnvelope,
 	ApiPaginatedEnvelope,
 	GetArbitrationDto,
 	GetEscrowContractDto,
@@ -42,7 +43,6 @@ import ExecutionAttempt from "@/components/ContractDetailSheet/ExecutionAttempt"
 import ArbitrationSection from "@/components/ContractDetailSheet/ArbitrationSection";
 import { useContractSse } from "@/components/ContractDetailSheet/useContractSse";
 import { Skeleton } from "../ui/skeleton";
-import { ApiEnvelopeShellDto } from "../../../../server/src/common/dto/envelopes";
 import { AmountBadge } from "@/components/ContractDetailSheet/AmountBadge";
 import { AdditionalData } from "@/components/ContractDetailSheet/AdditionalData";
 import { StatusText } from "@/components/ContractDetailSheet/StatusText";
@@ -58,7 +58,7 @@ type ContractDetailSheetProps = {
 	runAction?: ContractAction;
 	balance?: number;
 	onOpenChange: (open: boolean) => void;
-	onContractAction: (data: ActionInput) => void;
+	onContractAction: (data: ActionInput) => Promise<void>;
 	me: Me;
 };
 
@@ -157,7 +157,7 @@ const InnerContractDetailSheet = ({
 			cacheNonce,
 		],
 		queryFn: async () => {
-			const res = await axios.get<ApiEnvelopeShellDto<GetEscrowContractDto>>(
+			const res = await axios.get<ApiEnvelope<GetEscrowContractDto>>(
 				`${Config.apiBaseUrl}/escrows/contracts/${inputContract.externalId}`,
 				{
 					headers: { authorization: `Bearer ${me.getAccessToken()}` },
@@ -370,10 +370,6 @@ const InnerContractDetailSheet = ({
 			handleActionClick(runAction);
 		}
 	}, [runAction]);
-
-	const arbitrationInMyFavor =
-		(currentArbitration?.verdict === "release" && mySide === "receiver") ||
-		(currentArbitration?.verdict === "refund" && mySide === "sender");
 
 	return (
 		<>

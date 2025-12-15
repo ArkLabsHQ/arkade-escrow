@@ -1,7 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight, User, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
 import { ContractCreationWizard } from "@/components/ContractCreationWizard";
@@ -9,7 +9,11 @@ import { toast } from "sonner";
 
 import Config from "@/Config";
 import { Me } from "@/types/me";
-import { GetEscrowContractDto, GetEscrowRequestDto } from "@/types/api";
+import {
+	ApiEnvelope,
+	GetEscrowContractDto,
+	GetEscrowRequestDto,
+} from "@/types/api";
 import {
 	Sheet,
 	SheetContent,
@@ -33,24 +37,40 @@ type Props = {
 export const RequestDetailSheet = ({
 	me,
 	walletAddress,
-	request,
+	request: inputRequest,
 	open,
 	onOpenChange,
 	onContractCreated,
 }: Props) => {
 	const [wizardOpen, setWizardOpen] = useState(false);
+	const [cacheNonce, setCacheNonce] = useState(1);
+
+	const { data: latestRequest, error: latestRequestError } = useQuery({
+		queryKey: ["request", inputRequest?.externalId, cacheNonce],
+		queryFn: async () => {
+			const res = await axios.get<ApiEnvelope<GetEscrowRequestDto>>(
+				`${Config.apiBaseUrl}/escrows/requests/${inputRequest?.externalId ?? ""}`,
+				{
+					headers: { authorization: `Bearer ${me.getAccessToken()}` },
+				},
+			);
+			return res.data.data;
+		},
+	});
+
+	const request = latestRequest ?? inputRequest ?? null;
 
 	const cancelRequest = useMutation({
 		mutationFn: async (input: { requestId: string }) => {
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const res = await axios.patch<GetEscrowRequestDto>(
+			const res = await axios.patch<ApiEnvelope<GetEscrowRequestDto>>(
 				`${Config.apiBaseUrl}/escrows/requests/${input.requestId}/cancel`,
 				{},
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
 			);
-			return res.data;
+			return res.data.data;
 		},
 	});
 
@@ -62,7 +82,7 @@ export const RequestDetailSheet = ({
 			if (me === null) {
 				throw new Error("User not authenticated");
 			}
-			const res = await axios.post(
+			const res = await axios.post<ApiEnvelope<GetEscrowContractDto>>(
 				`${Config.apiBaseUrl}/escrows/contracts`,
 				payload,
 				{ headers: { authorization: `Bearer ${me.getAccessToken()}` } },
@@ -95,6 +115,8 @@ export const RequestDetailSheet = ({
 	};
 
 	if (!request) return null;
+
+	console.log(request);
 
 	const formattedDate = format(request.createdAt, "PPP 'at' p");
 	const isMine = me.isMyPubkey(request.creatorPublicKey);
@@ -231,7 +253,9 @@ export const RequestDetailSheet = ({
 							<Button
 								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
 								onClick={async () => {
-									await cancelRequest.mutate({ requestId: request.externalId });
+									await cancelRequest.mutate({
+										requestId: request.externalId,
+									});
 									onOpenChange(false);
 								}}
 							>
