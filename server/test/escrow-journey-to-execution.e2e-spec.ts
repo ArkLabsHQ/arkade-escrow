@@ -75,11 +75,6 @@ describe("Escrow from Request to completed Contract", () => {
 			createEscrowRequestBody.amount,
 		);
 
-		// On the CI we don't have access to arkd CLI for now, stop here
-		if (process.env.CI) {
-			return;
-		}
-
 		faucetOffchain(
 			acceptedContractRes.body.data.arkAddress,
 			acceptedContractRes.body.data.amount,

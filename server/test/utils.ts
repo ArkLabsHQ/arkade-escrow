@@ -9,7 +9,7 @@ import { execSync } from "node:child_process";
 
 hashes.sha256 = sha256;
 
-export const E2E_TIMEOUT = 20_000;
+export const E2E_TIMEOUT = 30_000;
 
 /** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
 export const arkdExec =
@@ -28,10 +28,6 @@ export function execCommand(command: string): string {
 // before each test check if the ark's cli running in the test env has at least 20_000 offchain balance
 // if not, fund it with 100.000
 export function beforeEachFaucet(): void {
-	// On the CI we don't have access to arkd CLI for now
-	if (process.env.CI) {
-		return;
-	}
 	const balanceOutput = execCommand(`${arkdExec} ark balance`);
 	const balance = JSON.parse(balanceOutput);
 	const offchainBalance = balance.offchain_balance.total;
