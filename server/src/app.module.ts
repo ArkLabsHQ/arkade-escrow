@@ -64,7 +64,7 @@ export class AppModule implements NestModule {
 	configure(consumer: MiddlewareConsumer) {
 		consumer
 			.apply(BasicAuthMiddleware)
-			.forRoutes({ path: "backoffice", method: RequestMethod.ALL });
+			.forRoutes({ path: "backoffice/*", method: RequestMethod.ALL });
 
 		consumer
 			.apply(RequestLoggingMiddleware)
