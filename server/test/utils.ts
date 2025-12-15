@@ -9,14 +9,13 @@ import { execSync } from "node:child_process";
 
 hashes.sha256 = sha256;
 
+export const E2E_TIMEOUT = 20_000;
+
 /** Test helpers from https://github.com/arkade-os/ts-sdk/blob/master/test/e2e/utils.ts **/
 export const arkdExec =
 	process.env.ARK_ENV === "docker" ? "docker exec -t arkd" : "nigiri";
 
 export function faucetOffchain(address: string, amount: number): void {
-	console.log(
-		`Fauceting via ${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
-	);
 	execCommand(
 		`${arkdExec} ark send --to ${address} --amount ${amount} --password secret`,
 	);
@@ -124,3 +123,38 @@ export const createEscrowRequestBody = {
 	description: "Test escrow creation",
 	public: true,
 };
+
+export const sleep = (ms: number) =>
+	new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function waitForContractStatus(params: {
+	app: INestApplication;
+	contractId: string;
+	token: string;
+	expectedStatus: string;
+	timeoutMs?: number;
+	intervalMs?: number;
+}) {
+	const { app, contractId, token, expectedStatus } = params;
+	const timeoutMs = params.timeoutMs ?? 30_000;
+	const intervalMs = params.intervalMs ?? 1_000;
+
+	const startedAt = Date.now();
+	// Poll until funded (arkd sync can be slow/flaky)
+	while (Date.now() - startedAt < timeoutMs) {
+		const res = await request(app.getHttpServer())
+			.get(`/api/v1/escrows/contracts/${contractId}`)
+			.set("Authorization", `Bearer ${token}`)
+			.expect(200);
+
+		if (res.body?.data?.status === expectedStatus) {
+			return res;
+		}
+
+		await sleep(intervalMs);
+	}
+
+	throw new Error(
+		`Timed out waiting for contract ${contractId} to become "${expectedStatus}" after ${timeoutMs}ms`,
+	);
+}
