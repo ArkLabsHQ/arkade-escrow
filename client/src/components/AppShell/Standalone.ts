@@ -1,5 +1,5 @@
 import { InboundMessage, OutboundMessage } from "@/components/AppShell/types";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { Identity, Transaction, Wallet } from "@arkade-os/sdk";
 import { base64 } from "@scure/base";
 import { AppShell, MessageEventLike } from "./RpcProvider";
