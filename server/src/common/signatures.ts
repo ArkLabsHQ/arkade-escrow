@@ -1,4 +1,4 @@
-import { Transaction } from "@arkade-os/sdk";
+import { combineTapscriptSigs, Transaction } from "@arkade-os/sdk";
 import { base64 } from "@scure/base";
 
 /**
@@ -28,15 +28,22 @@ export function mergeCheckpoints(
 		if (!signedCheckpointTx) {
 			throw new Error("Signed checkpoint not found");
 		}
-		// for every input, concatenate its signatures with the signature from the server
-		for (let j = 0; j < myCheckpointTx.inputsLength; j++) {
-			const input = myCheckpointTx.getInput(j);
-			const inputFromServer = signedCheckpointTx.getInput(j);
-			if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
-			myCheckpointTx.updateInput(i, {
-				tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig),
-			});
-		}
+		combineTapscriptSigs(myCheckpointTx, signedCheckpointTx);
+		// // for every input, concatenate its signatures with the signature from the server
+		// for (let j = 0; j < myCheckpointTx.inputsLength; j++) {
+		// 	const input = myCheckpointTx.getInput(j);
+		// 	const inputFromServer = signedCheckpointTx.getInput(j);
+		// 	if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
+		// 	try {
+		// 		myCheckpointTx.updateInput(i, {
+		// 			tapScriptSig: input.tapScriptSig?.concat(
+		// 				inputFromServer.tapScriptSig,
+		// 			),
+		// 		});
+		// 	} catch (e) {
+		// 		console.error(e);
+		// 	}
+		// }
 	}
 	return originalCheckpointsDecoded;
 }
@@ -44,14 +51,15 @@ export function mergeCheckpoints(
 export function mergeTx(signedTx: string, originalTx: string) {
 	const signedTxDecoded = Transaction.fromPSBT(base64.decode(signedTx));
 	const originalTxDecoded = Transaction.fromPSBT(base64.decode(originalTx));
-	for (let i = 0; i < signedTxDecoded.inputsLength; i++) {
-		const input = originalTxDecoded.getInput(i);
-		const inputFromServer = signedTxDecoded.getInput(i);
-		if (!input.tapScriptSig || !inputFromServer.tapScriptSig)
-			throw new Error("No tapScriptSig");
-		originalTxDecoded.updateInput(i, {
-			tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig),
-		});
-	}
+	// for (let i = 0; i < signedTxDecoded.inputsLength; i++) {
+	// 	const input = originalTxDecoded.getInput(i);
+	// 	const inputFromServer = signedTxDecoded.getInput(i);
+	// 	if (!input.tapScriptSig || !inputFromServer.tapScriptSig)
+	// 		throw new Error("No tapScriptSig");
+	// 	originalTxDecoded.updateInput(i, {
+	// 		tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig),
+	// 	});
+	// }
+	combineTapscriptSigs(originalTxDecoded, signedTxDecoded);
 	return originalTxDecoded;
 }

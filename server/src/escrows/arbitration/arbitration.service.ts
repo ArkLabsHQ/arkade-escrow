@@ -346,7 +346,7 @@ export class ArbitrationService {
 		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new InternalServerErrorException("Contract  is not funded");
 		}
-		const vtxo = contract.virtualCoins[0];
+		const vtxos = contract.virtualCoins;
 		switch (arbitration.verdict) {
 			case "release": {
 				if (contract.receiverPubkey !== user.publicKey) {
@@ -363,7 +363,7 @@ export class ArbitrationService {
 						arbitratorPublicKey: this.arbitratorPublicKey,
 						contractNonce: `${contract.externalId}${contract.request.externalId}`,
 					},
-					vtxo,
+					vtxos,
 				);
 				const { signedTx, signedCheckpoints } =
 					await this.signArbitrationTx(escrowTransaction);
@@ -377,11 +377,11 @@ export class ArbitrationService {
 					initiatedByPubKey: this.arbitratorPublicKey,
 					status: "pending-signatures",
 					cleanTransaction: {
-						vtxo: {
+						vtxos: vtxos.map((vtxo) => ({
 							txid: vtxo.txid,
 							vout: vtxo.vout,
 							value: vtxo.value,
-						},
+						})),
 						arkTx: escrowTransaction.arkTx,
 						checkpoints: escrowTransaction.checkpoints,
 						requiredSigners: escrowTransaction.requiredSigners,
@@ -400,7 +400,7 @@ export class ArbitrationService {
 					contractId: persisted.contract.externalId,
 					arkTx: persisted.cleanTransaction.arkTx,
 					checkpoints: persisted.cleanTransaction.checkpoints,
-					vtxo: persisted.cleanTransaction.vtxo,
+					vtxos: persisted.cleanTransaction.vtxos,
 				};
 			}
 			case "refund": {
@@ -418,7 +418,7 @@ export class ArbitrationService {
 						arbitratorPublicKey: this.arbitratorPublicKey,
 						contractNonce: `${contract.externalId}${contract.request.externalId}`,
 					},
-					vtxo,
+					vtxos,
 				);
 				const { signedTx, signedCheckpoints } =
 					await this.signArbitrationTx(escrowTransaction);
@@ -432,11 +432,11 @@ export class ArbitrationService {
 					initiatedByPubKey: this.arbitratorPublicKey,
 					status: "pending-signatures",
 					cleanTransaction: {
-						vtxo: {
+						vtxos: vtxos.map((vtxo) => ({
 							txid: vtxo.txid,
 							vout: vtxo.vout,
 							value: vtxo.value,
-						},
+						})),
 						arkTx: escrowTransaction.arkTx,
 						checkpoints: escrowTransaction.checkpoints,
 						requiredSigners: escrowTransaction.requiredSigners,
@@ -455,7 +455,7 @@ export class ArbitrationService {
 					contractId: persisted.contract.externalId,
 					arkTx: persisted.cleanTransaction.arkTx,
 					checkpoints: persisted.cleanTransaction.checkpoints,
-					vtxo: persisted.cleanTransaction.vtxo,
+					vtxos: persisted.cleanTransaction.vtxos,
 				};
 			}
 			default:

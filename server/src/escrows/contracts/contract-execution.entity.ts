@@ -30,11 +30,19 @@ export const EXECUTION_STATUS = [
 export type ExecutionStatus = (typeof EXECUTION_STATUS)[number];
 
 export type ExecutionTransaction = {
+	/** @deprecated use vtxos instead */
 	vtxo: {
 		txid: string;
 		vout: number;
 		value: number;
 	};
+	vtxos: [
+		{
+			txid: string;
+			vout: number;
+			value: number;
+		},
+	];
 	requiredSigners: Signers[];
 	approvedByPubKeys: PublicKey[]; // List of pubkeys who have approved
 	rejectedByPubKeys: PublicKey[]; // List of pubkeys who have rejected
