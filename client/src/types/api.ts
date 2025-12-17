@@ -132,7 +132,7 @@ export type GetArbitrationDto = {
 	arbitratorPublicKey: string;
 	reason: string;
 	status: "pending" | "resolved" | "executed";
-	verdict: "refund" | "release";
+	verdict?: "refund" | "release";
 	createdAt: number;
 	updatedAt: number;
 };

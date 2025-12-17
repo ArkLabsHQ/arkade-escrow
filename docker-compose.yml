@@ -31,6 +31,8 @@ services:
       - ARBITRATOR_PRIV_KEY
       - BACKOFFICE_BASIC_USER
       - BACKOFFICE_BASIC_PASS
+      # optional: set to 'true' to enable demo mode (auto-resolves disputes)
+      - DEMO_MODE
     volumes:
       - sqlite-data:/app/data
     networks:
