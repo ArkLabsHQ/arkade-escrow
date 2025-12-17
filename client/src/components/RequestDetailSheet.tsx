@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, User, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Share, User, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -56,6 +56,7 @@ export const RequestDetailSheet = ({
 			);
 			return res.data.data;
 		},
+		enabled: inputRequest !== null,
 	});
 
 	const request = latestRequest ?? inputRequest ?? null;
@@ -189,7 +190,6 @@ export const RequestDetailSheet = ({
 						<div className="flex items-start gap-3">
 							<User className="h-5 w-5 text-muted-foreground mt-0.5" />
 							<div className="flex-1">
-								<p className="text-sm text-muted-foreground">Created by</p>
 								<p className="text-base font-medium text-foreground">
 									{me.pubkeyAsMe(request.creatorPublicKey)}
 								</p>
@@ -243,15 +243,22 @@ export const RequestDetailSheet = ({
 					{/* Actions */}
 					<div className="flex gap-3 pt-4">
 						<Button
-							variant="outline"
-							className="flex-1"
-							onClick={() => onOpenChange(false)}
+							key={"execute-funded"}
+							className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+							onClick={(event) => {
+								event.preventDefault();
+								window.navigator.clipboard.writeText(request.shareUrl);
+								toast.success("Copied to clipboard!", {
+									description: "You can now share this link with another user.",
+								});
+							}}
 						>
-							Close
+							Share
 						</Button>
 						{isMine && request.status !== "canceled" && (
 							<Button
-								className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+								variant="secondary"
+								className="flex-1"
 								onClick={async () => {
 									await cancelRequest.mutate({
 										requestId: request.externalId,
@@ -270,6 +277,15 @@ export const RequestDetailSheet = ({
 								Create Contract
 							</Button>
 						)}
+					</div>
+					<div className="flex gap-3">
+						<Button
+							variant="outline"
+							className="flex-1"
+							onClick={() => onOpenChange(false)}
+						>
+							Close
+						</Button>
 					</div>
 				</div>
 			</SheetContent>

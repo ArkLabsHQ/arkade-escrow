@@ -42,10 +42,11 @@ export class EscrowRequestsService {
 		private readonly config: ConfigService,
 		private readonly events: EventEmitter2,
 	) {
-		// SHARE_BASE_URL like: https://app.example/escrows/requests
-		this.shareBase =
-			this.config.get<string>("SHARE_BASE_URL") ??
-			"http://localhost:3000/escrows/requests";
+		const shareBaseUrl = this.config.get<string>("SHARE_BASE_URL");
+		if (!shareBaseUrl) {
+			throw new Error("SHARE_BASE_URL is not set");
+		}
+		this.shareBase = shareBaseUrl;
 	}
 
 	async create(
@@ -112,6 +113,7 @@ export class EscrowRequestsService {
 			description: found.description,
 			status: found.status,
 			public: found.public,
+			shareUrl: `${this.shareBase}/${found.externalId}`,
 			contractsCount,
 			createdAt: found.createdAt.getTime(),
 		};
@@ -187,6 +189,7 @@ export class EscrowRequestsService {
 			description: r.description,
 			status: r.status,
 			public: r.public,
+			shareUrl: `${this.shareBase}/${r.externalId}`,
 			contractsCount: Number(raw[i]?.contractsCount ?? 0),
 			createdAt: r.createdAt.getTime(),
 		}));

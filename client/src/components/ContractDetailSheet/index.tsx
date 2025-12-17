@@ -349,6 +349,7 @@ const InnerContractDetailSheet = ({
 				newReleaseAddress: data?.releaseAddress,
 				receiverAddress: contract.receiverAddress,
 				arbitrationTransferAddress: data?.arbitrationTransferAddress,
+				mySide,
 			});
 		} catch (error) {
 			console.error("Error handling action:", error);

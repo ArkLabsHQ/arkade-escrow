@@ -3,6 +3,12 @@
 import { VirtualCoin } from "@arkade-os/sdk";
 import { ApiProperty } from "@nestjs/swagger";
 
+export type Vtxo = {
+	txid: string;
+	vout: number;
+	value: number;
+};
+
 export type ApiPaginatedMeta = {
 	nextCursor?: string;
 	total: number;
@@ -26,6 +32,7 @@ export type GetEscrowRequestDto = {
 	amount: number;
 	description: string;
 	public: boolean;
+	shareUrl: string;
 	status: "open" | "canceled";
 	contractsCount: number;
 	createdAt: number;
@@ -82,11 +89,7 @@ export type GetEscrowContractDto = {
 export type Signers = "sender" | "receiver" | "server" | "arbitrator";
 
 export type ExecutionTransaction = {
-	vtxo: {
-		txid: string;
-		vout: number;
-		value: number;
-	};
+	vtxos: Vtxo[];
 	arkTx: string; // The Ark transaction as PSBT
 	checkpoints: string[]; // Checkpoint transactions as PSBTs
 	requiredSigners: Signers[];
@@ -119,11 +122,7 @@ export type ExecuteEscrowContractOutDto = {
 	contractId: string;
 	arkTx: string;
 	checkpoints: string[];
-	vtxo: {
-		txid: string;
-		vout: number;
-		value: number;
-	};
+	vtxos: Vtxo[];
 };
 
 export type GetArbitrationDto = {

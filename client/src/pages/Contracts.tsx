@@ -33,7 +33,7 @@ export default function Contracts() {
 		action?: ContractAction;
 	}>({ open: false });
 	const me = useSession();
-	const { handleAction, isHandling } = useContractActionHandler();
+	const { handleAction } = useContractActionHandler();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [statusFilter, setStatusFilter] = useState<

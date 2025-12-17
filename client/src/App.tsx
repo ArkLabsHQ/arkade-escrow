@@ -66,6 +66,10 @@ const App = () => {
 										element={<Requests />}
 									/>
 									<Route
+										path={`${Config.appRootUrl}/requests/:externalId`}
+										element={<Requests />}
+									/>
+									<Route
 										path={`${Config.appRootUrl}/contracts`}
 										element={<Contracts />}
 									/>

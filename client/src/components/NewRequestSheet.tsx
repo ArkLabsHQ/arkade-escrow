@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Switch } from "./ui/switch";
 import { ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import { useAppShell } from "@/components/AppShell/RpcProvider";
 
 type Inputs = {
 	side: "receiver" | "sender";
@@ -33,6 +34,7 @@ export const NewRequestSheet = ({
 	onOpenChange,
 	onSubmit,
 }: NewRequestSheetProps) => {
+	const { isHosted } = useAppShell();
 	const thisId = useId();
 
 	const {
@@ -208,34 +210,44 @@ export const NewRequestSheet = ({
 					</div>
 
 					{/* Public Toggle */}
-					<div className="flex items-center justify-between p-4 border border-border rounded-xl">
-						<div className="flex-1">
-							<Label
-								htmlFor={`${thisId}-public`}
-								className="text-base font-medium cursor-pointer"
-							>
-								Make Public
-							</Label>
-							<p className="text-sm text-muted-foreground mt-1">
-								Your request will be visible in the orderbook
-							</p>
+					{isHosted ? (
+						<div className="flex items-center justify-between p-4 border border-border rounded-xl">
+							<div className="flex-1">
+								<p className="text-sm text-muted-foreground mt-1">
+									Your request will be visible in the orderbook
+								</p>
+							</div>
 						</div>
-						<Controller
-							name="public"
-							control={control}
-							// No "required" here—false must be allowed
-							render={({ field }) => (
-								<Switch
-									id={`${thisId}-public`}
-									checked={!!field.value}
-									onCheckedChange={(checked) => {
-										field.onChange(checked);
-										field.onBlur();
-									}}
-								/>
-							)}
-						/>
-					</div>
+					) : (
+						<div className="flex items-center justify-between p-4 border border-border rounded-xl">
+							<div className="flex-1">
+								<Label
+									htmlFor={`${thisId}-public`}
+									className="text-base font-medium cursor-pointer"
+								>
+									Make Public
+								</Label>
+								<p className="text-sm text-muted-foreground mt-1">
+									Your request will be visible in the orderbook
+								</p>
+							</div>
+							<Controller
+								name="public"
+								control={control}
+								// No "required" here—false must be allowed
+								render={({ field }) => (
+									<Switch
+										id={`${thisId}-public`}
+										checked={!!field.value}
+										onCheckedChange={(checked) => {
+											field.onChange(checked);
+											field.onBlur();
+										}}
+									/>
+								)}
+							/>
+						</div>
+					)}
 
 					{/* Actions */}
 					<div className="flex gap-3 pt-4">

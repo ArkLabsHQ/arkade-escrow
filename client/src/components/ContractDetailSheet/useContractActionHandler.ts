@@ -3,6 +3,7 @@ import {
 	ExecuteEscrowContractOutDto,
 	GetEscrowContractDto,
 	GetExecutionByContractDto,
+	Side,
 } from "@/types/api";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
@@ -25,6 +26,7 @@ export type ActionInput = {
 	newReleaseAddress?: string;
 	receiverAddress?: string;
 	arbitrationTransferAddress?: string;
+	mySide: Side;
 };
 
 export default function useContractActionHandler(): {
@@ -208,6 +210,7 @@ export default function useContractActionHandler(): {
 		disputeId,
 		receiverAddress,
 		arbitrationTransferAddress,
+		mySide,
 	}: ActionInput) => {
 		switch (action) {
 			case "accept-draft":
@@ -262,7 +265,8 @@ export default function useContractActionHandler(): {
 				return lockExecution(() =>
 					executeContract.mutateAsync({
 						contractId,
-						arkAddress: receiverAddress ?? undefined,
+						// only the receiver can initiate an execution with a release address (validated also on API)
+						arkAddress: mySide === "receiver" ? receiverAddress : undefined,
 					}),
 				);
 			case "approve":

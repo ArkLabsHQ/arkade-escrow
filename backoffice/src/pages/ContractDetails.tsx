@@ -19,6 +19,7 @@ interface Contract {
 	requestId: string;
 	senderPublicKey: string;
 	receiverPublicKey: string;
+	receiverAddress?: string;
 	amount: number;
 	arkAddress?: string;
 	status: string;
@@ -329,6 +330,14 @@ const ContractDetails = () => {
 									<p className="text-sm text-muted-foreground">ARK Address</p>
 									<p className="font-mono text-xs break-normal">
 										{contract.arkAddress ?? "-"}
+									</p>
+								</div>
+								<div className="md:col-span-2">
+									<p className="text-sm text-muted-foreground">
+										Release Address
+									</p>
+									<p className="font-mono text-xs break-normal">
+										{contract.receiverAddress ?? "-"}
 									</p>
 								</div>
 								<div>

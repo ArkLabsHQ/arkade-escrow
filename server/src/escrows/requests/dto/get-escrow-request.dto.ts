@@ -23,6 +23,9 @@ export class GetEscrowRequestDto {
 	@ApiProperty()
 	description!: string;
 
+	@ApiProperty()
+	shareUrl!: string;
+
 	@ApiProperty({
 		enum: REQUEST_STATUS,
 		description: "Request status",

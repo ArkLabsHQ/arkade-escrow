@@ -13,14 +13,20 @@ import {
 import { Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 import Config from "@/Config";
-import { ApiPaginatedEnvelope, GetEscrowRequestDto } from "@/types/api";
+import {
+	ApiEnvelope,
+	ApiPaginatedEnvelope,
+	GetEscrowRequestDto,
+} from "@/types/api";
 import axios from "axios";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSession } from "@/components/SessionProvider";
 import { useAppShell } from "@/components/AppShell/RpcProvider";
+import { useParams } from "react-router";
 
 export function Requests() {
 	const { walletAddress } = useAppShell();
+	const { externalId: paramRequestId } = useParams();
 	const [selectedRequest, setSelectedRequest] =
 		useState<GetEscrowRequestDto | null>(null);
 
@@ -128,6 +134,21 @@ export function Requests() {
 	const handleRequestClick = (request: GetEscrowRequestDto) => {
 		setSelectedRequest(request);
 	};
+
+	useEffect(() => {
+		if (paramRequestId !== undefined) {
+			axios
+				.get<ApiEnvelope<GetEscrowRequestDto>>(
+					`${Config.apiBaseUrl}/escrows/requests/${paramRequestId ?? ""}`,
+					{
+						headers: { authorization: `Bearer ${me.getAccessToken()}` },
+					},
+				)
+				.then((res) => {
+					setSelectedRequest(res.data.data);
+				});
+		}
+	}, [paramRequestId, me.getAccessToken]);
 
 	return (
 		<div className="min-h-screen bg-gradient-subtle">

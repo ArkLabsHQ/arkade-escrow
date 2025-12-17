@@ -126,20 +126,57 @@ export function StatusText({
 				</div>
 			);
 		case "pending-execution": {
-			if (!currentExecution)
-				// TODO: this is an error state on the server, we should never get here
-				return (
-					<div className="flex items-center gap-3">
-						<RowIcon>
-							<Hourglass className="text-muted-foreground" />
-						</RowIcon>
-						<span className={textContainerStyle}>
-							<p className="text-base font-medium text-foreground">
-								Transaction is being created, please reload the page to check.
-							</p>
-						</span>
-					</div>
-				);
+			console.log(currentExecution, releaseAddres, mySide);
+			if (!currentExecution) {
+				if (releaseAddres === undefined) {
+					if (mySide === "sender") {
+						return (
+							<div className="flex items-center gap-3">
+								<RowIcon>
+									<Flag className="text-accent" />
+								</RowIcon>
+								<span className={textContainerStyle}>
+									<p className="text-base font-medium text-foreground">
+										Contract is <b className="font-bold">funded</b> but the
+										release address is not set yet.
+										<br />
+										Please wait for the receiver to set it!
+									</p>
+								</span>
+							</div>
+						);
+					}
+					return (
+						<div className="flex items-center gap-3">
+							<RowIcon>
+								<Flag className="text-accent" />
+							</RowIcon>
+							<span className={textContainerStyle}>
+								<p className="text-base font-medium text-foreground">
+									Contract is <b className="font-bold">funded</b>.
+									<br /> Please update the release address in the contract
+									details to execute it.
+								</p>
+							</span>
+						</div>
+					);
+				} else {
+					// TODO: this is an error!
+					return (
+						<div className="flex items-center gap-3">
+							<RowIcon>
+								<Hourglass className="text-muted-foreground" />
+							</RowIcon>
+							<span className={textContainerStyle}>
+								<p className="text-base font-medium text-foreground">
+									Transaction is being created, please reload the page to check.
+								</p>
+							</span>
+						</div>
+					);
+				}
+			}
+			// receiver must initiate execution
 			if (currentExecution.status === "pending-server-confirmation") {
 				// TODO: this is an error state on the server, we should never get here
 				return (
