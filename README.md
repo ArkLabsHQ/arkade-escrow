@@ -23,17 +23,18 @@ Designed for performance, clarity, and usability, Arkade Escrow provides a polis
 ### API Server
 Found in `./server/.env`
 
-| Variable                    | Description                                                         | Example Value                                                                          |
-| --------------------------- |---------------------------------------------------------------------|----------------------------------------------------------------------------------------|
-| `JWT_SECRET`           | Secret to sign the JWT                                              | `JWT_SECRET=161a40a6e029a45beb8459f0f5f5a95f66d8`                                      |
-| `PORT`                      | Port to run the server on                                              | `PORT=3002`                                                                            |
-| `NODE_ENV`                  | Environment to run the server in (development, production, test)     | `NODE_ENV=development`                                                                 |
-| `SQLITE_DB_PATH`            | Path to the SQLite database file                                       | `SQLITE_DB_PATH=./data/db.sqlite`                                                      |
-| `ARBITRATOR_PUB_KEY`        | Public key of the Arbitrator (hex)                                    | `ARBITRATOR_PUB_KEY=86f5d11162ab25c88f4af9cc4224161a40a6e029a45beb8459f0f5f5a95f66d8`  |
-| `ARBITRATOR_PRIV_KEY`       | Private key of the Arbitrator (hex)                                   | `ARBITRATOR_PRIV_KEY=62325754772ad366d149517311d5fe5cbccb4746ef0285c393ff67f0ad62dd87` |
-| `ARK_SERVER_URL`            | URL of the Ark server to use (e.g. `http://localhost:7070`)           | `ARK_SERVER_URL=http://localhost:7070`                                                 |
-| `BACKOFFICE_BASIC_USER`      | Basic auth username for the Backoffice API (optional)                 | `BACKOFFICE_BASIC_USER=operator`                                                       |
-| `BACKOFFICE_BASIC_PASS`      | Basic auth password for the Backoffice API (optional)                 | `BACKOFFICE_BASIC_PASS=aPassword`                                                      |
+| Variable                    | Description                                                     | Example Value                                                                          |
+| --------------------------- |-----------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| `JWT_SECRET`           | Secret to sign the JWT                                          | `JWT_SECRET=161a40a6e029a45beb8459f0f5f5a95f66d8`                                      |
+| `PORT`                      | Port to run the server on                                       | `PORT=3002`                                                                            |
+| `NODE_ENV`                  | Environment to run the server in (development, production, test) | `NODE_ENV=development`                                                                 |
+| `SQLITE_DB_PATH`            | Path to the SQLite database file                                | `SQLITE_DB_PATH=./data/db.sqlite`                                                      |
+| `ARBITRATOR_PUB_KEY`        | Public key of the Arbitrator (hex)                              | `ARBITRATOR_PUB_KEY=86f5d11162ab25c88f4af9cc4224161a40a6e029a45beb8459f0f5f5a95f66d8`  |
+| `ARBITRATOR_PRIV_KEY`       | Private key of the Arbitrator (hex)                             | `ARBITRATOR_PRIV_KEY=62325754772ad366d149517311d5fe5cbccb4746ef0285c393ff67f0ad62dd87` |
+| `ARK_SERVER_URL`            | URL of the Ark server to use (e.g. `http://localhost:7070`)     | `ARK_SERVER_URL=http://localhost:7070`                                                 |
+| `BACKOFFICE_BASIC_USER`      | Basic auth username for the Backoffice API (optional)           | `BACKOFFICE_BASIC_USER=operator`                                                       |
+| `BACKOFFICE_BASIC_PASS`      | Basic auth password for the Backoffice API (optional)           | `BACKOFFICE_BASIC_PASS=aPassword`                                                      |
+| `SHARE_BASE_URL`      | The URL to be used for creating "share request" link            | `SHARE_BASE_URL=http://localhost:3001/client/requests/`                                                                   |
 
 ### Client
 Found in `./client/.env`
