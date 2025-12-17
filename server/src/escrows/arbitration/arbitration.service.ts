@@ -12,10 +12,7 @@ import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 
 import { PublicKey } from "../../common/PublicKey";
-import {
-	ContractArbitration,
-	Verdict,
-} from "./contract-arbitration.entity";
+import { ContractArbitration, Verdict } from "./contract-arbitration.entity";
 import {
 	ContractStatus,
 	EscrowContract,
@@ -56,6 +53,7 @@ export class ArbitrationService {
 	private readonly demoMode: boolean;
 
 	constructor(
+		// biome-ignore lint/correctness/noUnusedPrivateClassMembers: may be used in tests
 		private readonly configService: ConfigService,
 		@InjectRepository(ContractArbitration)
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
@@ -161,7 +159,11 @@ export class ArbitrationService {
 			this.logger.log(
 				`Demo mode: auto-resolving arbitration ${newArbitration.externalId} with 'release' verdict`,
 			);
-			await this.resolveArbitration(newArbitration, contract.externalId, "release");
+			await this.resolveArbitration(
+				newArbitration,
+				contract.externalId,
+				"release",
+			);
 		}
 
 		return {
