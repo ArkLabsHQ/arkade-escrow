@@ -19,6 +19,7 @@ services:
       - SQLITE_DB_PATH=/app/data/db.sqlite
       # from config
       - ARK_SERVER_URL
+      - SHARE_BASE_URL
       - VITE_BACKOFFICE_API_BASE_URL
       - VITE_BACKOFFICE_APP_ROOT_URL
       - VITE_CLIENT_API_BASE_URL
