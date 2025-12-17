@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber, IsString } from "class-validator";
+import { IsBoolean, IsNumber, IsString } from "class-validator";
 
 export class GetArkInfoOutDto {
 	@ApiProperty({
@@ -20,4 +20,11 @@ export class GetArkInfoOutDto {
 	@ApiProperty({ description: "Dust threshold as BigInt" })
 	@IsNumber()
 	dust!: string;
+
+	@ApiProperty({
+		description: "Whether the server is running in demo mode",
+		example: false,
+	})
+	@IsBoolean()
+	demoMode!: boolean;
 }

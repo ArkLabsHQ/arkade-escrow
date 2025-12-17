@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Contracts from "./pages/Contracts";
 import ContractDetails from "./pages/ContractDetails";
 import NotFound from "./pages/NotFound";
+import { DemoModeBanner } from "@/components/DemoModeBanner";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
 				<Toaster />
 				<Toaster />
 				<Sonner />
+				<DemoModeBanner />
 				<BrowserRouter>
 					<Routes>
 						<Route path={Config.appRootUrl} element={<Home />} />

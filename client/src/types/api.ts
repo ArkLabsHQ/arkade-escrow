@@ -142,4 +142,5 @@ export type GetArkInfoOutDto = {
 	arkServerUrl: string;
 	network: string;
 	dust: string;
+	demoMode: boolean;
 };
