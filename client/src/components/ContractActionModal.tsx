@@ -112,6 +112,7 @@ export const ContractActionModal = ({
 					inputLabel: "ARK Address",
 					inputId: "releaseAddress",
 					inputPlaceholder: "ARK address to release funds to.",
+					inputDefaultValue: data.walletAddress,
 					confirmText: "Update Release Address",
 					confirmVariant: "default" as const,
 				};
