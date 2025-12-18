@@ -648,6 +648,7 @@ const InnerContractDetailSheet = ({
 					data={{
 						amount: contract.amount,
 						walletAddress: walletAddress ?? undefined,
+						currentReleaseAddress: contract.receiverAddress,
 					}}
 					onConfirm={handleActionConfirm}
 				/>
