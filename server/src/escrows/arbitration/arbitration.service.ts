@@ -41,6 +41,11 @@ import {
 } from "../../common/arbitration.event";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
+// SDK Integration
+import {
+	canPerformDisputeAction,
+} from "../contracts/sdk-integration";
+
 type ArbitrationQueryFilter = {
 	contractId?: string;
 };
@@ -95,6 +100,13 @@ export class ArbitrationService {
 		if (!contract) {
 			throw new NotFoundException(
 				`Contract ${input.contractId} with status 'funded' or 'pending-execution' not found for ${input.claimantPublicKey}`,
+			);
+		}
+
+		// Use SDK state machine to validate dispute action
+		if (!canPerformDisputeAction(contract, "dispute")) {
+			throw new UnprocessableEntityException(
+				`Cannot dispute contract in status '${contract.status}'`,
 			);
 		}
 		const entity = this.arbitrationRepository.create({
@@ -346,6 +358,14 @@ export class ArbitrationService {
 		if (!contract.virtualCoins || contract.virtualCoins.length === 0) {
 			throw new InternalServerErrorException("Contract  is not funded");
 		}
+
+		// Use SDK state machine to validate resolution action
+		if (!canPerformDisputeAction(contract, "resolve")) {
+			throw new UnprocessableEntityException(
+				`Cannot resolve contract in status '${contract.status}'`,
+			);
+		}
+
 		const vtxos = contract.virtualCoins;
 		switch (arbitration.verdict) {
 			case "release": {
