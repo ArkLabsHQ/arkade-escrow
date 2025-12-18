@@ -93,7 +93,13 @@ export function createEscrowParties(config: EscrowConfig): Party[] {
  */
 export function buildEscrowScriptConfig(config: EscrowConfig): ScriptConfig {
 	const parties = createEscrowParties(config);
-	const spendingPaths = createEscrowSpendingPaths(config.unilateralDelay);
+
+	// Include refresh path if refresh is enabled
+	const includeRefresh = config.refresh?.enabled ?? false;
+	const spendingPaths = createEscrowSpendingPathsWithRefresh(
+		config.unilateralDelay,
+		includeRefresh,
+	);
 
 	// Generate nonce from config.nonce or undefined
 	const nonce = config.nonce ? stringToBytes(config.nonce) : undefined;
@@ -107,6 +113,38 @@ export function buildEscrowScriptConfig(config: EscrowConfig): ScriptConfig {
 }
 
 /**
+ * Create the refresh spending path for multi-party contracts.
+ *
+ * The refresh path allows all parties to coordinate a VTXO refresh.
+ * One party acts as delegate (joins the batch), others pre-sign.
+ *
+ * @param _unilateralDelay - Unused, included for API consistency
+ */
+export function createRefreshPath(_unilateralDelay?: Timelock): SpendingPath {
+	return createMultisigPath(
+		"refresh",
+		"Refresh VTXOs to new round (all parties, one delegates)",
+		["sender", "receiver", "arbiter", "server"],
+	);
+}
+
+/**
+ * Create escrow spending paths with optional refresh path.
+ */
+export function createEscrowSpendingPathsWithRefresh(
+	unilateralDelay: Timelock,
+	includeRefresh: boolean = false,
+): SpendingPath[] {
+	const basePaths = createEscrowSpendingPaths(unilateralDelay);
+
+	if (includeRefresh) {
+		return [...basePaths, createRefreshPath(unilateralDelay)];
+	}
+
+	return basePaths;
+}
+
+/**
  * Get the signers required for a spending path.
  */
 export function getSignersForPath(pathName: string): EscrowRole[] {
@@ -117,6 +155,7 @@ export function getSignersForPath(pathName: string): EscrowRole[] {
 		"unilateral-release": ["receiver", "arbiter"],
 		"unilateral-refund": ["sender", "arbiter"],
 		"unilateral-settle": ["sender", "receiver"],
+		refresh: ["sender", "receiver", "arbiter", "server"],
 	};
 
 	return signers[pathName] ?? [];

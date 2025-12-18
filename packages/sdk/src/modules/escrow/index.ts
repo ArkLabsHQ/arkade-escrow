@@ -15,15 +15,18 @@ export type {
 	EscrowData,
 	EscrowExecutionRequest,
 	EscrowDispute,
+	EscrowRefreshConfig,
 } from "./types.js";
 
-export { ACTION_TO_PATH, PATH_TO_SIGNERS } from "./types.js";
+export { ACTION_TO_PATH, PATH_TO_SIGNERS, toSdkRefreshConfig } from "./types.js";
 
 // Script utilities
 export {
 	createEscrowSpendingPaths,
+	createEscrowSpendingPathsWithRefresh,
 	createEscrowParties,
 	buildEscrowScriptConfig,
+	createRefreshPath,
 	getSignersForPath,
 	isCollaborativePath,
 	isTimelockedPath,

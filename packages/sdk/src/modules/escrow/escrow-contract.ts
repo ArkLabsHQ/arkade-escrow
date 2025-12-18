@@ -22,9 +22,14 @@ import {
 	EscrowExecutionAction,
 	EscrowDispute,
 	ACTION_TO_PATH,
+	toSdkRefreshConfig,
 } from "./types.js";
-import { buildEscrowScriptConfig, getSignersForPath } from "./escrow-script.js";
+import { buildEscrowScriptConfig, getSignersForPath, createRefreshPath } from "./escrow-script.js";
 import { ESCROW_STATE_MACHINE, canExecute, isFinalState } from "./escrow-state-machine.js";
+import {
+	RefreshConfig,
+	DelegatedRefreshFlow,
+} from "../../refresh/index.js";
 
 /**
  * Escrow Contract
@@ -73,6 +78,8 @@ export class EscrowContract {
 	private metadata: ContractMetadata;
 	private storage?: StorageAdapter;
 	private dispute?: EscrowDispute;
+	private readonly refreshConfig: RefreshConfig | null;
+	private refreshFlow: DelegatedRefreshFlow | null = null;
 
 	constructor(config: EscrowConfig, options?: { storage?: StorageAdapter; id?: string }) {
 		this.id = options?.id ?? nanoid(16);
@@ -114,6 +121,9 @@ export class EscrowContract {
 			version: 1,
 			contractType: "escrow",
 		};
+
+		// Initialize refresh config
+		this.refreshConfig = toSdkRefreshConfig(config.refresh);
 	}
 
 	// ==================== State Management ====================
@@ -360,6 +370,92 @@ export class EscrowContract {
 	 */
 	getTapTree(): Uint8Array {
 		return this.scriptBuilder.getTapTree();
+	}
+
+	// ==================== Refresh Support ====================
+
+	/**
+	 * Check if refresh is enabled for this contract.
+	 */
+	isRefreshEnabled(): boolean {
+		return this.refreshConfig?.enabled ?? false;
+	}
+
+	/**
+	 * Get the refresh configuration.
+	 */
+	getRefreshConfig(): RefreshConfig | null {
+		return this.refreshConfig;
+	}
+
+	/**
+	 * Get the refresh flow for this contract.
+	 *
+	 * Since escrow is multi-party, this returns a DelegatedRefreshFlow
+	 * where one of the parties acts as delegate.
+	 *
+	 * @throws If refresh is not enabled
+	 */
+	getRefreshFlow(): DelegatedRefreshFlow {
+		if (!this.isRefreshEnabled() || !this.refreshConfig) {
+			throw new Error("Refresh is not enabled for this contract");
+		}
+
+		// Lazily create the refresh flow
+		if (!this.refreshFlow) {
+			const refreshPath = createRefreshPath(this.config.unilateralDelay);
+
+			// Get the leaf script bytes (Uint8Array), not TapLeafScript object
+			let refreshLeafScript: Uint8Array;
+			try {
+				refreshLeafScript = this.scriptBuilder.getLeafScript("refresh");
+			} catch {
+				throw new Error("Refresh spending path not found in script");
+			}
+
+			// Build parties map
+			const parties = new Map<string, XOnlyPubKey>();
+			parties.set("sender", this.data.sender.pubkey);
+			parties.set("receiver", this.data.receiver.pubkey);
+			parties.set("arbiter", this.data.arbiter.pubkey);
+			parties.set("server", this.config.serverPubkey);
+
+			this.refreshFlow = new DelegatedRefreshFlow(
+				this.refreshConfig,
+				{
+					tapTree: this.getTapTree(),
+					refreshPath,
+					refreshLeafScript,
+					destinationScript: this.data.escrowAddress ?? "",
+				},
+				parties,
+			);
+		}
+
+		return this.refreshFlow;
+	}
+
+	/**
+	 * Get the roles that can act as delegate for refresh.
+	 */
+	getDelegateRoles(): string[] {
+		if (!this.isRefreshEnabled() || !this.refreshConfig) {
+			return [];
+		}
+
+		const source = this.refreshConfig.delegateSource;
+		if (source.type === "existing-party") {
+			return [...source.roles];
+		}
+
+		return [];
+	}
+
+	/**
+	 * Check if a role can act as delegate.
+	 */
+	canBeDelegate(role: string): boolean {
+		return this.getDelegateRoles().includes(role);
 	}
 
 	// ==================== Persistence ====================

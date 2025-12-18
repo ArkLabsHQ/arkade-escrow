@@ -149,6 +149,41 @@ export {
 	bytesEqual,
 } from "./utils/index.js";
 
+// Refresh - VTXO refresh coordination
+export {
+	// Types
+	type SigHashMode,
+	type DelegateSource,
+	type RefreshConfig,
+	type RoundInfo,
+	type UnsignedIntent,
+	type SignedIntentPart,
+	type SignedIntent,
+	type UnsignedForfeit,
+	type PartialForfeitSig,
+	type DelegatePackage,
+	type RefreshResult,
+	type SimpleRefreshRequest,
+	type RefreshStatus,
+	type RefreshOperation,
+	type RefreshEventCallbacks,
+	type RefreshSigner,
+	type RefreshErrorCode,
+	type RefreshFlow,
+	type BatchJoiner,
+	type ArkDelegateProvider,
+	// Classes
+	RefreshError,
+	SimpleRefreshFlow,
+	DelegatedRefreshFlow,
+	DelegateExecutor,
+	DelegateService,
+	// Utilities
+	createRefreshFlow,
+	isDelegatedFlow,
+	isSimpleFlow,
+} from "./refresh/index.js";
+
 // Modules - High-level implementations
 // Escrow module
 export {
@@ -160,11 +195,15 @@ export {
 	type EscrowData,
 	type EscrowExecutionRequest,
 	type EscrowDispute,
+	type EscrowRefreshConfig,
 	ACTION_TO_PATH,
 	PATH_TO_SIGNERS,
+	toSdkRefreshConfig,
 	createEscrowSpendingPaths,
+	createEscrowSpendingPathsWithRefresh,
 	createEscrowParties,
 	buildEscrowScriptConfig,
+	createRefreshPath as createEscrowRefreshPath,
 	getSignersForPath as getEscrowSignersForPath,
 	isCollaborativePath,
 	isTimelockedPath,

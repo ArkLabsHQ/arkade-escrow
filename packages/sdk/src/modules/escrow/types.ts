@@ -6,6 +6,7 @@
 
 import { Party, Timelock, XOnlyPubKey } from "../../core/types.js";
 import { VtxoRef } from "../../transactions/types.js";
+import { RefreshConfig, DelegateSource } from "../../refresh/types.js";
 
 /**
  * Escrow-specific roles.
@@ -87,6 +88,70 @@ export interface EscrowConfig {
 	receiverAddress?: string;
 	/** Pre-set sender address for automatic refund */
 	senderAddress?: string;
+	/** Refresh configuration (optional) */
+	refresh?: EscrowRefreshConfig;
+}
+
+/**
+ * Refresh configuration specific to escrow contracts.
+ *
+ * For escrow, the delegate is typically one of the existing parties
+ * (sender, receiver, or arbiter) rather than an external service.
+ */
+export interface EscrowRefreshConfig {
+	/** Whether refresh is enabled */
+	enabled: boolean;
+	/**
+	 * Who can act as delegate.
+	 * Default: "any-party" (any of sender/receiver/arbiter)
+	 */
+	delegatePolicy?: "any-party" | "arbiter-only" | "external";
+	/**
+	 * External delegate pubkey (only if delegatePolicy is "external")
+	 */
+	externalDelegatePubkey?: XOnlyPubKey;
+	/**
+	 * Warning threshold in blocks before round expiry
+	 */
+	warningThresholdBlocks?: number;
+	/**
+	 * Auto-refresh threshold in blocks
+	 */
+	autoRefreshThresholdBlocks?: number;
+}
+
+/**
+ * Convert escrow refresh config to SDK RefreshConfig.
+ */
+export function toSdkRefreshConfig(
+	escrowConfig: EscrowRefreshConfig | undefined,
+): RefreshConfig | null {
+	if (!escrowConfig?.enabled) return null;
+
+	let delegateSource: DelegateSource;
+
+	switch (escrowConfig.delegatePolicy) {
+		case "arbiter-only":
+			delegateSource = { type: "existing-party", roles: ["arbiter"] };
+			break;
+		case "external":
+			if (!escrowConfig.externalDelegatePubkey) {
+				throw new Error("External delegate policy requires externalDelegatePubkey");
+			}
+			delegateSource = { type: "external", pubkey: escrowConfig.externalDelegatePubkey };
+			break;
+		case "any-party":
+		default:
+			delegateSource = { type: "existing-party", roles: ["sender", "receiver", "arbiter"] };
+			break;
+	}
+
+	return {
+		enabled: true,
+		delegateSource,
+		warningThresholdBlocks: escrowConfig.warningThresholdBlocks,
+		autoRefreshThresholdBlocks: escrowConfig.autoRefreshThresholdBlocks,
+	};
 }
 
 /**
@@ -173,4 +238,6 @@ export const PATH_TO_SIGNERS: Record<string, EscrowRole[]> = {
 	"unilateral-release": ["receiver", "arbiter"],
 	"unilateral-refund": ["sender", "arbiter"],
 	"unilateral-settle": ["sender", "receiver"],
+	// Refresh path - all non-server parties sign (one acts as delegate)
+	refresh: ["sender", "receiver", "arbiter", "server"],
 };
