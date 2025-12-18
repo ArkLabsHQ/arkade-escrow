@@ -1,16 +1,21 @@
-import { Bytes, hash160 } from "@scure/btc-signer/utils.js";
+/**
+ * Virtual Escrow Contract - Now powered by @arkade-escrow/sdk
+ *
+ * This file maintains backward compatibility with the original VEscrow API
+ * while using the SDK's ScriptBuilder internally.
+ */
+
+import { Bytes } from "@scure/btc-signer/utils.js";
 import { hex } from "@scure/base";
-import { Script as ScriptClass } from "@scure/btc-signer";
+import { VtxoScript, TapLeafScript } from "@arkade-os/sdk";
+import { RelativeTimelock } from "@arkade-os/sdk";
 import {
-	VtxoScript,
-	TapLeafScript,
-	ConditionMultisigTapscript,
-} from "@arkade-os/sdk";
-import {
-	MultisigTapscript,
-	CSVMultisigTapscript,
-	RelativeTimelock,
-} from "@arkade-os/sdk";
+	ScriptBuilder,
+	ScriptConfig,
+	Party,
+	Timelock,
+	bytesToHex,
+} from "@arkade-escrow/sdk";
 
 export type Signers = "sender" | "receiver" | "server" | "arbitrator";
 
@@ -38,44 +43,75 @@ export namespace VEscrow {
 	};
 
 	/**
-	 * Validates the escrow contract options
+	 * Convert VEscrow.Options to SDK ScriptConfig
 	 */
-	function validateOptions(options: Options): void {
-		const { sender, receiver, arbitrator, server } = options;
+	function optionsToScriptConfig(options: Options): ScriptConfig {
+		const timelock: Timelock = {
+			type: options.unilateralDelay.type,
+			value: Number(options.unilateralDelay.value),
+		};
 
-		// Validate public key lengths
-		const keys = [
-			{ name: "sender", key: sender },
-			{ name: "receiver", key: receiver },
-			{ name: "arbitrator", key: arbitrator },
-			{ name: "server", key: server },
+		const parties: Party[] = [
+			{ role: "sender", pubkey: options.sender },
+			{ role: "receiver", pubkey: options.receiver },
+			{ role: "arbitrator", pubkey: options.arbitrator },
+			{ role: "server", pubkey: options.server },
 		];
 
-		for (const { name, key } of keys) {
-			if (key.length !== 32) {
-				throw new Error(
-					`Invalid ${name} public key length: expected 32, got ${key.length}`,
-				);
-			}
-		}
-
-		// Ensure all parties are unique
-		const keySet = new Set([
-			hex.encode(sender),
-			hex.encode(receiver),
-			hex.encode(arbitrator),
-			hex.encode(server),
-		]);
-
-		if (keySet.size !== 4) {
-			throw new Error("All parties must have unique public keys");
-		}
-
-		if (options.nonce && options.nonce.length < 32) {
-			throw new Error(
-				`Invalid nonce length: expected 32 or more, got ${options.nonce?.length}`,
-			);
-		}
+		return {
+			parties,
+			spendingPaths: [
+				// Collaborative paths (with server)
+				{
+					name: "release",
+					description: "Release funds to receiver (goods delivered)",
+					type: "multisig",
+					requiredRoles: ["receiver", "arbitrator", "server"],
+					threshold: 3,
+				},
+				{
+					name: "refund",
+					description: "Refund funds to sender (dispute resolved)",
+					type: "multisig",
+					requiredRoles: ["sender", "arbitrator", "server"],
+					threshold: 3,
+				},
+				{
+					name: "direct",
+					description: "Direct settlement between parties",
+					type: "multisig",
+					requiredRoles: ["sender", "receiver", "server"],
+					threshold: 3,
+				},
+				// Unilateral paths (with timelock)
+				{
+					name: "unilateral-release",
+					description: "Release funds after timelock",
+					type: "csv-multisig",
+					requiredRoles: ["receiver", "arbitrator"],
+					threshold: 2,
+					timelock,
+				},
+				{
+					name: "unilateral-refund",
+					description: "Refund funds after timelock",
+					type: "csv-multisig",
+					requiredRoles: ["sender", "arbitrator"],
+					threshold: 2,
+					timelock,
+				},
+				{
+					name: "unilateral-direct",
+					description: "Direct settlement after timelock",
+					type: "csv-multisig",
+					requiredRoles: ["sender", "receiver"],
+					threshold: 2,
+					timelock,
+				},
+			],
+			nonce: options.nonce,
+			protocolServerKey: options.server,
+		};
 	}
 
 	/**
@@ -84,6 +120,8 @@ export namespace VEscrow {
 	 * Provides 6 spending paths:
 	 * - Collaborative (with server): release, refund, direct
 	 * - Unilateral (with timelock): unilateralRelease, unilateralRefund, unilateralDirect
+	 *
+	 * Now powered by @arkade-escrow/sdk ScriptBuilder
 	 */
 	export class Script extends VtxoScript {
 		readonly releaseFundsScript: string;
@@ -94,74 +132,39 @@ export namespace VEscrow {
 		readonly unilateralDirectScript: string;
 		readonly ghostScript?: string;
 
+		private readonly scriptBuilder: ScriptBuilder;
+
 		constructor(readonly options: Options) {
-			validateOptions(options);
+			// Convert options to SDK config and build with ScriptBuilder
+			const config = optionsToScriptConfig(options);
+			const builder = new ScriptBuilder(config);
 
-			const { sender, receiver, arbitrator, server, unilateralDelay, nonce } =
-				options;
+			// Get the underlying VtxoScript from the builder
+			const vtxoScript = builder.getVtxoScript();
 
-			// Collaborative spending paths (with server)
-			const releaseScript = MultisigTapscript.encode({
-				pubkeys: [receiver, arbitrator, server],
-			}).script;
+			// Initialize parent with the scripts from the builder
+			super(vtxoScript.scripts);
 
-			const refundScript = MultisigTapscript.encode({
-				pubkeys: [sender, arbitrator, server],
-			}).script;
+			this.scriptBuilder = builder;
 
-			// the happy path - transaction occurred as expected
-			const directScript = MultisigTapscript.encode({
-				pubkeys: [sender, receiver, server],
-			}).script;
-
-			// Unilateral spending paths (with timelock)
-			const unilateralReleaseScript = CSVMultisigTapscript.encode({
-				pubkeys: [receiver, arbitrator],
-				timelock: unilateralDelay,
-			}).script;
-
-			const unilateralRefundScript = CSVMultisigTapscript.encode({
-				pubkeys: [sender, arbitrator],
-				timelock: unilateralDelay,
-			}).script;
-
-			const unilateralDirectScript = CSVMultisigTapscript.encode({
-				pubkeys: [sender, receiver],
-				timelock: unilateralDelay,
-			}).script;
-
-			const ghostScript = nonce
-				? ConditionMultisigTapscript.encode({
-						pubkeys: [sender, receiver, arbitrator, server],
-						conditionScript: ScriptClass.encode([
-							"HASH160",
-							hash160(nonce),
-							"EQUAL",
-						]),
-					}).script
-				: undefined;
-
-			// Initialize the VtxoScript with all spending paths
-			super([
-				releaseScript,
-				refundScript,
-				directScript,
-				unilateralReleaseScript,
-				unilateralRefundScript,
-				unilateralDirectScript,
-				...(ghostScript ? [ghostScript] : []),
-			]);
-
-			// Store hex-encoded scripts for easy access
-			this.releaseFundsScript = hex.encode(releaseScript);
-			this.returnFundsScript = hex.encode(refundScript);
-			this.directScript = hex.encode(directScript);
-			this.receiverDisputeUnilateralScript = hex.encode(
-				unilateralReleaseScript,
+			// Map SDK path names to legacy script hex strings
+			this.releaseFundsScript = bytesToHex(builder.getLeafScript("release"));
+			this.returnFundsScript = bytesToHex(builder.getLeafScript("refund"));
+			this.directScript = bytesToHex(builder.getLeafScript("direct"));
+			this.receiverDisputeUnilateralScript = bytesToHex(
+				builder.getLeafScript("unilateral-release"),
 			);
-			this.senderDisputeUnilateralScript = hex.encode(unilateralRefundScript);
-			this.unilateralDirectScript = hex.encode(unilateralDirectScript);
-			this.ghostScript = ghostScript ? hex.encode(ghostScript) : undefined;
+			this.senderDisputeUnilateralScript = bytesToHex(
+				builder.getLeafScript("unilateral-refund"),
+			);
+			this.unilateralDirectScript = bytesToHex(
+				builder.getLeafScript("unilateral-direct"),
+			);
+
+			// Ghost script if nonce provided
+			if (options.nonce && builder.hasSpendingPath("__ghost__")) {
+				this.ghostScript = bytesToHex(builder.getLeafScript("__ghost__"));
+			}
 		}
 
 		/**
@@ -169,7 +172,7 @@ export namespace VEscrow {
 		 * (receiver + arbitrator + server)
 		 */
 		releaseFunds(): TapLeafScript {
-			return this.findLeaf(this.releaseFundsScript);
+			return this.scriptBuilder.getSpendingPath("release");
 		}
 
 		/**
@@ -177,7 +180,7 @@ export namespace VEscrow {
 		 * (sender + arbitrator + server)
 		 */
 		returnFunds(): TapLeafScript {
-			return this.findLeaf(this.returnFundsScript);
+			return this.scriptBuilder.getSpendingPath("refund");
 		}
 
 		/**
@@ -185,7 +188,7 @@ export namespace VEscrow {
 		 * (sender + receiver + server)
 		 */
 		direct(): TapLeafScript {
-			return this.findLeaf(this.directScript);
+			return this.scriptBuilder.getSpendingPath("direct");
 		}
 
 		/**
@@ -193,7 +196,7 @@ export namespace VEscrow {
 		 * (receiver + arbitrator after timelock)
 		 */
 		receiverDisputeUnilateral(): TapLeafScript {
-			return this.findLeaf(this.receiverDisputeUnilateralScript);
+			return this.scriptBuilder.getSpendingPath("unilateral-release");
 		}
 
 		/**
@@ -201,7 +204,7 @@ export namespace VEscrow {
 		 * (sender + arbitrator after timelock)
 		 */
 		senderDisputeUniteral(): TapLeafScript {
-			return this.findLeaf(this.senderDisputeUnilateralScript);
+			return this.scriptBuilder.getSpendingPath("unilateral-refund");
 		}
 
 		/**
@@ -209,7 +212,7 @@ export namespace VEscrow {
 		 * (sender + receiver after timelock)
 		 */
 		unilateralDirect(): TapLeafScript {
-			return this.findLeaf(this.unilateralDirectScript);
+			return this.scriptBuilder.getSpendingPath("unilateral-direct");
 		}
 
 		/**
@@ -224,14 +227,14 @@ export namespace VEscrow {
 		}> {
 			return [
 				{
-					name: "releaseFunds", // receiver wins dispute
+					name: "releaseFunds",
 					type: "collaborative",
 					description: "Release funds to receiver (goods delivered)",
 					script: this.releaseFundsScript,
 					signers: ["receiver", "arbitrator", "server"],
 				},
 				{
-					name: "returnFunds", // sender wins dispute
+					name: "returnFunds",
 					type: "collaborative",
 					description: "Refund funds to sender (dispute resolved)",
 					script: this.returnFundsScript,
@@ -266,6 +269,13 @@ export namespace VEscrow {
 					signers: ["sender", "receiver"],
 				},
 			];
+		}
+
+		/**
+		 * Get the underlying SDK ScriptBuilder for advanced usage
+		 */
+		getScriptBuilder(): ScriptBuilder {
+			return this.scriptBuilder;
 		}
 	}
 }

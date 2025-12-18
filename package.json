@@ -2,6 +2,9 @@
 	"name": "ark-escrow-api",
 	"version": "0.1.0",
 	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
 		"start": "nest start",
 		"dev": "concurrently -k -n SERVER,CLIENT,BACKOFFICE -c yellow,cyan,magenta \"nest start --watch\" \"npm run watch:client\" \"npm run watch:backoffice\"",
@@ -17,7 +20,8 @@
 		"test:api:unit": "jest server/src/**/*.spec.ts",
 		"test:api:acceptance": "jest server/test/*.e2e-spec.ts",
 		"---------------------------- Production build ---------------------------------------------": "",
-		"build": "nest build",
+		"build:sdk": "cd packages/sdk && npm run build",
+		"build": "npm run build:sdk && nest build",
 		"build:client": "vite build --config ./client/vite.config.ts",
 		"build:backoffice": "vite build --config ./backoffice/vite.config.ts",
 		"---------------------------- Static checks ------------------------------------------------": "",
@@ -30,6 +34,7 @@
 		"ci:check": "biome ci server"
 	},
 	"dependencies": {
+		"@arkade-escrow/sdk": "workspace:*",
 		"@arkade-os/sdk": "^0.3.8",
 		"@nestjs/common": "^11.1.6",
 		"@nestjs/config": "^4.0.2",
