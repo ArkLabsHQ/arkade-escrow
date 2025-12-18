@@ -657,7 +657,9 @@ export class EscrowsContractsService {
 		try {
 			const txBytes = base64.decode(signature.arkTx);
 			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
-			verifyTapscriptSignatures(tx, 0, [signerPubKey]);
+			for (let i = 0; i < tx.inputsLength; i += 1) {
+				verifyTapscriptSignatures(tx, i, [signerPubKey]);
+			}
 			this.logger.debug(`Signatures for execution ${executionId} are valid`);
 		} catch (e) {
 			this.logger.error(e);
