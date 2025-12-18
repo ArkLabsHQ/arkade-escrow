@@ -12,7 +12,7 @@ import { Brackets, Repository } from "typeorm";
 import { nanoid } from "nanoid";
 
 import { PublicKey } from "../../common/PublicKey";
-import { ContractArbitration } from "./contract-arbitration.entity";
+import { ContractArbitration, Verdict } from "./contract-arbitration.entity";
 import {
 	ContractStatus,
 	EscrowContract,
@@ -35,6 +35,10 @@ import {
 	CONTRACT_DISPUTED_ID,
 	ContractDisputed,
 } from "../../common/contract-address.event";
+import {
+	ARBITRATION_RESOLVED,
+	ArbitrationResolved,
+} from "../../common/arbitration.event";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
 type ArbitrationQueryFilter = {
@@ -46,6 +50,7 @@ export class ArbitrationService {
 	private readonly logger = new Logger(ArbitrationService.name);
 	private readonly arbitratorPublicKey: string;
 	private readonly identity: Identity;
+	private readonly demoMode: boolean;
 
 	constructor(
 		// biome-ignore lint/correctness/noUnusedPrivateClassMembers: may be used in tests
@@ -69,6 +74,12 @@ export class ArbitrationService {
 			throw new Error("ARBITRATOR_PRIV_KEY is not set");
 		}
 		this.identity = SingleKey.fromPrivateKey(hexToBytes(privKey));
+		this.demoMode = configService.get<string>("DEMO_MODE") === "true";
+		if (this.demoMode) {
+			this.logger.warn(
+				"DEMO_MODE is enabled - disputes will be auto-resolved with 'release' verdict",
+			);
+		}
 	}
 
 	async createArbitration(input: {
@@ -142,6 +153,19 @@ export class ArbitrationService {
 			arbitrationId: newArbitration.externalId,
 			disputedAt: new Date().toISOString(),
 		} satisfies ContractDisputed);
+
+		// Demo mode: auto-resolve disputes with 'release' verdict
+		if (this.demoMode) {
+			this.logger.log(
+				`Demo mode: auto-resolving arbitration ${newArbitration.externalId} with 'release' verdict`,
+			);
+			await this.resolveArbitration(
+				newArbitration,
+				contract.externalId,
+				"release",
+			);
+		}
+
 		return {
 			externalId: newArbitration.externalId,
 			contractId: contract.externalId,
@@ -149,6 +173,7 @@ export class ArbitrationService {
 			defendantPublicKey: newArbitration.defendantPubkey,
 			reason: newArbitration.reason,
 			status: newArbitration.status,
+			verdict: newArbitration.verdict,
 			createdAt: newArbitration.createdAt.getTime(),
 			updatedAt: newArbitration.updatedAt.getTime(),
 		};
@@ -261,6 +286,27 @@ export class ArbitrationService {
 			createdAt: arbitration.createdAt.getTime(),
 			updatedAt: arbitration.updatedAt.getTime(),
 		};
+	}
+
+	/**
+	 * Resolves an arbitration with the given verdict.
+	 * This method is used by both demo mode and admin arbitration.
+	 */
+	async resolveArbitration(
+		arbitration: ContractArbitration,
+		contractId: string,
+		verdict: Verdict,
+	): Promise<ContractArbitration> {
+		arbitration.status = "resolved";
+		arbitration.verdict = verdict;
+		const persisted = await this.arbitrationRepository.save(arbitration);
+		this.events.emit(ARBITRATION_RESOLVED, {
+			eventId: nanoid(16),
+			contractId,
+			arbitrationId: persisted.externalId,
+			resolvedAt: new Date().toISOString(),
+		} satisfies ArbitrationResolved);
+		return persisted;
 	}
 
 	async createArbitrationExecution(

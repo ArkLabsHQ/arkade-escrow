@@ -16,6 +16,7 @@ import Identity from "@/pages/Identity";
 import IdentitySetup from "@/pages/IdentitySetup";
 import { Toaster } from "sonner";
 import { useState } from "react";
+import { DemoModeBanner } from "@/components/DemoModeBanner";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => {
 					<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
 						<TooltipProvider>
 							<Toaster />
+							<DemoModeBanner />
 							<BrowserRouter>
 								<Routes>
 									<Route path={"/"} element={<Orderbook />} />
