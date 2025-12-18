@@ -123,7 +123,7 @@ export class ArkService {
 
 	async createEscrowTransaction(
 		transactionInput: EscrowTransactionForAction,
-		vtxo: VirtualCoin,
+		vtxos: VirtualCoin[],
 	): Promise<EscrowTransaction> {
 		if (this.arkInfo === undefined) {
 			throw new Error("ARK info not loaded");
@@ -146,30 +146,30 @@ export class ArkService {
 			hex.decode(this.arkInfo.checkpointTapscript),
 		);
 
+		const totalVtxoValue = vtxos.reduce((acc, vtxo) => acc + vtxo.value, 0);
 		const outputs = ArkService.createOutputsForAction(
 			transactionInput,
-			vtxo.value,
+			totalVtxoValue,
 		);
 
 		// Create input from the contract VTXO
-		const input: ArkTxInput = {
+		const inputs: ArkTxInput[] = vtxos.map((vtxo) => ({
 			txid: vtxo.txid,
 			vout: vtxo.vout, // index
 			value: vtxo.value,
-			// script: script.pkScript, // hash of all spending conditions
 			tapTree: script.encode(), // all spending conditions
-			tapLeafScript: spendingPath, // Use the spending path directly, not .script property
-		};
+			tapLeafScript: spendingPath,
+		}));
 
 		this.logger.log(
-			"Building offchain tx with input:",
-			input.txid,
+			"Building offchain tx with inputs:",
+			inputs.map((_) => _.txid),
 			"outputs:",
 			outputs.length,
 		);
 		// Build the offchain transaction
 		const { arkTx, checkpoints } = buildOffchainTx(
-			[input],
+			inputs,
 			outputs,
 			serverUnrollScript,
 		);
@@ -184,7 +184,9 @@ export class ArkService {
 		);
 
 		if (!requiredSigners) {
-			throw new Error(`Required signers not found for action ${input}`);
+			throw new Error(
+				`Required signers not found for action ${transactionInput.action}`,
+			);
 		}
 
 		return {

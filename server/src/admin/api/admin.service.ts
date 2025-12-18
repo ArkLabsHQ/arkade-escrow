@@ -9,8 +9,6 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { nanoid } from "nanoid";
 
 import { ContractArbitration } from "../../escrows/arbitration/contract-arbitration.entity";
 import {
@@ -25,11 +23,7 @@ import { GetAdminEscrowContractDetailsDto } from "./get-admin-escrow-contract-de
 import { ArbitrateDisputeInDto } from "./arbitrate-dispute-in.dto";
 import { ArkService } from "../../ark/ark.service";
 import GetAdminStatsDto from "./get-admin-stats";
-
-import {
-	ARBITRATION_RESOLVED,
-	ArbitrationResolved,
-} from "../../common/arbitration.event";
+import { ArbitrationService } from "../../escrows/arbitration/arbitration.service";
 
 @Injectable()
 export class AdminService {
@@ -44,7 +38,7 @@ export class AdminService {
 		private readonly arbitrationRepository: Repository<ContractArbitration>,
 		readonly _arkService: ArkService,
 		readonly configService: ConfigService,
-		private readonly events: EventEmitter2,
+		private readonly arbitrationService: ArbitrationService,
 	) {}
 
 	async getContractStats(): Promise<GetAdminStatsDto["contracts"]> {
@@ -253,28 +247,20 @@ export class AdminService {
 			);
 		}
 
-		const persisted = await this.arbitrationRepository.save({
-			...arbitration,
-			status: "resolved",
-			verdict: this.verdictFromAction(input.action),
-		});
-
-		this.events.emit(ARBITRATION_RESOLVED, {
-			eventId: nanoid(16),
-			contractId: input.contractId,
-			arbitrationId: persisted.externalId,
-			resolvedAt: new Date().toISOString(),
-		} satisfies ArbitrationResolved);
-
-		return persisted;
+		const verdict = this.verdictFromAction(input.action);
+		return this.arbitrationService.resolveArbitration(
+			arbitration,
+			input.contractId,
+			verdict,
+		);
 	}
 
 	private verdictFromAction(action: ArbitrateDisputeInDto["action"]) {
 		switch (action) {
 			case "release":
-				return "release";
+				return "release" as const;
 			case "refund":
-				return "refund";
+				return "refund" as const;
 			default:
 				throw new BadRequestException(`Unsupported action ${action}`);
 		}

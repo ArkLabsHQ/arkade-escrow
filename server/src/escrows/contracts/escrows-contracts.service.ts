@@ -671,7 +671,9 @@ export class EscrowsContractsService {
 		try {
 			const txBytes = base64.decode(signature.arkTx);
 			const tx = Transaction.fromPSBT(txBytes, { allowUnknown: true });
-			verifyTapscriptSignatures(tx, 0, [signerPubKey]);
+			for (let i = 0; i < tx.inputsLength; i += 1) {
+				verifyTapscriptSignatures(tx, i, [signerPubKey]);
+			}
 			this.logger.debug(`Signatures for execution ${executionId} are valid`);
 		} catch (e) {
 			this.logger.error(e);
@@ -1008,7 +1010,7 @@ export class EscrowsContractsService {
 				contractId: execution.contract.externalId,
 				arkTx: execution.cleanTransaction.arkTx,
 				checkpoints: execution.cleanTransaction.checkpoints,
-				vtxo: execution.cleanTransaction.vtxo,
+				vtxos: execution.cleanTransaction.vtxos,
 			};
 		} catch (e) {
 			this.logger.error("Failed to create direct settlement execution", e);
@@ -1025,8 +1027,8 @@ export class EscrowsContractsService {
 		initiatorPubKey: string,
 		vtxos?: VirtualCoin[],
 	): Promise<ContractExecution> {
-		const vtxo = (vtxos ?? contract.virtualCoins)?.[0];
-		if (vtxo === undefined) {
+		const vtxosToSpend = vtxos ?? contract.virtualCoins;
+		if (vtxosToSpend === undefined) {
 			throw new Error("Not VTXO found for contract");
 		}
 		const action: ActionType = "direct-settle";
@@ -1040,7 +1042,7 @@ export class EscrowsContractsService {
 					arbitratorPublicKey: this.arbitratorPublicKey,
 					contractNonce: `${contract.externalId}${contract.request.externalId}`,
 				},
-				vtxo,
+				vtxosToSpend,
 			);
 
 			const entity = this.contractExecutionRepository.create({
@@ -1053,11 +1055,11 @@ export class EscrowsContractsService {
 				initiatedByPubKey: initiatorPubKey,
 				status: "pending-signatures",
 				cleanTransaction: {
-					vtxo: {
+					vtxos: vtxosToSpend.map((vtxo) => ({
 						txid: vtxo.txid,
 						vout: vtxo.vout,
 						value: vtxo.value,
-					},
+					})),
 					arkTx: escrowTransaction.arkTx,
 					checkpoints: escrowTransaction.checkpoints,
 					requiredSigners: escrowTransaction.requiredSigners,
@@ -1092,40 +1094,15 @@ export class EscrowsContractsService {
 				`Contract ${evt.contractId} with status ${contract.status} received event ${CONTRACT_FUNDED_ID}`,
 			);
 		}
-		if (contract.receiverAddress) {
-			// if there is a receiver address, we create a direct settlement execution automatically
-			try {
-				const execution = await this.createDirectSettlementExecution(
-					contract,
-					contract.receiverAddress,
-					this.arbitratorPublicKey,
-					evt.vtxos,
-				);
-				this.logger.debug(
-					`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`,
-				);
-				await this.contractRepository.update(
-					{ externalId: contract.externalId },
-					{
-						status: "pending-execution",
-						virtualCoins: evt.vtxos,
-					},
-				);
-			} catch (e) {
-				this.logger.error(
-					`Failed to create direct settlement execution automatically for contract ${contract.externalId}`,
-					e,
-				);
-			}
-		} else {
-			await this.contractRepository.update(
-				{ externalId: contract.externalId },
-				{
-					status: "funded",
-					virtualCoins: evt.vtxos,
-				},
-			);
-		}
+		await this.contractRepository.update(
+			{ externalId: contract.externalId },
+			{
+				status: "funded",
+				virtualCoins: contract.virtualCoins
+					? [...contract.virtualCoins, ...evt.vtxos]
+					: evt.vtxos,
+			},
+		);
 	}
 
 	async updateOneByExternalId(
@@ -1156,7 +1133,6 @@ export class EscrowsContractsService {
 				{ externalId },
 				{ ...contract, receiverAddress: update.releaseAddress },
 			);
-			console.log("contract updated!");
 			this.events.emit(CONTRACT_UPDATED_ID, {
 				eventId: nanoid(4),
 				contractId: externalId,

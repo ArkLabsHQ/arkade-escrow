@@ -22,10 +22,12 @@ export class ExecuteEscrowContractOutDto {
 	@ApiProperty({ description: "Checkpoints for this execution, to be signed" })
 	checkpoints!: string[];
 
-	@ApiProperty({ description: "VTXO for this execution" })
-	vtxo!: {
-		txid: string;
-		vout: number;
-		value: number;
-	};
+	@ApiProperty({ description: "VTXOs for this execution" })
+	vtxos!: [
+		{
+			txid: string;
+			vout: number;
+			value: number;
+		},
+	];
 }

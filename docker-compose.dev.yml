@@ -17,6 +17,7 @@ services:
       - JWT_SECRET=dev_super_secret_change_me
       - ARBITRATOR_PUB_KEY=86f5d11162ab25c88f4af9cc4224161a40a6e029a45beb8459f0f5f5a95f66d8
       - ARBITRATOR_PRIV_KEY=62325754772ad366d149517311d5fe5cbccb4746ef0285c393ff67f0ad62dd87 # change it for anything different than local dev
+      # - DEMO_MODE=true # uncomment to enable demo mode (auto-resolves disputes with 'release' verdict)
     networks:
       - default
       - nigiri

@@ -9,6 +9,7 @@ import { User } from "../../users/user.entity";
 import { ContractExecution } from "../../escrows/contracts/contract-execution.entity";
 import { ArkModule } from "../../ark/ark.module";
 import { ServerSentEventsService } from "../../common/server-sent-events.service";
+import { EscrowsModule } from "../../escrows/escrows.module";
 
 @Module({
 	imports: [
@@ -20,6 +21,7 @@ import { ServerSentEventsService } from "../../common/server-sent-events.service
 			ContractArbitration,
 		]),
 		ArkModule,
+		EscrowsModule,
 	],
 	controllers: [AdminController],
 	providers: [AdminService, ServerSentEventsService],

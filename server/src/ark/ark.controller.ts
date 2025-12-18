@@ -3,7 +3,6 @@ import {
 	ApiInternalServerErrorResponse,
 	ApiOkResponse,
 	ApiOperation,
-	ApiResponse,
 	ApiTags,
 } from "@nestjs/swagger";
 import { Controller, Get, InternalServerErrorException } from "@nestjs/common";
@@ -41,11 +40,13 @@ export class ArkController {
 		if (!escrowServerPublicKey) {
 			throw new InternalServerErrorException("ARBITRATOR_PUB_KEY is not set");
 		}
+		const demoMode = this.configService.get<string>("DEMO_MODE") === "true";
 		return envelope({
 			escrowServerPublicKey,
 			arkServerUrl: arkInfo.arkServerUrl,
 			network: arkInfo.network,
 			dust: arkInfo.dust.toString(10),
+			demoMode,
 		});
 	}
 }
