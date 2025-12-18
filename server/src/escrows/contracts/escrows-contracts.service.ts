@@ -685,38 +685,23 @@ export class EscrowsContractsService {
 			`execution ${executionId} moving from ${execution.status} to ${nextExecutionStatus}`,
 		);
 
-		let signedTransaction: any;
-		try {
-			const arkTx = execution.signedTransaction
+		const signedTransaction = {
+			arkTx: execution.signedTransaction
 				? base64.encode(
 						signutils
 							.mergeTx(signature.arkTx, execution.signedTransaction.arkTx)
 							.toPSBT(),
 					)
-				: signature.arkTx;
-			console.log("ok arktx", execution.signedTransaction);
-
-			signedTransaction = {
-				arkTx: execution.signedTransaction
-					? base64.encode(
-							signutils
-								.mergeTx(signature.arkTx, execution.signedTransaction.arkTx)
-								.toPSBT(),
+				: signature.arkTx,
+			checkpoints: execution.signedTransaction
+				? signutils
+						.mergeCheckpoints(
+							signature.checkpoints,
+							execution.signedTransaction.checkpoints,
 						)
-					: signature.arkTx,
-				checkpoints: execution.signedTransaction
-					? signutils
-							.mergeCheckpoints(
-								signature.checkpoints,
-								execution.signedTransaction.checkpoints,
-							)
-							.map((_) => base64.encode(_.toPSBT()))
-					: signature.checkpoints,
-			};
-		} catch (e) {
-			console.error(e);
-			throw new BadRequestException("Failed to merge signatures");
-		}
+						.map((_) => base64.encode(_.toPSBT()))
+				: signature.checkpoints,
+		};
 
 		await this.contractExecutionRepository.update(
 			{
@@ -1030,32 +1015,6 @@ export class EscrowsContractsService {
 				`Contract ${evt.contractId} with status ${contract.status} received event ${CONTRACT_FUNDED_ID}`,
 			);
 		}
-		// if (contract.receiverAddress) {
-		// 	// if there is a receiver address, we create a direct settlement execution automatically
-		// 	try {
-		// 		const execution = await this.createDirectSettlementExecution(
-		// 			contract,
-		// 			contract.receiverAddress,
-		// 			this.arbitratorPublicKey,
-		// 			evt.vtxos,
-		// 		);
-		// 		this.logger.debug(
-		// 			`Direct settlement execution ${execution.externalId} created automatically for contract ${contract.externalId}`,
-		// 		);
-		// 		await this.contractRepository.update(
-		// 			{ externalId: contract.externalId },
-		// 			{
-		// 				status: "pending-execution",
-		// 				virtualCoins: evt.vtxos,
-		// 			},
-		// 		);
-		// 	} catch (e) {
-		// 		this.logger.error(
-		// 			`Failed to create direct settlement execution automatically for contract ${contract.externalId}`,
-		// 			e,
-		// 		);
-		// 	}
-		// } else {
 		await this.contractRepository.update(
 			{ externalId: contract.externalId },
 			{
@@ -1065,7 +1024,6 @@ export class EscrowsContractsService {
 					: evt.vtxos,
 			},
 		);
-		// }
 	}
 
 	async updateOneByExternalId(
@@ -1096,7 +1054,6 @@ export class EscrowsContractsService {
 				{ externalId },
 				{ ...contract, receiverAddress: update.releaseAddress },
 			);
-			console.log("contract updated!");
 			this.events.emit(CONTRACT_UPDATED_ID, {
 				eventId: nanoid(4),
 				contractId: externalId,
