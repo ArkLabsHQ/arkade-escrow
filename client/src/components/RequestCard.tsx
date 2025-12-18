@@ -41,14 +41,6 @@ export const RequestCard = ({ me, request, onClick }: RequestCardProps) => {
 						>
 							{request.side === "receiver" ? "Receiving" : "Sending"}
 						</Badge>
-
-						{/* Contracts Count Badge */}
-						{request.contractsCount > 0 && (
-							<Badge variant="outline" className="ml-2">
-								{request.contractsCount}{" "}
-								{request.contractsCount === 1 ? "contract" : "contracts"}
-							</Badge>
-						)}
 					</div>
 
 					{/* Description */}
