@@ -12,7 +12,7 @@ export function DemoModeBanner() {
 		queryKey: ["serverInfo"],
 		queryFn: async () => {
 			const res = await axios.get<{ data: ServerInfo }>(
-				`${Config.apiBaseUrl}/ark/info`,
+				`${Config.apiBaseUrl}/v1/ark/info`,
 			);
 			return res.data.data;
 		},
