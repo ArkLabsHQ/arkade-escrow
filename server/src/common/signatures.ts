@@ -33,7 +33,7 @@ export function mergeCheckpoints(
 			const input = myCheckpointTx.getInput(j);
 			const inputFromServer = signedCheckpointTx.getInput(j);
 			if (!inputFromServer.tapScriptSig) throw new Error("No tapScriptSig");
-			myCheckpointTx.updateInput(i, {
+			myCheckpointTx.updateInput(j, {
 				tapScriptSig: input.tapScriptSig?.concat(inputFromServer.tapScriptSig),
 			});
 		}
