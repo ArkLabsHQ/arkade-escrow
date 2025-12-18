@@ -26,6 +26,7 @@ import GetAdminStatsDto from "./get-admin-stats";
 import { ArbitrationService } from "../../escrows/arbitration/arbitration.service";
 
 const EXECUTION_CANCELLABLE_STATUSES = new Set([
+	"pending-signatures",
 	"pending-initiator-signature",
 	"pending-counterparty-signature",
 	"pending-server-confirmation",
