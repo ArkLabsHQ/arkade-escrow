@@ -134,6 +134,27 @@ const ContractDetails = () => {
 		}
 	};
 
+	const cancelExecution = async (externalId: string) => {
+		try {
+			const r = await fetch(
+				`${Config.apiBaseUrl}/admin/v1/contracts/${contract.externalId}/executions/${externalId}`,
+				{
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						cancelationReason: `by Admin Backoffice ${new Date()}`,
+					}),
+				},
+			);
+			if (r.ok) {
+				window.location.reload();
+			}
+		} catch (error) {
+			toast.error("Failed to cancel execution");
+			console.error(error);
+		}
+	};
+
 	const shortenKey = (key: string) => {
 		if (!key) return "";
 		return `${key.slice(0, 8)}...${key.slice(-8)}`;
@@ -381,7 +402,7 @@ const ContractDetails = () => {
 							<CardContent>
 								<div className="space-y-3">
 									{contract.virtualCoins.map((coin, index) => (
-										<div key={index} className="p-3 bg-muted/50 rounded-lg">
+										<div key={coin.txid} className="p-3 bg-muted/50 rounded-lg">
 											<div className="grid grid-cols-2 gap-2 text-sm">
 												<div>
 													<span className="text-muted-foreground">TXID:</span>
@@ -437,7 +458,7 @@ const ContractDetails = () => {
 										<CardContent className="space-y-4">
 											{contract.executions.map((exec, index) => (
 												<div
-													key={index}
+													key={exec.externalId}
 													className="p-4 bg-muted/50 rounded-lg space-y-3"
 												>
 													<div className="grid grid-cols-2 gap-3">
@@ -447,6 +468,14 @@ const ContractDetails = () => {
 															</p>
 															<p className="font-mono text-sm">
 																{exec.externalId}
+															</p>
+														</div>
+														<div>
+															<p className="text-sm text-muted-foreground">
+																Created
+															</p>
+															<p className="text-sm">
+																{formatDate(exec.createdAt)}
 															</p>
 														</div>
 														<div>
@@ -468,10 +497,18 @@ const ContractDetails = () => {
 														</div>
 														<div>
 															<p className="text-sm text-muted-foreground">
-																Created
+																Cancellation Reason
 															</p>
-															<p className="text-sm">
-																{formatDate(exec.createdAt)}
+															<p className="font-mono text-sm">
+																{exec.cancelationReason ?? "-"}
+															</p>
+														</div>
+														<div>
+															<p className="text-sm text-muted-foreground">
+																Rejection Reason
+															</p>
+															<p className="font-mono text-sm">
+																{exec.rejectionReason ?? "-"}
 															</p>
 														</div>
 													</div>
@@ -485,6 +522,14 @@ const ContractDetails = () => {
 															</pre>
 														</div>
 													)}
+													<div>
+														<Button
+															onClick={() => cancelExecution(exec.externalId)}
+															variant="default"
+														>
+															Cancel Execution
+														</Button>
+													</div>
 												</div>
 											))}
 										</CardContent>

@@ -25,6 +25,12 @@ import { ArkService } from "../../ark/ark.service";
 import GetAdminStatsDto from "./get-admin-stats";
 import { ArbitrationService } from "../../escrows/arbitration/arbitration.service";
 
+const EXECUTION_CANCELLABLE_STATUSES = new Set([
+	"pending-initiator-signature",
+	"pending-counterparty-signature",
+	"pending-server-confirmation",
+]);
+
 @Injectable()
 export class AdminService {
 	private readonly logger = new Logger(AdminService.name);
@@ -152,6 +158,8 @@ export class AdminService {
 				transaction: e.cleanTransaction,
 				contract: undefined,
 				contractId: e.contract.externalId,
+				cancelationReason: e.cancelationReason,
+				rejectionReason: e.rejectionReason,
 				createdAt: e.createdAt.getTime(),
 				updatedAt: e.updatedAt.getTime(),
 			})),
@@ -173,6 +181,32 @@ export class AdminService {
 		};
 	}
 
+	async cancelContractExecution(
+		contractId: string,
+		executionId: string,
+		reason: string,
+	) {
+		const execution = await this.contractExecutionRepository.findOne({
+			where: { contract: { externalId: contractId }, externalId: executionId },
+		});
+		if (!execution) throw new NotFoundException("Execution not found");
+		if (!EXECUTION_CANCELLABLE_STATUSES.has(execution.status)) {
+			throw new UnprocessableEntityException(
+				"Cannot cancel execution that is not pending",
+			);
+		}
+		return await this.contractExecutionRepository.update(
+			{
+				contract: { externalId: contractId },
+				externalId: executionId,
+			},
+			{
+				status: "canceled",
+				cancelationReason: reason,
+			},
+		);
+	}
+
 	private async invalidatePendingContractExecutions(
 		contractId: string,
 	): Promise<number> {
@@ -188,11 +222,7 @@ export class AdminService {
 				contractId,
 			})
 			.andWhere("status IN (:...statuses)", {
-				statuses: [
-					"pending-initiator-signature",
-					"pending-counterparty-signature",
-					"pending-server-confirmation",
-				],
+				statuses: EXECUTION_CANCELLABLE_STATUSES.entries(),
 			})
 			.execute();
 		return invalidationResult.affected ?? 0;

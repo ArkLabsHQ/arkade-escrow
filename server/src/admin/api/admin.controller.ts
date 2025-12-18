@@ -11,6 +11,8 @@ import {
 	HttpCode,
 	HttpStatus,
 	InternalServerErrorException,
+	Patch,
+	BadRequestException,
 } from "@nestjs/common";
 import {
 	ApiTags,
@@ -42,6 +44,8 @@ import {
 	SseEvent,
 } from "../../common/server-sent-events.service";
 import GetAdminStatsDto from "./get-admin-stats";
+import { GetExecutionByContractDto } from "../../escrows/contracts/dto/get-execution-by-contract";
+import { AdminUpdateExecutionInDto } from "./admin.update-execution-in.dto";
 
 @ApiTags("Admin")
 @Controller("api/admin/v1")
@@ -98,6 +102,29 @@ export class AdminController {
 				data: event,
 			})),
 		);
+	}
+
+	@ApiOperation({ summary: "Update contract execution" })
+	@ApiOkResponse({
+		description: "The updated execution",
+		schema: getSchemaPathForDto(GetExecutionByContractDto),
+	})
+	@ApiBody({ type: AdminUpdateExecutionInDto })
+	@Patch("contracts/:contractId/executions/:executionId")
+	async cancelContractExecution(
+		@Param("contractId") contractId: string,
+		@Param("executionId") executionId: string,
+		@Body() dto: AdminUpdateExecutionInDto,
+	): Promise<ArbitrateDisputeOutDto> {
+		if (dto.cancelationReason) {
+			const data = await this.adminService.cancelContractExecution(
+				contractId,
+				executionId,
+				dto.cancelationReason,
+			);
+			return envelope(data);
+		}
+		throw new BadRequestException("Invalid payload");
 	}
 
 	@ApiOperation({ summary: "Retrieve all details for the given contract" })
