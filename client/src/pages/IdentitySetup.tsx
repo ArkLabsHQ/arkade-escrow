@@ -19,6 +19,8 @@ import {
 	loadAndDecryptPrivateKey,
 } from "@/lib/storage";
 import { Logo } from "@/components/Logo";
+import { nip19 } from "nostr-tools";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 
 type Props = {
 	onNewIdentity: (identity: SingleKey) => void;
@@ -27,6 +29,7 @@ type Props = {
 export default function IdentitySetup({ onNewIdentity }: Props) {
 	const [privateKey, setPrivateKey] = useState<string | undefined>();
 	const [showPrivateKey, setShowPrivateKey] = useState(false);
+	const [canCreateIdentity, setCanCreateIdentity] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: very first render only
@@ -42,9 +45,28 @@ export default function IdentitySetup({ onNewIdentity }: Props) {
 			});
 	}, []);
 
+	useEffect(() => {
+		if (privateKey) {
+			try {
+				const pkey = nip19.decode(privateKey);
+				if (pkey.type === "nsec") {
+					setCanCreateIdentity(true);
+					return;
+				}
+			} catch {}
+		}
+		if (canCreateIdentity) {
+			setCanCreateIdentity(false);
+		}
+	}, [privateKey, canCreateIdentity]);
+
 	const handleCreateIdentity = async () => {
 		try {
-			const identity = SingleKey.fromHex(privateKey ?? "invalid");
+			const pkey = nip19.decode(privateKey ?? "invalid");
+			if (pkey.type !== "nsec") {
+				throw new Error("Invalid private key type");
+			}
+			const identity = SingleKey.fromHex(bytesToHex(pkey.data));
 			await encryptAndStorePrivateKey(identity.toHex());
 			onNewIdentity(identity);
 		} catch (e) {
@@ -56,7 +78,7 @@ export default function IdentitySetup({ onNewIdentity }: Props) {
 	};
 	const handleGenerateKey = () => {
 		const privKey = SingleKey.fromRandomBytes();
-		setPrivateKey(privKey.toHex());
+		setPrivateKey(nip19.nsecEncode(hexToBytes(privKey.toHex())));
 		toast.success("A new private key has been generated.");
 	};
 	const handlePasteResetKey = async () => {
@@ -125,7 +147,7 @@ export default function IdentitySetup({ onNewIdentity }: Props) {
 							<div className="rounded-lg bg-muted/50 p-4">
 								<div className="flex items-center justify-between mb-2">
 									<p className="text-sm font-medium text-muted-foreground">
-										Private Key (hex)
+										Private Key (nsec)
 									</p>
 
 									<div className="flex items-center gap-1">
@@ -182,6 +204,7 @@ export default function IdentitySetup({ onNewIdentity }: Props) {
 									size="lg"
 									className="w-full h-14 text-base"
 									onClick={handleCreateIdentity}
+									disabled={!canCreateIdentity}
 								>
 									<UserPlus className="h-5 w-5 mr-2" />
 									Create new identity
