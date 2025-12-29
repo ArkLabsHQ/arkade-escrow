@@ -1,0 +1,93 @@
+{
+  "name": "@arkade-escrow/sdk",
+  "version": "0.1.0",
+  "description": "Modular SDK for ARK-based multi-party contracts",
+  "type": "module",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/esm/core/index.js",
+      "require": "./dist/cjs/core/index.js",
+      "types": "./dist/types/core/index.d.ts"
+    },
+    "./contracts": {
+      "import": "./dist/esm/contracts/index.js",
+      "require": "./dist/cjs/contracts/index.js",
+      "types": "./dist/types/contracts/index.d.ts"
+    },
+    "./transactions": {
+      "import": "./dist/esm/transactions/index.js",
+      "require": "./dist/cjs/transactions/index.js",
+      "types": "./dist/types/transactions/index.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/esm/storage/index.js",
+      "require": "./dist/cjs/storage/index.js",
+      "types": "./dist/types/storage/index.d.ts"
+    },
+    "./protocol": {
+      "import": "./dist/esm/protocol/index.js",
+      "require": "./dist/cjs/protocol/index.js",
+      "types": "./dist/types/protocol/index.d.ts"
+    },
+    "./modules/escrow": {
+      "import": "./dist/esm/modules/escrow/index.js",
+      "require": "./dist/cjs/modules/escrow/index.js",
+      "types": "./dist/types/modules/escrow/index.d.ts"
+    },
+    "./modules/lending": {
+      "import": "./dist/esm/modules/lending/index.js",
+      "require": "./dist/cjs/modules/lending/index.js",
+      "types": "./dist/types/modules/lending/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs && npm run build:types",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:types": "tsc -p tsconfig.types.json",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "biome lint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@arkade-os/sdk": "^0.3.8"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.0",
+    "@noble/secp256k1": "^3.0.0",
+    "@scure/base": "^1.1.0",
+    "@scure/btc-signer": "^1.0.0",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@arkade-os/sdk": "^0.3.8",
+    "@biomejs/biome": "^2.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "jest": "^30.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "bitcoin",
+    "ark",
+    "escrow",
+    "multisig",
+    "taproot",
+    "smart-contracts"
+  ],
+  "license": "MIT"
+}

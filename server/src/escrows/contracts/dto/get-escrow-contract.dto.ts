@@ -2,6 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNumber, Min } from "class-validator";
 import { CONTRACT_STATUS, ContractStatus } from "../escrow-contract.entity";
 import { VirtualCoin } from "@arkade-os/sdk";
+import { EscrowState, EscrowAction } from "@arkade-escrow/sdk";
 
 export class GetEscrowContractDto {
 	@ApiProperty({ example: "q3f7p9n4z81k6c0b" })
@@ -67,4 +68,29 @@ export class GetEscrowContractDto {
 		example: 1732690234123,
 	})
 	updatedAt!: number;
+
+	/**
+	 * SDK State Machine Fields
+	 * These fields provide SDK-based state information for client-side state handling.
+	 */
+
+	@ApiProperty({
+		description: "SDK simplified state (maps multiple entity statuses to SDK states)",
+		enum: ["draft", "created", "funded", "pending-execution", "completed", "canceled", "voided", "disputed"],
+		required: false,
+	})
+	sdkState?: EscrowState;
+
+	@ApiProperty({
+		description: "Actions allowed from the current state according to SDK state machine",
+		isArray: true,
+		required: false,
+	})
+	allowedActions?: EscrowAction[];
+
+	@ApiProperty({
+		description: "Total balance in satoshis (sum of virtual coins)",
+		required: false,
+	})
+	balance?: number;
 }

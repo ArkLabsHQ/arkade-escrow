@@ -55,8 +55,19 @@ import { PublicKey } from "../../common/PublicKey";
 import { Signers } from "../../ark/escrow";
 import * as signutils from "../../common/signatures";
 import { ActionType } from "../../common/Action.type";
-import { Contract } from "../../common/Contract.type";
 import { UpdateContractDto } from "./dto/update-contract.dto";
+
+// SDK Integration
+import {
+	EscrowStateMachineGuard,
+	ExecutionCoordinator,
+	canPerformAction,
+	getAllowedActions,
+	mapExecutionActionToSdkAction,
+	mapStatusToSdkState,
+	validateStateTransition,
+	getCancellationStatus,
+} from "./sdk-integration";
 
 type DraftContractInput = {
 	initiator: "sender" | "receiver";
@@ -557,6 +568,9 @@ export class EscrowsContractsService {
 			createdBy: r.createdBy,
 			createdAt: r.createdAt.getTime(),
 			updatedAt: r.updatedAt.getTime(),
+			// SDK state machine fields
+			sdkState: mapStatusToSdkState(r.status),
+			allowedActions: getAllowedActions(r),
 		}));
 
 		return { items, nextCursor, total };
@@ -677,6 +691,7 @@ export class EscrowsContractsService {
 		const nextExecutionStatus: ExecutionStatus = this.isExecutionSignedByAll(
 			cleanTransaction,
 			contract,
+			execution.action,
 		)
 			? "pending-server-confirmation"
 			: "pending-signatures";
@@ -781,17 +796,38 @@ export class EscrowsContractsService {
 		};
 	}
 
+	/**
+	 * Check if all required signatures have been collected for an execution.
+	 *
+	 * Uses the SDK's ExecutionCoordinator for consistent signer tracking.
+	 */
 	private isExecutionSignedByAll(
 		extx: ExecutionTransaction,
 		contract: EscrowContract,
+		action?: ActionType,
 	): boolean {
+		// If action is provided, use SDK ExecutionCoordinator for validation
+		if (action) {
+			try {
+				const sdkAction = mapExecutionActionToSdkAction(action);
+				const coordinator = new ExecutionCoordinator(
+					sdkAction,
+					contract,
+					this.arbitratorPublicKey,
+				);
+				return coordinator.isComplete(extx.approvedByPubKeys);
+			} catch {
+				// Fall back to manual check if SDK action mapping fails
+			}
+		}
+
+		// Legacy manual check (kept for backward compatibility)
 		for (let i = 0; i < extx.requiredSigners.length; i++) {
 			switch (extx.requiredSigners[i]) {
 				case "arbitrator":
 					if (!extx.approvedByPubKeys.includes(this.arbitratorPublicKey)) {
 						return false;
 					}
-
 					break;
 				case "sender":
 					if (!extx.approvedByPubKeys.includes(contract.senderPubkey)) {
@@ -810,6 +846,49 @@ export class EscrowsContractsService {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Get allowed actions for a contract using the SDK state machine.
+	 */
+	getContractAllowedActions(contract: EscrowContract): string[] {
+		return getAllowedActions(contract);
+	}
+
+	/**
+	 * Check if an action can be performed on a contract.
+	 *
+	 * Maps app-level actions to SDK EscrowActions where needed.
+	 * Some app actions don't directly map to SDK actions (e.g., "rescind" maps to "cancel").
+	 */
+	canPerformContractAction(
+		contract: EscrowContract,
+		action: "accept" | "cancel" | "rescind" | "fund" | "execute" | "dispute" | "resolve" | "void",
+	): boolean {
+		// Map app-level actions to SDK actions
+		const sdkActionMap: Record<string, string> = {
+			accept: "accept",
+			cancel: "cancel",
+			rescind: "cancel", // Rescind is cancel after accept
+			fund: "fund",
+			execute: "settle", // Generic execute maps to settle
+			dispute: "dispute",
+			resolve: "release", // Resolution can be release or refund
+			void: "void",
+		};
+
+		const sdkAction = sdkActionMap[action];
+		if (!sdkAction) {
+			return false;
+		}
+
+		// For dispute/resolve, use the specialized function
+		if (action === "dispute" || action === "resolve") {
+			const { canPerformDisputeAction } = require("./sdk-integration");
+			return canPerformDisputeAction(contract, action);
+		}
+
+		return canPerformAction(contract, sdkAction as Parameters<typeof canPerformAction>[1]);
 	}
 
 	private async submitAndFinalizeExecutionTransaction(input: {
@@ -1083,6 +1162,11 @@ export class EscrowsContractsService {
 			throw new ForbiddenException("Not allowed to access this contract");
 		}
 
+		// Compute SDK state machine fields
+		const sdkState = mapStatusToSdkState(contract.status);
+		const allowedActions = getAllowedActions(contract);
+		const balance = contract.virtualCoins?.reduce((sum, c) => sum + c.value, 0) ?? 0;
+
 		return {
 			externalId: contract.externalId,
 			requestId: contract.request.externalId,
@@ -1099,6 +1183,10 @@ export class EscrowsContractsService {
 			createdBy: contract.createdBy,
 			createdAt: contract.createdAt.getTime(),
 			updatedAt: contract.updatedAt.getTime(),
+			// SDK state machine fields
+			sdkState,
+			allowedActions,
+			balance,
 		};
 	}
 
